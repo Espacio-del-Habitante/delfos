@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+
+{% block body %}
+<div class="app-shell">
+
+  <div class="island-zone" id="inicio">
+    <header class="island-header" aria-label="Delfos">
+      <div class="island-shell">
+        <div class="island-pill">
+          <div class="island-pill__brand">
+            <span class="island-pill__mark" aria-hidden="true">✦</span>
+            <span class="island-pill__name">Delfos</span>
+          </div>
+          <span class="island-pill__divider" aria-hidden="true"></span>
+          <div class="island-pill__status">
+            <span class="island-pill__dot" id="island-status-dot" aria-hidden="true"></span>
+            <span class="island-pill__status-text" id="island-status">{{ summary.status }}</span>
+          </div>
+          <button type="button" class="island-pill__settings" id="btn-settings" aria-label="Configuración">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+          </button>
+        </div>
+        <div class="island-drawer" id="island-drawer" aria-hidden="true">
+          <div class="island-drawer__inner">
+            <p class="island-tagline">Tu copiloto financiero — registra, analiza y entiende.</p>
+            <nav class="island-nav" aria-label="Accesos rápidos">
+              <a href="#resumen" class="island-nav__link">Resumen</a>
+              <a href="#registrar" class="island-nav__link">Registrar</a>
+              <a href="#movimientos" class="island-nav__link">Movimientos</a>
+              <a href="#cuentas" class="island-nav__link">Cuentas</a>
+            </nav>
+            <div class="island-mini">
+              <div class="island-mini__item">
+                <span class="island-mini__label">Balance</span>
+                <span class="island-mini__value" id="island-summary-balance">
+                  {% if summary.balances_by_currency %}
+                  {% for currency, amount in summary.balances_by_currency.items() %}{{ amount }}{% if not loop.last %} · {% endif %}{% endfor %}
+                  {% else %}—{% endif %}
+                </span>
+              </div>
+              <div class="island-mini__item">
+                <span class="island-mini__label">Movimientos</span>
+                <span class="island-mini__value" id="island-summary-movements">{{ summary.total_movements }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="island-tagline island-tagline--mobile">Tu copiloto financiero — registra, analiza y entiende.</p>
+    </header>
+  </div>
+
+  <div class="dashboard-grid">
+    <!-- Left column: summary + accounts -->
+    <div class="dashboard-col-left">
+      <section class="hero-card {% if not summary.has_data %}hero-card--empty{% endif %}" aria-label="Resumen financiero" id="resumen">
+        {% if summary.balances_by_currency %}
+        <p class="hero-card__label">Balance por moneda</p>
+        <div class="balances-row" id="hero-balances">
+          {% for currency, amount in summary.balances_by_currency.items() %}
+          <div class="balance-pill">
+            <span class="balance-pill__label">{{ currency }}</span>
+            <span class="balance-pill__value amount">{{ amount }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="hero-card__label">Resumen financiero</p>
+        <p class="hero-card__empty-text">Delfos está listo para empezar a observar tus finanzas. Crea una cuenta y registra tu primer movimiento.</p>
+        {% endif %}
+        <div class="hero-card__stats">
+          <div>
+            <p class="hero-card__stat-label">Gastos del mes</p>
+            <p class="hero-card__stat-value amount" id="hero-expenses">
+              {% for currency, amount in summary.monthly_expenses.items() %}{{ amount }}{% if not loop.last %} · {% endif %}{% endfor %}
+            </p>
+          </div>
+          <div>
+            <p class="hero-card__stat-label">Inversiones</p>
+            <p class="hero-card__stat-value amount" id="hero-investments">
+              {% for currency, amount in summary.investments_total.items() %}{{ amount }}{% if not loop.last %} · {% endif %}{% endfor %}
+            </p>
+          </div>
+        </div>
+        <div class="hero-card__footer">
+          <span class="hero-card__status">
+            <span class="hero-card__status-dot" aria-hidden="true"></span>
+            <span id="hero-status">{{ summary.status }}</span>
+          </span>
+          <span class="pill" id="hero-accounts-count">{{ summary.total_accounts }} cuenta{{ 's' if summary.total_accounts != 1 else '' }}</span>
+        </div>
+      </section>
+
+      <section class="summary-grid" aria-label="Resumen rápido">
+        <article class="summary-card">
+          <div class="summary-card__icon summary-card__icon--expense" aria-hidden="true">↓</div>
+          <p class="summary-card__label">Gastos</p>
+          <p class="summary-card__value amount" id="summary-expenses">
+            {% for currency, amount in summary.monthly_expenses.items() %}{{ amount }}{% endfor %}
+          </p>
+        </article>
+        <article class="summary-card">
+          <div class="summary-card__icon summary-card__icon--investment" aria-hidden="true">↗</div>
+          <p class="summary-card__label">Inversiones</p>
+          <p class="summary-card__value amount" id="summary-investments">
+            {% for currency, amount in summary.investments_total.items() %}{{ amount }}{% endfor %}
+          </p>
+        </article>
+        <article class="summary-card">
+          <div class="summary-card__icon summary-card__icon--movements" aria-hidden="true">≡</div>
+          <p class="summary-card__label">Movimientos</p>
+          <p class="summary-card__value" id="summary-movements">{{ summary.total_movements }}</p>
+        </article>
+        <article class="summary-card">
+          <div class="summary-card__icon summary-card__icon--note" aria-hidden="true">✎</div>
+          <p class="summary-card__label">Última nota</p>
+          <p class="summary-card__value summary-card__value--small" id="summary-note">{{ summary.last_note }}</p>
+        </article>
+      </section>
+
+      <section class="accounts-panel section" id="cuentas" aria-label="Cuentas">
+        <h2 class="card-title">Cuentas</h2>
+        <div id="accounts-container">
+          {% if accounts %}
+          <div class="accounts-grid" id="accounts-grid">
+            {% for account in accounts %}
+            <article class="account-card" data-account-id="{{ account.id }}">
+              <div class="account-card__header">
+                <div class="account-card__emoji" aria-hidden="true">{{ account.emoji }}</div>
+                <div class="account-card__actions">
+                  <button type="button" class="card-action-btn" data-action="edit" data-type="account" data-id="{{ account.id }}" aria-label="Editar cuenta">Editar</button>
+                  <button type="button" class="card-action-btn card-action-btn--danger" data-action="delete" data-type="account" data-id="{{ account.id }}" aria-label="Eliminar cuenta">Eliminar</button>
+                </div>
+              </div>
+              <p class="account-card__name">{{ account.name }}</p>
+              <p class="account-card__meta">{{ account.currency }} · {{ account.type_label }}</p>
+              <div class="account-card__balance-row">
+                <p class="account-card__balance amount{% if account.is_negative %} account-card__balance--negative{% endif %}">{{ account.balance_display }}</p>
+                {% if account.is_negative %}
+                <span class="account-card__debt-badge">En deuda</span>
+                {% endif %}
+              </div>
+              {% if account.movement_count %}
+              <p class="account-card__movements">{{ account.movement_count }} movimiento{{ 's' if account.movement_count != 1 else '' }}</p>
+              {% endif %}
+            </article>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state" id="empty-accounts">
+            <div class="empty-state__icon" aria-hidden="true">◎</div>
+            <p class="empty-state__title">Aún no tienes cuentas</p>
+            <p class="empty-state__text">Crea tu primera cuenta: efectivo, banco, tarjeta o broker.</p>
+          </div>
+          {% endif %}
+        </div>
+
+        <button type="button" class="manual-toggle" id="toggle-account" aria-expanded="false" aria-controls="panel-account" style="margin-top: 14px;">
+          Nueva cuenta
+          <span class="manual-toggle__chevron" aria-hidden="true">▾</span>
+        </button>
+        <div class="manual-panel" id="panel-account">
+          <form class="account-form" id="form-account">
+            <input type="text" name="name" placeholder="Nombre (ej. Efectivo)" required class="account-form__full">
+            <select name="type" required>
+              {% for key, label in account_types.items() %}
+              <option value="{{ key }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+            <select name="currency" required>
+              <option value="COP">COP</option>
+              <option value="USD">USD</option>
+            </select>
+            <input type="number" name="initial_balance" placeholder="Balance inicial" min="0" step="0.01" value="0">
+            <input type="text" name="emoji" placeholder="Emoji" maxlength="4" value="💵">
+            <button type="submit" class="secondary-button account-form__full">Crear cuenta</button>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right column: quick entry + voice + IA -->
+    <div class="dashboard-col-right">
+      <section class="quick-entry-card section" id="registrar" aria-label="Registro rápido">
+        <h2 class="card-title">Registro rápido</h2>
+        <label for="quick-text" class="sr-only">Describe tu movimiento</label>
+        <textarea
+          id="quick-text"
+          placeholder="Ej: Me gasté 45 mil en comida y compré 100 dólares de VOO."
+          rows="5"
+        ></textarea>
+        <div class="quick-entry-card__actions">
+          <button type="button" class="primary-button" id="btn-analyze">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 3 3v1a3 3 0 0 1-3 3h-1v1a4 4 0 0 1-8 0v-1H7a3 3 0 0 1-3-3v-1a3 3 0 0 1 3-3h1V6a4 4 0 0 1 4-4z"/>
+            </svg>
+            Analizar con IA
+          </button>
+          <button type="button" class="secondary-button" id="btn-save-note">Guardar nota</button>
+          <button type="button" class="ghost-button" id="btn-clear">Limpiar</button>
+        </div>
+      </section>
+
+      <section class="voice-card section" aria-label="Registro por voz">
+        <p class="voice-card__hint">Habla naturalmente — Delfos entiende gastos, inversiones y notas.</p>
+        <button type="button" class="voice-button" id="btn-voice" aria-pressed="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          Dictar movimiento
+        </button>
+        <p class="voice-status" id="voice-status">Listo para escuchar</p>
+      </section>
+
+      <section class="preview-card section" id="ia-preview" aria-label="Previsualización IA" aria-hidden="true">
+        <h2 class="card-title">Movimientos detectados</h2>
+        <p class="ai-unavailable" id="ai-unavailable" hidden></p>
+        <div class="preview-card__items" id="preview-items"></div>
+        <p class="preview-reflection" id="preview-reflection" hidden></p>
+        <div class="preview-card__actions">
+          <button type="button" class="primary-button" id="btn-confirm">Confirmar y guardar</button>
+          <button type="button" class="secondary-button" id="btn-cancel-preview">Cancelar</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Full width: charts -->
+    <section class="charts-panel full-width-section section" id="graficos" aria-label="Visualización financiera">
+      <h2 class="card-title">Visualización</h2>
+      <div class="charts-grid">
+        <article class="chart-card">
+          <h3 class="chart-card__title">Gastos del mes por categoría</h3>
+          <div class="chart-card__body" data-chart="category"></div>
+        </article>
+        <article class="chart-card">
+          <h3 class="chart-card__title">Evolución de gastos</h3>
+          <div class="chart-card__body" data-chart="evolution"></div>
+        </article>
+        <article class="chart-card">
+          <h3 class="chart-card__title">Balance por cuenta</h3>
+          <div class="chart-card__body" data-chart="accounts"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Full width: movements -->
+    <section class="full-width-section section" id="movimientos" aria-label="Movimientos recientes">
+      <h2 class="card-title">Movimientos recientes</h2>
+      <div id="movements-container">
+        {% if movements %}
+        <ul class="timeline-list" id="timeline-list">
+          {% for m in movements %}
+          <li class="timeline-item" data-movement-type="{{ m.type }}" data-movement-id="{{ m.id }}">
+            <div class="timeline-item__icon timeline-item__icon--{{ m.icon }}" aria-hidden="true">
+              {% if m.category_emoji %}{{ m.category_emoji }}{% elif m.type == 'expense' %}↓{% elif m.type == 'investment' %}↗{% else %}✎{% endif %}
+            </div>
+            <div class="timeline-item__body">
+              <div class="timeline-item__top">
+                <span class="timeline-item__type">{{ m.type_label }}</span>
+                <div class="timeline-item__top-right">
+                  <span class="timeline-item__date">{{ m.date }}</span>
+                  <div class="timeline-item__actions">
+                    <button type="button" class="timeline-action-btn" data-action="edit" data-type="{{ m.type }}" data-id="{{ m.id }}">Editar</button>
+                    <button type="button" class="timeline-action-btn timeline-action-btn--danger" data-action="delete" data-type="{{ m.type }}" data-id="{{ m.id }}">Eliminar</button>
+                  </div>
+                </div>
+              </div>
+              <p class="timeline-item__desc">{{ m.description }}</p>
+              <div class="timeline-item__bottom">
+                {% if m.amount %}
+                <span class="timeline-item__amount timeline-item__amount--{{ m.type }}">{{ m.amount }}</span>
+                {% else %}
+                <span class="muted">—</span>
+                {% endif %}
+                {% if m.category %}
+                <span class="category-chip">{% if m.category_emoji %}{{ m.category_emoji }} {% endif %}{{ m.category }}</span>
+                {% endif %}
+                {% if m.account_name %}
+                <span class="category-chip">{{ m.account_name }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state" id="empty-movements">
+          <div class="empty-state__icon" aria-hidden="true">◎</div>
+          <p class="empty-state__title">Todavía no hay movimientos</p>
+          <p class="empty-state__text">Escribe o dicta tu primer gasto, inversión o nota.</p>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Full width: manual forms -->
+    <section class="full-width-section manual-section section" aria-label="Registro manual">
+      <h2 class="card-title">Formularios manuales</h2>
+
+      <button type="button" class="manual-toggle" id="toggle-expense" aria-expanded="false" aria-controls="panel-expense">
+        Agregar gasto manual
+        <span class="manual-toggle__chevron" aria-hidden="true">▾</span>
+      </button>
+      <div class="manual-panel" id="panel-expense">
+        <div class="manual-card">
+          <p class="form-hint" id="expense-account-hint" {% if accounts %}hidden{% endif %}>
+            Primero crea una cuenta para asociar tus movimientos. También puedes guardar sin cuenta.
+          </p>
+          <form class="manual-form" id="form-expense">
+            <div class="manual-form__grid">
+              <select name="account_id" id="expense-account-select">
+                <option value="">Sin cuenta</option>
+                {% for account in accounts %}
+                <option value="{{ account.id }}">{{ account.emoji }} {{ account.name }}</option>
+                {% endfor %}
+              </select>
+              <input type="number" name="amount" placeholder="Monto" required min="1">
+              <select name="currency">
+                <option value="COP">COP</option>
+                <option value="USD">USD</option>
+              </select>
+              <div id="expense-category-selector" class="manual-form__full"></div>
+              <input type="hidden" name="category" id="expense-category-name">
+              <input type="hidden" name="category_emoji" id="expense-category-emoji">
+              <input type="text" name="description" placeholder="Descripción" required class="manual-form__full">
+              <input type="text" name="payment_method" placeholder="Método de pago (opcional)" class="manual-form__full">
+            </div>
+            <button type="submit" class="secondary-button">Guardar gasto</button>
+          </form>
+        </div>
+      </div>
+
+      <button type="button" class="manual-toggle" id="toggle-investment" aria-expanded="false" aria-controls="panel-investment" style="margin-top: 10px;">
+        Agregar inversión manual
+        <span class="manual-toggle__chevron" aria-hidden="true">▾</span>
+      </button>
+      <div class="manual-panel" id="panel-investment">
+        <div class="manual-card">
+          <p class="form-hint" id="investment-account-hint" {% if accounts %}hidden{% endif %}>
+            Primero crea una cuenta para asociar tus movimientos. También puedes guardar sin cuenta.
+          </p>
+          <form class="manual-form" id="form-investment">
+            <div class="manual-form__grid">
+              <select name="account_id" id="investment-account-select">
+                <option value="">Sin cuenta</option>
+                {% for account in accounts %}
+                <option value="{{ account.id }}">{{ account.emoji }} {{ account.name }}</option>
+                {% endfor %}
+              </select>
+              <input type="text" name="asset" placeholder="Activo (ej. VOO)" required>
+              <select name="asset_type">
+                <option value="ETF">ETF</option>
+                <option value="Stock">Acción</option>
+                <option value="Crypto">Cripto</option>
+                <option value="Fund">Fondo</option>
+                <option value="Other">Otro</option>
+              </select>
+              <input type="number" name="amount" placeholder="Monto" required min="0.01" step="0.01">
+              <select name="currency">
+                <option value="USD">USD</option>
+                <option value="COP">COP</option>
+              </select>
+              <select name="action">
+                <option value="buy">Compra</option>
+                <option value="sell">Venta</option>
+              </select>
+              <div id="investment-category-selector" class="manual-form__full"></div>
+              <input type="hidden" name="category" id="investment-category-name">
+              <input type="hidden" name="category_emoji" id="investment-category-emoji">
+              <input type="text" name="notes" placeholder="Nota (opcional)" class="manual-form__full">
+            </div>
+            <button type="submit" class="secondary-button">Guardar inversión</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal-overlay" id="settings-modal" hidden aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="settings-modal-title" aria-modal="true">
+      <div class="modal__header">
+        <h2 class="modal__title" id="settings-modal-title">Configuración</h2>
+        <button type="button" class="modal__close" id="settings-modal-close" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="modal__body modal__body--scroll">
+        <p class="settings-intro">Ajustes de Delfos. Los cambios en cuentas y movimientos se gestionan desde sus tarjetas.</p>
+
+        <section class="settings-section" aria-label="Categorías">
+          <h3 class="settings-section__title">Categorías</h3>
+          <p class="settings-section__hint">Organiza tus gastos, inversiones y notas con categorías reutilizables.</p>
+          <div id="category-admin-list" class="category-admin-list"></div>
+          <form id="category-admin-form" class="category-admin-form">
+            <div class="category-admin-form__row">
+              <input type="text" name="name" placeholder="Nueva categoría" required class="form-control">
+              <select name="kind" class="form-control">
+                <option value="expense">Gasto</option>
+                <option value="investment">Inversión</option>
+                <option value="note">Nota</option>
+                <option value="general">General</option>
+              </select>
+            </div>
+            <div id="category-admin-emoji" class="category-admin-form__emoji"></div>
+            <input type="hidden" name="emoji" value="🏷️">
+            <button type="submit" class="secondary-button category-admin-form__submit">Agregar categoría</button>
+          </form>
+        </section>
+
+        <div class="danger-zone">
+          <p class="danger-zone__label">Zona de riesgo</p>
+          <p class="danger-zone__text">Elimina todas las cuentas, movimientos y notas. Esta acción no se puede deshacer.</p>
+          <button type="button" class="danger-button" id="btn-open-reset">Restablecer Delfos</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset confirmation modal -->
+  <div class="modal-overlay" id="reset-modal" hidden aria-hidden="true">
+    <div class="modal modal--narrow" role="dialog" aria-labelledby="reset-modal-title" aria-modal="true">
+      <div class="modal__header">
+        <h2 class="modal__title" id="reset-modal-title">Restablecer Delfos</h2>
+        <button type="button" class="modal__close" id="reset-modal-close" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="danger-zone__text">Se borrarán todos los datos. Escribe <strong>RESTABLECER</strong> para confirmar.</p>
+        <input type="text" class="edit-form__input" id="reset-confirm-input" placeholder="RESTABLECER" autocomplete="off">
+        <div class="modal__actions">
+          <button type="button" class="secondary-button" id="reset-modal-cancel">Cancelar</button>
+          <button type="button" class="danger-button" id="reset-modal-confirm" disabled>Restablecer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit record modal -->
+  <div class="modal-overlay" id="edit-modal" hidden aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="edit-modal-title" aria-modal="true">
+      <div class="modal__header">
+        <h2 class="modal__title" id="edit-modal-title">Editar</h2>
+        <button type="button" class="modal__close" id="edit-modal-close" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="modal__body modal__body--scroll">
+        <form class="edit-form" id="edit-form"></form>
+      </div>
+      <div class="modal__footer">
+        <div class="modal__actions modal__actions--split">
+          <button type="button" class="ghost-button modal__delete" id="edit-modal-delete">Eliminar</button>
+          <div class="modal__actions-right">
+            <button type="button" class="secondary-button" id="edit-modal-cancel">Cancelar</button>
+            <button type="submit" form="edit-form" class="primary-button" id="edit-modal-save">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Navegación principal">
+    <a href="#inicio" class="bottom-nav__item is-active" data-nav="inicio">
+      <span class="bottom-nav__icon" aria-hidden="true">⌂</span>
+      Inicio
+    </a>
+    <a href="#registrar" class="bottom-nav__item" data-nav="registrar">
+      <span class="bottom-nav__icon" aria-hidden="true">+</span>
+      Registrar
+    </a>
+    <a href="#movimientos" class="bottom-nav__item" data-nav="movimientos">
+      <span class="bottom-nav__icon" aria-hidden="true">≡</span>
+      Movimientos
+    </a>
+    <a href="#ia-preview" class="bottom-nav__item" data-nav="ia">
+      <span class="bottom-nav__icon" aria-hidden="true">✦</span>
+      IA
+    </a>
+  </nav>
+</div>
+
+<script id="initial-accounts" type="application/json">{{ accounts | tojson }}</script>
+<script id="account-types" type="application/json">{{ account_types | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

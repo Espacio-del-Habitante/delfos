@@ -1,0 +1,179 @@
+{
+  "settings": {
+    "currency": "COP"
+  },
+  "accounts": [
+    {
+      "id": "account_001",
+      "name": "Efectivo",
+      "type": "cash",
+      "currency": "COP",
+      "initial_balance": 220000.0,
+      "current_balance": -10000.0,
+      "emoji": "💵",
+      "created_at": "2026-06-20T21:23:53"
+    },
+    {
+      "id": "account_002",
+      "name": "Nequi",
+      "type": "debit_card",
+      "currency": "COP",
+      "initial_balance": 9000000.0,
+      "current_balance": 9000000.0,
+      "emoji": "💵",
+      "created_at": "2026-06-20T21:30:37"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "expense_001",
+      "date": "2026-06-20",
+      "account_id": "account_001",
+      "amount": 105000.0,
+      "currency": "COP",
+      "category": "Comida 🍽️",
+      "category_emoji": "🍔",
+      "description": "105,000 pesos ayer en comida",
+      "payment_method": "",
+      "source": "ai",
+      "created_at": "2026-06-20T21:29:45"
+    },
+    {
+      "id": "expense_002",
+      "date": "2026-06-20",
+      "account_id": "account_001",
+      "amount": 95000.0,
+      "currency": "COP",
+      "category": "Entretenimiento",
+      "category_emoji": "🎬",
+      "description": "megas de 95 mil pesos hoy en cine",
+      "payment_method": "",
+      "source": "ai",
+      "created_at": "2026-06-20T21:30:09"
+    },
+    {
+      "id": "expense_003",
+      "date": "2026-06-20",
+      "account_id": "account_001",
+      "amount": 20000.0,
+      "currency": "COP",
+      "category": "Efectivo",
+      "category_emoji": "",
+      "description": "me gasté 20 mil pesos en efectivo hoy",
+      "payment_method": "Efectivo",
+      "source": "ai",
+      "created_at": "2026-06-20T21:32:17"
+    },
+    {
+      "id": "expense_004",
+      "date": "2026-06-20",
+      "account_id": "account_001",
+      "amount": 10000.0,
+      "currency": "COP",
+      "category": "Efectivo",
+      "category_emoji": "",
+      "description": "10 mil pesos en efectivo",
+      "payment_method": "",
+      "source": "ai",
+      "created_at": "2026-06-20T21:32:39"
+    }
+  ],
+  "investments": [],
+  "notes": [
+    {
+      "id": "note_001",
+      "date": "2026-06-20",
+      "account_id": "account_001",
+      "text": "Detectado un gasto de 105,000 pesos en comida. Se sugiere una categoría 'Comida 🍽️'.",
+      "tags": [],
+      "source": "ai",
+      "created_at": "2026-06-20T21:29:45"
+    },
+    {
+      "id": "note_002",
+      "date": "2026-06-20",
+      "account_id": null,
+      "text": "Gasto realizado en efectivo por 20 mil pesos hoy.",
+      "tags": [],
+      "source": "ai",
+      "created_at": "2026-06-20T21:32:17"
+    },
+    {
+      "id": "note_003",
+      "date": "2026-06-20",
+      "account_id": null,
+      "text": "Detectado un movimiento de 10 mil pesos en efectivo a la cuenta de Efectivo.",
+      "tags": [],
+      "source": "ai",
+      "created_at": "2026-06-20T21:32:39"
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat_comida",
+      "name": "Comida",
+      "emoji": "🍽️",
+      "kind": "expense"
+    },
+    {
+      "id": "cat_transporte",
+      "name": "Transporte",
+      "emoji": "🚌",
+      "kind": "expense"
+    },
+    {
+      "id": "cat_mercado",
+      "name": "Mercado",
+      "emoji": "🛒",
+      "kind": "expense"
+    },
+    {
+      "id": "cat_cafe",
+      "name": "Café",
+      "emoji": "☕",
+      "kind": "expense"
+    },
+    {
+      "id": "cat_salud",
+      "name": "Salud",
+      "emoji": "🏥",
+      "kind": "expense"
+    },
+    {
+      "id": "cat_educacion",
+      "name": "Educación",
+      "emoji": "📚",
+      "kind": "expense"
+    },
+    {
+      "id": "cat_entretenimiento",
+      "name": "Entretenimiento",
+      "emoji": "🎬",
+      "kind": "expense"
+    },
+    {
+      "id": "cat_servicios",
+      "name": "Servicios",
+      "emoji": "💡",
+      "kind": "expense"
+    },
+    {
+      "id": "cat_inversion",
+      "name": "Inversión",
+      "emoji": "📈",
+      "kind": "investment"
+    },
+    {
+      "id": "cat_general",
+      "name": "General",
+      "emoji": "🏷️",
+      "kind": "general"
+    },
+    {
+      "id": "cat_nota",
+      "name": "Nota",
+      "emoji": "📝",
+      "kind": "note"
+    }
+  ]
+}
