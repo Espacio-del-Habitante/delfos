@@ -1,9 +1,11 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 import config
 from services import ai_service, finance_store
 
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:4321"])
 
 
 def finance_response(extra=None):
@@ -15,13 +17,11 @@ def finance_response(extra=None):
 
 @app.route("/")
 def index():
-    data = finance_store.get_finance_payload()
-    return render_template(
-        "index.html",
-        summary=data["summary"],
-        accounts=data["accounts"],
-        movements=data["movements"],
-        account_types=finance_store.ACCOUNT_TYPES,
+    return jsonify(
+        {
+            "service": "delfos-api",
+            "docs": "Use frontend at http://localhost:4321",
+        }
     )
 
 
