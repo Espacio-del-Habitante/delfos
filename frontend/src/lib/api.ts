@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.PUBLIC_API_BASE_URL ?? 'http://localhost:5000';
+const API_BASE = import.meta.env.PUBLIC_API_BASE_URL ?? '';
 
 export class ApiError extends Error {
   status: number;
@@ -21,10 +21,14 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 import type {
   AnalysisPreview,
+  BulkImportKind,
   Category,
   ConfirmPayload,
   FinancePayload,
+  ImportPreviewResponse,
+  InvestmentLedgerRow,
   OllamaHealth,
+  OcrPreviewResponse,
 } from './types';
 
 export function getFinanceData(): Promise<FinancePayload> {
@@ -169,5 +173,85 @@ export function resetData(): Promise<FinancePayload> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ confirmation: 'RESTABLECER' }),
+  });
+}
+
+async function fetchBlob(path: string): Promise<Blob> {
+  const res = await fetch(`${API_BASE}${path}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError((data as { error?: string }).error || res.statusText, res.status);
+  }
+  return res.blob();
+}
+
+export function exportInvestmentsCsv(): Promise<Blob> {
+  return fetchBlob('/api/investments/export.csv');
+}
+
+export function exportInvestmentsXlsx(): Promise<Blob> {
+  return fetchBlob('/api/investments/export.xlsx');
+}
+
+export function importInvestmentsCsv(file: File, confirm = false): Promise<ImportPreviewResponse & FinancePayload> {
+  return importCsvBulk('investments', file, confirm);
+}
+
+const IMPORT_PATHS: Record<BulkImportKind, string> = {
+  investments: '/api/investments/import.csv',
+  expenses: '/api/expenses/import.csv',
+  notes: '/api/notes/import.csv',
+  accounts: '/api/accounts/import.csv',
+};
+
+export function importCsvBulk(
+  kind: BulkImportKind,
+  file: File,
+  confirm = false,
+): Promise<ImportPreviewResponse & FinancePayload> {
+  const form = new FormData();
+  form.append('file', file);
+  const q = confirm ? '?confirm=true' : '';
+  return fetch(`${API_BASE}${IMPORT_PATHS[kind]}${q}`, {
+    method: 'POST',
+    body: form,
+  }).then(async (res) => {
+    const data = (await res.json()) as ImportPreviewResponse & FinancePayload & { error?: string };
+    if (!res.ok) {
+      throw new ApiError(data.error || res.statusText, res.status);
+    }
+    return data;
+  });
+}
+
+export function importExpensesCsv(file: File, confirm = false): Promise<ImportPreviewResponse & FinancePayload> {
+  return importCsvBulk('expenses', file, confirm);
+}
+
+export function importNotesCsv(file: File, confirm = false): Promise<ImportPreviewResponse & FinancePayload> {
+  return importCsvBulk('notes', file, confirm);
+}
+
+export function ocrInvestmentImage(file: File): Promise<OcrPreviewResponse> {
+  const form = new FormData();
+  form.append('image', file);
+  return fetch(`${API_BASE}/api/investments/ocr`, {
+    method: 'POST',
+    body: form,
+  }).then(async (res) => {
+    const data = (await res.json()) as OcrPreviewResponse & { error?: string; hint?: string };
+    if (!res.ok) {
+      const message = data.hint ? `${data.error || res.statusText}. ${data.hint}` : data.error || res.statusText;
+      throw new ApiError(message, res.status);
+    }
+    return data;
+  });
+}
+
+export function confirmOcrRows(rows: InvestmentLedgerRow[]): Promise<FinancePayload & { saved?: number }> {
+  return fetchJson('/api/investments/ocr/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows }),
   });
 }

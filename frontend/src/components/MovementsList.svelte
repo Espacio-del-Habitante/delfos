@@ -1,18 +1,52 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import SearchFilterBar from './SearchFilterBar.svelte';
+  import { filterMovements, type MovementFilterState } from '@/lib/filters';
   import type { Movement } from '@/lib/types';
 
   export let movements: Movement[] = [];
 
   const dispatch = createEventDispatcher<{ edit: { type: string; id: string }; delete: { type: string; id: string } }>();
+
+  let filters: MovementFilterState = {
+    search: '',
+    type: 'all',
+    dateFrom: '',
+    dateTo: '',
+  };
+
+  const typeOptions = [
+    { value: 'all', label: 'Todos' },
+    { value: 'expense', label: 'Gasto' },
+    { value: 'investment', label: 'Inversión' },
+    { value: 'note', label: 'Nota' },
+  ];
+
+  $: filtered = filterMovements(movements, filters);
+  $: hasFilters =
+    filters.search.trim() !== '' ||
+    filters.type !== 'all' ||
+    filters.dateFrom !== '' ||
+    filters.dateTo !== '';
 </script>
 
 <section class="full-width-section section" id="movimientos" aria-label="Movimientos recientes">
   <h2 class="card-title">Movimientos recientes</h2>
 
-  {#if movements.length}
+  <SearchFilterBar
+    bind:search={filters.search}
+    searchPlaceholder="Buscar descripción, categoría o cuenta…"
+    {typeOptions}
+    bind:selectedType={filters.type}
+    bind:dateFrom={filters.dateFrom}
+    bind:dateTo={filters.dateTo}
+    resultCount={filtered.length}
+    totalCount={movements.length}
+  />
+
+  {#if filtered.length}
     <ul class="timeline-list">
-      {#each movements as m (m.id)}
+      {#each filtered as m (m.id)}
         <li class="timeline-item" data-movement-type={m.type} data-movement-id={m.id}>
           <div class="timeline-item__icon timeline-item__icon--{m.icon || m.type}" aria-hidden="true">
             {#if m.category_emoji}
@@ -54,6 +88,12 @@
         </li>
       {/each}
     </ul>
+  {:else if hasFilters}
+    <div class="empty-state">
+      <p class="empty-state__icon" aria-hidden="true">🔍</p>
+      <p class="empty-state__title">Sin resultados</p>
+      <p class="empty-state__text">Ningún movimiento coincide con los filtros actuales.</p>
+    </div>
   {:else}
     <div class="empty-state">
       <div class="empty-state__icon" aria-hidden="true">◎</div>

@@ -60,6 +60,8 @@ export interface ExpenseRecord {
   created_at?: string;
 }
 
+export type OperationType = 'deposit' | 'buy' | 'sell' | 'dividend';
+
 export interface InvestmentRecord {
   id: string;
   account_id?: string | null;
@@ -68,11 +70,54 @@ export interface InvestmentRecord {
   amount: number;
   currency: string;
   action?: string;
+  operation_type?: OperationType | string;
+  quantity?: number | null;
+  amount_usd?: number | null;
+  amount_cop?: number | null;
+  unit_price?: number | null;
+  closing_cost?: number | null;
+  pnl_usd?: number | null;
+  total?: number | null;
+  source_image?: string | null;
   category?: string;
   category_emoji?: string;
   notes?: string;
   date?: string;
   created_at?: string;
+}
+
+export interface InvestmentLedgerRow {
+  operation_type?: OperationType | string;
+  date?: string;
+  asset?: string;
+  quantity?: number | null;
+  amount_usd?: number | null;
+  amount_cop?: number | null;
+  unit_price?: number | null;
+  closing_cost?: number | null;
+  pnl_usd?: number | null;
+  total?: number | null;
+  source_image?: string | null;
+  account_id?: string | null;
+}
+
+export interface OcrPreviewResponse {
+  rows: InvestmentLedgerRow[];
+  warnings: string[];
+  hint?: string;
+  ai_available?: boolean;
+  error?: string;
+}
+
+export type BulkImportKind = 'investments' | 'expenses' | 'notes' | 'accounts';
+
+export interface ImportPreviewResponse {
+  preview?: Record<string, unknown>[];
+  rows?: Record<string, unknown>[];
+  count?: number;
+  warnings?: string[];
+  error?: string;
+  imported?: number;
 }
 
 export interface NoteRecord {
@@ -175,7 +220,11 @@ export interface ConfirmNoteItem {
 export interface OllamaHealth {
   ok: boolean;
   model?: string;
+  model_found?: boolean;
+  vision_model?: string;
+  vision_model_found?: boolean;
   error?: string;
+  hint?: string;
 }
 
 export interface SelectOption {

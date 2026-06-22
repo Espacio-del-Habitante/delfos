@@ -157,6 +157,7 @@
             <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#resumen')}>Resumen</button>
             <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#registrar')}>Registrar</button>
             <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#movimientos')}>Movimientos</button>
+            <a href="/inversiones" class="island-nav__link">Inversiones</a>
             <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#cuentas')}>Cuentas</button>
           </nav>
           <div class="island-mini">
@@ -187,5 +188,9 @@
     cursor: pointer;
     font: inherit;
     text-align: left;
+    color: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
   }
 </style>

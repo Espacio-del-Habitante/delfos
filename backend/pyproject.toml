@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "delfos-backend"
 version = "0.1.0"
 description = "Delfos Flask API"
@@ -6,5 +6,7 @@ requires-python = ">=3.10"
 dependencies = [
     "flask>=3.0.0",
     "flask-cors>=4.0.0",
+    "gunicorn>=23.0.0",
+    "openpyxl>=3.1.5",
     "python-dotenv>=1.0.0",
 ]

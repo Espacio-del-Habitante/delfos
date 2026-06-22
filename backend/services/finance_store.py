@@ -28,6 +28,18 @@ DEFAULT_DATA = {
     "notes": [],
 }
 
+INVESTMENT_OPERATION_TYPES = {"deposit", "buy", "sell", "dividend"}
+
+LEDGER_FLOAT_FIELDS = (
+    "quantity",
+    "amount_usd",
+    "amount_cop",
+    "unit_price",
+    "closing_cost",
+    "pnl_usd",
+    "total",
+)
+
 ACCOUNT_TYPES = {
     "cash": "Efectivo",
     "bank": "Banco",
@@ -83,6 +95,41 @@ def _migrate_categories(data):
     return data
 
 
+def _normalize_investment_ledger(investment):
+    """Soft migration: map legacy fields to ledger columns."""
+    op = investment.get("operation_type")
+    if not op:
+        action = (investment.get("action") or "buy").lower()
+        investment["operation_type"] = action if action in INVESTMENT_OPERATION_TYPES else "buy"
+    elif investment.get("operation_type") not in INVESTMENT_OPERATION_TYPES:
+        investment["operation_type"] = "buy"
+
+    if investment.get("total") is None and investment.get("amount") is not None:
+        investment["total"] = float(investment["amount"])
+    if investment.get("amount") is None and investment.get("total") is not None:
+        investment["amount"] = float(investment["total"])
+
+    for key in LEDGER_FLOAT_FIELDS:
+        if key in investment and investment[key] is not None and investment[key] != "":
+            investment[key] = float(investment[key])
+    return investment
+
+
+def normalize_investment(investment):
+    return _normalize_investment_ledger(dict(investment))
+
+
+def _migrate_investments(data):
+    changed = False
+    for investment in data.get("investments", []):
+        before = json.dumps(investment, sort_keys=True, default=str)
+        _normalize_investment_ledger(investment)
+        after = json.dumps(investment, sort_keys=True, default=str)
+        if before != after:
+            changed = True
+    return changed
+
+
 def load_data():
     if not DATA_PATH.exists():
         save_data(deepcopy(DEFAULT_DATA))
@@ -91,6 +138,9 @@ def load_data():
     needs_save = "categories" in data.get("settings", {}) or not data.get("categories")
     if needs_save:
         _migrate_categories(data)
+    if _migrate_investments(data):
+        needs_save = True
+    if needs_save:
         save_data(data)
     return data
 
@@ -387,14 +437,24 @@ def update_investment(investment_id, updates):
             "asset_type",
             "currency",
             "action",
+            "operation_type",
             "category",
             "category_emoji",
             "notes",
+            "source_image",
         ):
             if key in updates:
                 investment[key] = updates[key]
         if "amount" in updates and updates["amount"] is not None:
             investment["amount"] = float(updates["amount"])
+        for key in LEDGER_FLOAT_FIELDS:
+            if key in updates:
+                investment[key] = None if updates[key] is None else float(updates[key])
+        if "operation_type" in updates and updates["operation_type"]:
+            op = updates["operation_type"]
+            if op in INVESTMENT_OPERATION_TYPES:
+                investment["action"] = op
+        _normalize_investment_ledger(investment)
         save_data(data)
         return investment
     return None
@@ -469,23 +529,48 @@ def add_expense(expense_input, source="manual"):
     return expense
 
 
+def _ledger_float(value):
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
 def add_investment(investment_input, source="manual"):
     data = load_data()
+    operation_type = investment_input.get("operation_type") or investment_input.get("action") or "buy"
+    if operation_type not in INVESTMENT_OPERATION_TYPES:
+        operation_type = "buy"
+
+    amount_raw = investment_input.get("amount")
+    if amount_raw is None:
+        amount_raw = investment_input.get("total")
+    amount = float(amount_raw or 0)
+
     investment = {
         "id": _next_id("investment", data["investments"]),
         "date": investment_input.get("date") or _today(),
         "account_id": investment_input.get("account_id"),
         "asset": investment_input.get("asset", ""),
         "asset_type": investment_input.get("asset_type", "ETF"),
-        "amount": float(investment_input.get("amount") or 0),
+        "amount": amount,
         "currency": investment_input.get("currency", "USD"),
-        "action": investment_input.get("action", "buy"),
+        "action": operation_type,
+        "operation_type": operation_type,
+        "quantity": _ledger_float(investment_input.get("quantity")),
+        "amount_usd": _ledger_float(investment_input.get("amount_usd")),
+        "amount_cop": _ledger_float(investment_input.get("amount_cop")),
+        "unit_price": _ledger_float(investment_input.get("unit_price")),
+        "closing_cost": _ledger_float(investment_input.get("closing_cost")),
+        "pnl_usd": _ledger_float(investment_input.get("pnl_usd")),
+        "total": _ledger_float(investment_input.get("total")),
+        "source_image": investment_input.get("source_image"),
         "category": investment_input.get("category", "Inversión"),
         "category_emoji": investment_input.get("category_emoji", "📈"),
         "notes": investment_input.get("notes") or investment_input.get("description", ""),
         "source": source,
         "created_at": _now_iso(),
     }
+    _normalize_investment_ledger(investment)
     data["investments"].append(investment)
     save_data(data)
     if investment["action"] == "buy":
@@ -493,6 +578,38 @@ def add_investment(investment_input, source="manual"):
             investment["account_id"], investment["amount"], investment["currency"], subtract=True
         )
     return investment
+
+
+def bulk_add_investments(rows, source="import"):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_investment(payload, source=source))
+    return created
+
+
+def bulk_add_expenses(rows, source="import"):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_expense(payload, source=source))
+    return created
+
+
+def bulk_add_notes(rows, source="import"):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_note(payload, source=source))
+    return created
+
+
+def bulk_add_accounts(rows):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_account(payload))
+    return created
 
 
 def add_note(note_input, source="manual"):

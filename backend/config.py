@@ -10,6 +10,7 @@ load_dotenv(ROOT / ".env")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+OLLAMA_VISION_MODEL = os.getenv("OLLAMA_VISION_MODEL", "llava")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
 FLASK_HOST = os.getenv("FLASK_HOST", "127.0.0.1")

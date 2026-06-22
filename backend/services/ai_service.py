@@ -270,29 +270,38 @@ def _fallback_note_preview(text):
     }
 
 
+def _model_found(models, model_name):
+    model_base = model_name.split(":")[0]
+    return any(
+        m.get("name", "") == model_name or m.get("name", "").split(":")[0] == model_base
+        for m in models
+    )
+
+
 def check_ollama_connection():
     try:
         req = urllib.request.Request(f"{config.OLLAMA_URL}/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=5) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-        model_base = config.OLLAMA_MODEL.split(":")[0]
-        model_found = any(
-            m.get("name", "") == config.OLLAMA_MODEL
-            or m.get("name", "").split(":")[0] == model_base
-            for m in body.get("models", [])
-        )
+        models = body.get("models", [])
+        model_found = _model_found(models, config.OLLAMA_MODEL)
+        vision_model_found = _model_found(models, config.OLLAMA_VISION_MODEL)
         return {
             "ok": True,
             "url": config.OLLAMA_URL,
             "model": config.OLLAMA_MODEL,
             "model_found": model_found,
-            "available_models": [m.get("name") for m in body.get("models", [])],
+            "vision_model": config.OLLAMA_VISION_MODEL,
+            "vision_model_found": vision_model_found,
+            "available_models": [m.get("name") for m in models],
         }
     except urllib.error.URLError as exc:
         return {
             "ok": False,
             "url": config.OLLAMA_URL,
             "model": config.OLLAMA_MODEL,
+            "vision_model": config.OLLAMA_VISION_MODEL,
+            "vision_model_found": False,
             "error": f"No se pudo conectar a Ollama en {config.OLLAMA_URL}: {exc.reason}",
             "hint": "Abre la app Ollama o ejecuta 'ollama serve'. Luego: ollama pull " + config.OLLAMA_MODEL,
         }
@@ -301,6 +310,8 @@ def check_ollama_connection():
             "ok": False,
             "url": config.OLLAMA_URL,
             "model": config.OLLAMA_MODEL,
+            "vision_model": config.OLLAMA_VISION_MODEL,
+            "vision_model_found": False,
             "error": f"Timeout al conectar con {config.OLLAMA_URL}",
             "hint": "Verifica que Ollama esté corriendo.",
         }

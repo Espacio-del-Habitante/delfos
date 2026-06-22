@@ -1,10 +1,11 @@
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from app import app
-from services import finance_store
+from services import finance_store, vision_service
 
 
 class ApiTestCase(unittest.TestCase):
@@ -220,6 +221,195 @@ class ApiTestCase(unittest.TestCase):
         res = self.client.patch("/api/accounts/bad_id", json={"name": "X"})
         self.assertEqual(res.status_code, 404)
         self.assertEqual(res.get_json()["error"], "Account not found")
+
+    def test_export_csv_header_and_rows(self):
+        finance_store.add_investment(
+            {
+                "operation_type": "buy",
+                "date": "2024-11-14",
+                "asset": "ACWI",
+                "quantity": 0.18274,
+                "amount_usd": 22.0,
+                "unit_price": 120.38,
+                "closing_cost": 0.15,
+                "total": 22.15,
+                "amount": 22.15,
+            }
+        )
+        res = self.client.get("/api/investments/export.csv")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/csv", res.content_type)
+        text = res.data.decode("utf-8-sig")
+        lines = text.strip().splitlines()
+        self.assertEqual(
+            lines[0],
+            "Tipo de Operación,Fecha,Activo,Cantidad,Monto USD,Monto COP,Precio Unitario,Costo de Cierre,Ganancia/Pérdida USD,Total",
+        )
+        self.assertIn("Compra", text)
+        self.assertIn("ACWI", text)
+        self.assertIn("2024-11-14", text)
+
+    def test_import_csv_preview_and_confirm_round_trip(self):
+        finance_store.add_investment(
+            {
+                "operation_type": "deposit",
+                "date": "2024-11-14",
+                "amount_usd": 22.36,
+                "amount_cop": 111413.0,
+                "total": 22.36,
+                "amount": 22.36,
+            }
+        )
+        exported = self.client.get("/api/investments/export.csv")
+        csv_text = exported.data.decode("utf-8-sig")
+
+        preview = self.client.post("/api/investments/import.csv", json={"csv": csv_text})
+        self.assertEqual(preview.status_code, 200)
+        preview_data = preview.get_json()
+        self.assertEqual(preview_data["count"], 1)
+        self.assertEqual(preview_data["preview"][0]["operation_type"], "deposit")
+
+        finance_store.reset_finance_data()
+        confirmed = self.client.post(
+            "/api/investments/import.csv",
+            json={"csv": csv_text, "confirm": True},
+        )
+        self.assertEqual(confirmed.status_code, 200)
+        data = confirmed.get_json()
+        self.assertEqual(data["imported"], 1)
+        inv = data["investments"][0]
+        self.assertEqual(inv["operation_type"], "deposit")
+        self.assertEqual(inv["amount_usd"], 22.36)
+        self.assertEqual(inv["total"], 22.36)
+
+    def test_investments_ocr_requires_image(self):
+        res = self.client.post("/api/investments/ocr")
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Imagen requerida", res.get_json()["error"])
+
+    def test_investments_ocr_confirm_requires_rows(self):
+        res = self.client.post("/api/investments/ocr/confirm", json={"rows": []})
+        self.assertEqual(res.status_code, 400)
+
+    def test_investments_ocr_confirm_saves_rows(self):
+        res = self.client.post(
+            "/api/investments/ocr/confirm",
+            json={
+                "rows": [
+                    {
+                        "operation_type": "buy",
+                        "date": "2024-11-14",
+                        "asset": "VOO",
+                        "amount_usd": 100,
+                        "total": 100,
+                        "amount": 100,
+                    }
+                ]
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data["saved"], 1)
+        self.assertEqual(data["investments"][0]["asset"], "VOO")
+        self.assertEqual(data["investments"][0]["operation_type"], "buy")
+
+    def test_investments_ocr_mocked(self):
+        from unittest.mock import patch
+
+        mock_result = vision_service.mock_ocr_preview()
+        ollama_ok = {
+            "ok": True,
+            "vision_model": "llava",
+            "vision_model_found": True,
+        }
+        with patch("app.ai_service.check_ollama_connection", return_value=ollama_ok):
+            with patch("app.vision_service.analyze_investment_image", return_value=mock_result):
+                res = self.client.post(
+                    "/api/investments/ocr",
+                    data={"image": (io.BytesIO(b"fake"), "shot.png")},
+                    content_type="multipart/form-data",
+                )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["asset"], "VOO")
+        self.assertTrue(data["ai_available"])
+
+    def test_investments_ocr_503_when_vision_model_missing(self):
+        from unittest.mock import patch
+
+        with patch(
+            "app.ai_service.check_ollama_connection",
+            return_value={
+                "ok": True,
+                "vision_model": "llava",
+                "vision_model_found": False,
+            },
+        ):
+            res = self.client.post(
+                "/api/investments/ocr",
+                data={"image": (io.BytesIO(b"fake"), "shot.png")},
+                content_type="multipart/form-data",
+            )
+        self.assertEqual(res.status_code, 503)
+        data = res.get_json()
+        self.assertFalse(data["ai_available"])
+        self.assertFalse(data["vision_model_found"])
+        self.assertIn("llava", data["hint"])
+        self.assertEqual(data["rows"], [])
+
+    def test_expenses_import_csv_preview_and_confirm(self):
+        self.client.post(
+            "/api/accounts",
+            json={"name": "Nequi", "type": "wallet", "currency": "COP", "initial_balance": 100000},
+        )
+        csv_text = (
+            "Fecha,Cuenta,Monto,Moneda,Categoría,Emoji,Descripción,Método de pago\n"
+            "2025-01-15,Nequi,25000,COP,Comida,🍽️,Almuerzo,Efectivo\n"
+            "2025-01-16,,15000,COP,Transporte,🚌,Bus,\n"
+        )
+
+        preview = self.client.post("/api/expenses/import.csv", json={"csv": csv_text})
+        self.assertEqual(preview.status_code, 200)
+        preview_data = preview.get_json()
+        self.assertEqual(preview_data["count"], 2)
+        self.assertEqual(preview_data["preview"][0]["amount"], 25000.0)
+        self.assertEqual(preview_data["preview"][0]["category"], "Comida")
+        self.assertIsNotNone(preview_data["preview"][0]["account_id"])
+
+        confirmed = self.client.post(
+            "/api/expenses/import.csv",
+            json={"csv": csv_text, "confirm": True},
+        )
+        self.assertEqual(confirmed.status_code, 200)
+        data = confirmed.get_json()
+        self.assertEqual(data["imported"], 2)
+        self.assertEqual(len(data["expenses"]), 2)
+        self.assertEqual(data["expenses"][0]["amount"], 25000)
+
+    def test_notes_import_csv_preview_and_confirm(self):
+        csv_text = (
+            "Fecha,Cuenta,Texto,Tags\n"
+            '2025-02-01,,"Revisar portafolio Q1","inversiones,ideas"\n'
+            "2025-02-02,,Llamar al banco,\n"
+        )
+
+        preview = self.client.post("/api/notes/import.csv", json={"csv": csv_text})
+        self.assertEqual(preview.status_code, 200)
+        preview_data = preview.get_json()
+        self.assertEqual(preview_data["count"], 2)
+        self.assertEqual(preview_data["preview"][0]["text"], "Revisar portafolio Q1")
+        self.assertEqual(preview_data["preview"][0]["tags"], ["inversiones", "ideas"])
+
+        confirmed = self.client.post(
+            "/api/notes/import.csv",
+            json={"csv": csv_text, "confirm": True},
+        )
+        self.assertEqual(confirmed.status_code, 200)
+        data = confirmed.get_json()
+        self.assertEqual(data["imported"], 2)
+        self.assertEqual(len(data["notes"]), 2)
+        self.assertEqual(data["notes"][0]["tags"], ["inversiones", "ideas"])
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
+import io
 
 import config
-from services import ai_service, finance_store
+from services import ai_service, bulk_import, finance_store, investment_ledger, vision_service
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:4321"])
@@ -177,10 +178,141 @@ def create_expense():
 @app.route("/api/investments", methods=["POST"])
 def create_investment():
     body = request.get_json(silent=True) or {}
-    if not body.get("amount"):
+    if not body.get("amount") and body.get("total") is None:
         return jsonify({"error": "Monto obligatorio"}), 400
     investment = finance_store.add_investment(body)
     return finance_response({"investment": investment})
+
+
+@app.route("/api/investments/export.csv")
+def export_investments_csv():
+    content = investment_ledger.export_csv()
+    return send_file(
+        io.BytesIO(content.encode("utf-8")),
+        mimetype="text/csv; charset=utf-8",
+        as_attachment=True,
+        download_name="inversiones.csv",
+    )
+
+
+@app.route("/api/investments/export.xlsx")
+def export_investments_xlsx():
+    content = investment_ledger.export_xlsx()
+    return send_file(
+        io.BytesIO(content),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="inversiones.xlsx",
+    )
+
+
+def _parse_csv_import_request():
+    confirm = request.args.get("confirm", "").lower() == "true"
+    csv_text = None
+
+    if request.is_json:
+        body = request.get_json(silent=True) or {}
+        csv_text = body.get("csv") or body.get("content")
+        confirm = confirm or bool(body.get("confirm"))
+    elif request.files.get("file"):
+        uploaded = request.files["file"]
+        csv_text = uploaded.read().decode("utf-8-sig")
+    else:
+        csv_text = request.get_data(as_text=True)
+
+    if not csv_text or not csv_text.strip():
+        return None, confirm, (jsonify({"error": "CSV vacío"}), 400)
+    return csv_text, confirm, None
+
+
+def _csv_import_response(result, confirm):
+    if not confirm:
+        return jsonify(result)
+    return finance_response(
+        {
+            "imported": result.get("count", 0),
+            "warnings": result.get("warnings", []),
+            "created": result.get("created", []),
+        }
+    )
+
+
+@app.route("/api/investments/import.csv", methods=["POST"])
+def import_investments_csv():
+    csv_text, confirm, error = _parse_csv_import_request()
+    if error:
+        return error
+    result = investment_ledger.import_csv(csv_text, confirm=confirm)
+    return _csv_import_response(result, confirm)
+
+
+@app.route("/api/expenses/import.csv", methods=["POST"])
+def import_expenses_csv():
+    csv_text, confirm, error = _parse_csv_import_request()
+    if error:
+        return error
+    result = bulk_import.import_expenses_csv(csv_text, confirm=confirm)
+    return _csv_import_response(result, confirm)
+
+
+@app.route("/api/notes/import.csv", methods=["POST"])
+def import_notes_csv():
+    csv_text, confirm, error = _parse_csv_import_request()
+    if error:
+        return error
+    result = bulk_import.import_notes_csv(csv_text, confirm=confirm)
+    return _csv_import_response(result, confirm)
+
+
+@app.route("/api/accounts/import.csv", methods=["POST"])
+def import_accounts_csv():
+    csv_text, confirm, error = _parse_csv_import_request()
+    if error:
+        return error
+    result = bulk_import.import_accounts_csv(csv_text, confirm=confirm)
+    return _csv_import_response(result, confirm)
+
+
+@app.route("/api/investments/ocr", methods=["POST"])
+def investments_ocr():
+    if not request.files.get("image"):
+        return jsonify({"error": "Imagen requerida (campo image)"}), 400
+
+    ollama_status = ai_service.check_ollama_connection()
+    if not ollama_status.get("vision_model_found"):
+        vision_model = config.OLLAMA_VISION_MODEL
+        return (
+            jsonify(
+                {
+                    "error": f"Modelo de visión '{vision_model}' no encontrado en Ollama",
+                    "hint": f"Ejecuta: ollama pull {vision_model}",
+                    "vision_model": vision_model,
+                    "vision_model_found": False,
+                    "rows": [],
+                    "warnings": [],
+                    "count": 0,
+                    "ai_available": False,
+                }
+            ),
+            503,
+        )
+
+    uploaded = request.files["image"]
+    image_bytes = uploaded.read()
+    content_type = (uploaded.content_type or "image/png").split(";")[0].strip().lower()
+    result = vision_service.analyze_investment_image(image_bytes, content_type)
+    status = 200 if result.get("ai_available", True) else 503
+    return jsonify(result), status
+
+
+@app.route("/api/investments/ocr/confirm", methods=["POST"])
+def investments_ocr_confirm():
+    body = request.get_json(silent=True) or {}
+    rows = body.get("rows") or []
+    if not rows:
+        return jsonify({"error": "Nada que confirmar"}), 400
+    created = investment_ledger.confirm_ledger_rows(rows, source="ocr")
+    return finance_response({"saved": len(created), "created": created})
 
 
 @app.route("/api/note", methods=["POST"])

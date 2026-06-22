@@ -192,6 +192,10 @@
       <span class="bottom-nav__icon" aria-hidden="true">≡</span>
       Movimientos
     </a>
+    <a href="/inversiones" class="bottom-nav__item">
+      <span class="bottom-nav__icon" aria-hidden="true">📈</span>
+      Inversiones
+    </a>
     <a href="#ia-preview" class="bottom-nav__item" data-nav="ia">
       <span class="bottom-nav__icon" aria-hidden="true">✦</span>
       IA

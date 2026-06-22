@@ -31,3 +31,23 @@ export function formatAmountPreview(amount: number | null | undefined, currency?
 export function accountTypeLabel(type: string): string {
   return ACCOUNT_TYPES[type] || type;
 }
+
+export const OPERATION_TYPE_LABELS: Record<string, string> = {
+  deposit: 'Depósito',
+  buy: 'Compra',
+  sell: 'Venta',
+  dividend: 'Dividendo',
+};
+
+export function operationTypeLabel(type: string | undefined): string {
+  if (!type) return '—';
+  return OPERATION_TYPE_LABELS[type] || type;
+}
+
+export function formatLedgerNumber(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(Number(value))) return '—';
+  return Number(value).toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+}

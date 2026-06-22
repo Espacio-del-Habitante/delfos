@@ -58,6 +58,13 @@
     if (e.target === e.currentTarget) close();
   }
 
+  function parseOptionalFloat(raw: FormDataEntryValue | null): number | null {
+    const trimmed = String(raw ?? '').trim();
+    if (!trimmed) return null;
+    const n = parseFloat(trimmed);
+    return Number.isFinite(n) ? n : null;
+  }
+
   async function save(e: Event) {
     e.preventDefault();
     if (!recordType || !record) return;
@@ -88,14 +95,23 @@
           payment_method: val('payment_method') || '',
         });
       } else if (recordType === 'investment') {
+        const r = record as InvestmentRecord;
         data = await updateInvestment(record.id, {
           date: val('date'),
           account_id: val('account_id') || null,
           asset: val('asset'),
           asset_type: val('asset_type') || 'ETF',
-          amount: parseFloat(String(val('amount'))) || 0,
+          operation_type: val('operation_type') || val('action') || 'buy',
+          action: val('operation_type') || val('action') || 'buy',
+          quantity: parseOptionalFloat(val('quantity')),
+          amount_usd: parseOptionalFloat(val('amount_usd')),
+          amount_cop: parseOptionalFloat(val('amount_cop')),
+          unit_price: parseOptionalFloat(val('unit_price')),
+          closing_cost: parseOptionalFloat(val('closing_cost')),
+          pnl_usd: parseOptionalFloat(val('pnl_usd')),
+          total: parseOptionalFloat(val('total')),
+          amount: parseFloat(String(val('amount'))) || parseOptionalFloat(val('total')) || parseOptionalFloat(val('amount_usd')) || 0,
           currency: val('currency') || 'USD',
-          action: val('action') || 'buy',
           category: categoryName || val('category') || 'Inversión',
           category_emoji: categoryEmoji || String(val('category_emoji') || '📈'),
           notes: val('notes') || '',
@@ -213,11 +229,20 @@
             </label>
           {:else if recordType === 'investment'}
             {@const r = record as InvestmentRecord}
+            {@const opType = r.operation_type || r.action || 'buy'}
             <label class="edit-form__field">Fecha
               <input class="edit-form__input" type="date" name="date" value={r.date || ''} />
             </label>
             <label class="edit-form__field">Cuenta
               <CustomSelect options={accountOptions} value={r.account_id || ''} name="account_id" />
+            </label>
+            <label class="edit-form__field">Tipo de operación
+              <select class="edit-form__input" name="operation_type">
+                <option value="deposit" selected={opType === 'deposit'}>Depósito</option>
+                <option value="buy" selected={opType === 'buy'}>Compra</option>
+                <option value="sell" selected={opType === 'sell'}>Venta</option>
+                <option value="dividend" selected={opType === 'dividend'}>Dividendo</option>
+              </select>
             </label>
             <label class="edit-form__field">Activo
               <input class="edit-form__input" name="asset" value={r.asset || ''} required />
@@ -230,19 +255,41 @@
               </select>
             </label>
             <div class="edit-form__row">
-              <label class="edit-form__field">Monto
-                <input class="edit-form__input" type="number" name="amount" value={r.amount ?? ''} min="0" step="0.01" required />
+              <label class="edit-form__field">Cantidad
+                <input class="edit-form__input" type="number" name="quantity" value={r.quantity ?? ''} step="any" />
               </label>
-              <label class="edit-form__field">Moneda
-                <CustomSelect options={currencyOptions} value={r.currency || 'USD'} name="currency" />
+              <label class="edit-form__field">Precio unitario
+                <input class="edit-form__input" type="number" name="unit_price" value={r.unit_price ?? ''} step="0.0001" />
               </label>
             </div>
-            <label class="edit-form__field">Acción
-              <select class="edit-form__input" name="action">
-                <option value="buy" selected={r.action === 'buy'}>Compra</option>
-                <option value="sell" selected={r.action === 'sell'}>Venta</option>
-              </select>
+            <div class="edit-form__row">
+              <label class="edit-form__field">Monto USD
+                <input class="edit-form__input" type="number" name="amount_usd" value={r.amount_usd ?? ''} step="0.01" />
+              </label>
+              <label class="edit-form__field">Monto COP
+                <input class="edit-form__input" type="number" name="amount_cop" value={r.amount_cop ?? ''} step="0.01" />
+              </label>
+            </div>
+            <div class="edit-form__row">
+              <label class="edit-form__field">Costo cierre
+                <input class="edit-form__input" type="number" name="closing_cost" value={r.closing_cost ?? ''} step="0.01" />
+              </label>
+              <label class="edit-form__field">P/G USD
+                <input class="edit-form__input" type="number" name="pnl_usd" value={r.pnl_usd ?? ''} step="0.01" />
+              </label>
+            </div>
+            <div class="edit-form__row">
+              <label class="edit-form__field">Total
+                <input class="edit-form__input" type="number" name="total" value={r.total ?? r.amount ?? ''} step="0.01" />
+              </label>
+              <label class="edit-form__field">Monto (legacy)
+                <input class="edit-form__input" type="number" name="amount" value={r.amount ?? ''} min="0" step="0.01" />
+              </label>
+            </div>
+            <label class="edit-form__field">Moneda
+              <CustomSelect options={currencyOptions} value={r.currency || 'USD'} name="currency" />
             </label>
+            <input type="hidden" name="action" value={opType} />
             <label class="edit-form__field edit-form__field--full">Categoría
               <CategorySelector
                 {categories}
