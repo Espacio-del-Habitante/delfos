@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy, tick } from 'svelte';
   import DateField from '@common/atoms/DateField.svelte';
+  import { computeAnchorPosition, portal } from '@common/lib/anchorPosition';
 
   export let open = false;
   export let typeOptions: { value?: string; id?: string; label: string }[] = [];
@@ -37,54 +38,24 @@
   function updatePosition() {
     if (!anchorEl) return;
 
-    const rect = anchorEl.getBoundingClientRect();
-    const gap = 8;
-    const edgePad = 16;
-    const width = Math.min(320, window.innerWidth - 32);
-    let left = rect.left;
+    const pos = computeAnchorPosition(anchorEl.getBoundingClientRect(), {
+      width: Math.min(320, window.innerWidth - 32),
+      gap: 8,
+      edgePad: 16,
+      estimatedHeight: 280,
+      minHeight: 120,
+      contentHeight: popoverEl?.offsetHeight,
+      originAlign: 'left',
+    });
 
-    if (left + width > window.innerWidth - edgePad) {
-      left = window.innerWidth - edgePad - width;
-    }
-    if (left < edgePad) left = edgePad;
-
-    const viewportH = window.innerHeight;
-    const spaceBelow = viewportH - rect.bottom - gap - edgePad;
-    const spaceAbove = rect.top - gap - edgePad;
-    const estimatedHeight = 280;
-    const contentHeight = popoverEl?.offsetHeight || estimatedHeight;
-
-    flipUp = contentHeight > spaceBelow && spaceAbove > spaceBelow;
-
-    let maxHeight: number;
-    let top: number;
-
-    if (flipUp) {
-      maxHeight = Math.max(120, spaceAbove);
-      const visibleHeight = Math.min(contentHeight, maxHeight);
-      top = rect.top - gap - visibleHeight;
-      if (top < edgePad) {
-        top = edgePad;
-        maxHeight = Math.max(120, rect.top - gap - edgePad);
-      }
-    } else {
-      maxHeight = Math.max(120, spaceBelow);
-      top = rect.bottom + gap;
-      const bottomLimit = top + Math.min(contentHeight, maxHeight);
-      if (bottomLimit > viewportH - edgePad) {
-        maxHeight = Math.max(120, viewportH - edgePad - top);
-      }
-    }
-
-    const originX = rect.left - left;
-    const originY = flipUp ? rect.bottom - top : rect.top - top;
+    flipUp = pos.flipUp;
 
     popoverStyle = [
-      `--filter-popover-origin: ${originX}px ${originY}px`,
-      `--filter-popover-max-height: ${Math.round(maxHeight)}px`,
-      `top: ${Math.round(top)}px`,
-      `left: ${left}px`,
-      `width: ${width}px`,
+      `--filter-popover-origin: ${pos.originX}px ${pos.originY}px`,
+      `--filter-popover-max-height: ${pos.maxHeight}px`,
+      `top: ${pos.top}px`,
+      `left: ${pos.left}px`,
+      `width: ${pos.width}px`,
     ].join('; ');
   }
 
@@ -164,6 +135,7 @@
 
 {#if rendered}
   <div
+    use:portal
     bind:this={popoverEl}
     class="filter-popover"
     class:is-visible={visible}

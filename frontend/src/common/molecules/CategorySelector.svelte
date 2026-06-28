@@ -1,7 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import CustomSelect from './CustomSelect.svelte';
-  import EmojiPicker from './EmojiPicker.svelte';
   import { categoriesForKind, type CategorySelection } from '@common/lib/categories';
   import type { Category } from '@common/lib/types';
 
@@ -9,12 +8,10 @@
   export let kind: string = 'expense';
   export let selected: { id?: string; name?: string; emoji?: string } | null = null;
 
-  const dispatch = createEventDispatcher<{ change: CategorySelection }>();
+  const dispatch = createEventDispatcher<{ change: CategorySelection; requestCreate: { text: string } }>();
 
   let selectedValue = '';
-  let showNew = false;
-  let newName = '';
-  let newEmoji = '🏷️';
+  let unmatchedName = '';
 
   $: filtered = categoriesForKind(categories, kind);
   $: options = [
@@ -25,26 +22,17 @@
 
   $: {
     selectedValue = '';
+    unmatchedName = '';
     if (selected?.id) {
       selectedValue = selected.id;
     } else if (selected?.name) {
       const match = filtered.find((c) => c.name.toLowerCase() === selected.name!.toLowerCase());
       if (match) selectedValue = match.id;
-      else {
-        selectedValue = '__new__';
-        showNew = true;
-        newName = selected.name;
-        newEmoji = selected.emoji || '🏷️';
-      }
+      else unmatchedName = selected.name;
     }
   }
 
   function notify() {
-    if (selectedValue === '__new__') {
-      const name = newName.trim();
-      if (name) dispatch('change', { name, emoji: newEmoji, isNew: true });
-      return;
-    }
     if (!selectedValue) {
       dispatch('change', { name: '', emoji: '' });
       return;
@@ -54,17 +42,11 @@
   }
 
   function onSelectChange(e: CustomEvent<{ value: string }>) {
+    if (e.detail.value === '__new__') {
+      dispatch('requestCreate', { text: unmatchedName });
+      return;
+    }
     selectedValue = e.detail.value;
-    showNew = selectedValue === '__new__';
-    notify();
-  }
-
-  function onNewNameInput() {
-    notify();
-  }
-
-  function onEmojiChange(e: CustomEvent<string>) {
-    newEmoji = e.detail;
     notify();
   }
 </script>
@@ -77,19 +59,4 @@
     placeholder="Seleccionar categoría"
     on:change={onSelectChange}
   />
-
-  {#if showNew}
-    <div class="category-selector__new">
-      <span class="category-selector__new-label">Nueva categoría</span>
-      <input
-        type="text"
-        class="form-control"
-        placeholder="Nombre de categoría"
-        aria-label="Nombre de nueva categoría"
-        bind:value={newName}
-        on:input={onNewNameInput}
-      />
-      <EmojiPicker value={newEmoji} on:change={onEmojiChange} />
-    </div>
-  {/if}
 </div>

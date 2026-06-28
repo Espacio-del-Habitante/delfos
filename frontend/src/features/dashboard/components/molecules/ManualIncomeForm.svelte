@@ -11,8 +11,9 @@
   export let accounts: Account[] = [];
   export let categories: Category[] = [];
   export let formId = 'manual-income-form';
+  export let selected: { id?: string; name?: string; emoji?: string } | null = null;
 
-  const dispatch = createEventDispatcher<{ success: void }>();
+  const dispatch = createEventDispatcher<{ success: void; requestCreate: { text: string } }>();
 
   let accountId = '';
   let amount = '';
@@ -21,6 +22,11 @@
   let categoryEmoji = '';
   let description = '';
   let incomeSource = '';
+
+  $: if (selected?.name) {
+    category = selected.name;
+    categoryEmoji = selected.emoji || '';
+  }
 
   $: accountOptions = [
     { value: '', label: 'Sin cuenta' },
@@ -87,10 +93,12 @@
       <CategorySelector
         {categories}
         kind="income"
+        {selected}
         on:change={(e) => {
           category = e.detail.name;
           categoryEmoji = e.detail.emoji;
         }}
+        on:requestCreate
       />
     </div>
     <input

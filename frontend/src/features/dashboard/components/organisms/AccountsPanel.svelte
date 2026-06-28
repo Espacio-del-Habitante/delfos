@@ -5,6 +5,8 @@
   import { applyFinancePayload } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import EmojiPickerField from '@common/molecules/EmojiPickerField.svelte';
+  import IconPlus from '@common/atoms/icons/IconPlus.svelte';
   import type { Account } from '@common/lib/types';
 
   export let accounts: Account[] = [];
@@ -109,16 +111,52 @@
     on:click={() => (panelOpen = !panelOpen)}
   >
     Nueva cuenta
-    <span class="manual-toggle__chevron" aria-hidden="true">▾</span>
+    <span class="manual-toggle__icon" aria-hidden="true"><IconPlus size={18} /></span>
   </button>
   <div class="manual-panel" class:is-open={panelOpen}>
-    <form class="account-form" on:submit={submitAccount}>
-      <input type="text" bind:value={name} placeholder="Nombre (ej. Efectivo)" required class="account-form__full" />
-      <CustomSelect options={typeOptions} bind:value={type} />
-      <CustomSelect options={currencyOptions} bind:value={currency} />
-      <input type="number" bind:value={initialBalance} placeholder="Balance inicial" min="0" step="0.01" />
-      <input type="text" bind:value={emoji} placeholder="Emoji" maxlength="4" />
-      <button type="submit" class="secondary-button account-form__full">Crear cuenta</button>
-    </form>
+    <div class="manual-panel__inner">
+      <form class="account-form" on:submit={submitAccount}>
+        <input type="text" bind:value={name} placeholder="Nombre (ej. Efectivo)" required class="account-form__full" />
+        <CustomSelect options={typeOptions} bind:value={type} />
+        <CustomSelect options={currencyOptions} bind:value={currency} />
+        <input type="number" bind:value={initialBalance} placeholder="Balance inicial" min="0" step="0.01" />
+        <div class="account-form__emoji">
+          <span class="account-form__emoji-label">Emoji</span>
+          <EmojiPickerField value={emoji} ariaLabel="Emoji de la cuenta" on:change={(e) => (emoji = e.detail)} />
+        </div>
+        <button type="submit" class="secondary-button account-form__full">Crear cuenta</button>
+      </form>
+    </div>
   </div>
 </section>
+
+<style>
+  .manual-toggle__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: transform 200ms var(--ease-out);
+  }
+
+  .manual-toggle[aria-expanded='true'] .manual-toggle__icon {
+    transform: rotate(45deg);
+  }
+
+  .account-form__emoji {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .account-form__emoji-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .manual-toggle__icon {
+      transition: none;
+    }
+  }
+</style>

@@ -3,6 +3,8 @@ from flask_cors import CORS
 import io
 
 import config
+from integrations import registry, settings as ai_settings
+from integrations.base import IntegrationError
 from services import ai_service, bulk_import, finance_store, investment_ledger, portfolio_service, vision_service
 
 app = Flask(__name__)
@@ -329,24 +331,27 @@ def investments_ocr():
     if not request.files.get("image"):
         return jsonify({"error": "Imagen requerida (campo image)"}), 400
 
-    ollama_status = ai_service.check_ollama_connection()
-    if not ollama_status.get("vision_model_found"):
-        vision_model = config.OLLAMA_VISION_MODEL
-        return (
-            jsonify(
-                {
-                    "error": f"Modelo de visión '{vision_model}' no encontrado en Ollama",
-                    "hint": f"Ejecuta: ollama pull {vision_model}",
-                    "vision_model": vision_model,
-                    "vision_model_found": False,
-                    "rows": [],
-                    "warnings": [],
-                    "count": 0,
-                    "ai_available": False,
-                }
-            ),
-            503,
-        )
+    # El gate de modelo de visión solo aplica al proveedor local (Ollama).
+    # En la nube (Gemini/compatible) confiamos en el adapter y su manejo de errores.
+    if ai_settings.effective_provider() == "local":
+        ollama_status = ai_service.check_ollama_connection()
+        if not ollama_status.get("vision_model_found"):
+            vision_model = config.OLLAMA_VISION_MODEL
+            return (
+                jsonify(
+                    {
+                        "error": f"Modelo de visión '{vision_model}' no encontrado en Ollama",
+                        "hint": f"Ejecuta: ollama pull {vision_model}",
+                        "vision_model": vision_model,
+                        "vision_model_found": False,
+                        "rows": [],
+                        "warnings": [],
+                        "count": 0,
+                        "ai_available": False,
+                    }
+                ),
+                503,
+            )
 
     uploaded = request.files["image"]
     image_bytes = uploaded.read()
@@ -380,6 +385,46 @@ def save_note():
 def ollama_health():
     status = ai_service.check_ollama_connection()
     code = 200 if status.get("ok") else 503
+    return jsonify(status), code
+
+
+@app.route("/api/ai/health")
+def ai_health():
+    try:
+        status = registry.get_active_integration().health()
+    except IntegrationError as exc:
+        status = {"ok": False, "error": str(exc), "hint": exc.hint}
+    code = 200 if status.get("ok") else 503
+    return jsonify(status), code
+
+
+@app.route("/api/settings/ai", methods=["GET"])
+def get_ai_settings():
+    return jsonify(
+        {
+            "config": ai_settings.get_public_config(),
+            "providers": registry.available_providers(),
+        }
+    )
+
+
+@app.route("/api/settings/ai", methods=["POST"])
+def save_ai_settings():
+    body = request.get_json(silent=True) or {}
+    public = ai_settings.save_config(body)
+    registry.clear_cache()
+    return jsonify({"config": public, "providers": registry.available_providers()})
+
+
+@app.route("/api/settings/ai/test", methods=["POST"])
+def test_ai_settings():
+    body = request.get_json(silent=True) or {}
+    try:
+        integration = registry.build_integration(body)
+        status = integration.health()
+    except IntegrationError as exc:
+        return jsonify({"ok": False, "error": str(exc), "hint": exc.hint}), 200
+    code = 200 if status.get("ok") else 200
     return jsonify(status), code
 
 

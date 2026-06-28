@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import Modal from '@common/atoms/Modal.svelte';
+  import Dropzone from '@common/molecules/Dropzone.svelte';
   import { importCsvBulk } from '@common/lib/api';
   import { applyFinancePayload } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
@@ -16,11 +17,9 @@
   const hint =
     'Tipo de Operación, Fecha, Activo, Cantidad, Monto USD, Monto COP, Precio unitario, Costo cierre, P/G USD, Total';
 
-  let dragOver = false;
   let importing = false;
   let importPreview: ImportPreviewResponse | null = null;
   let pendingFile: File | null = null;
-  let fileInput: HTMLInputElement;
 
   function close() {
     open = false;
@@ -28,16 +27,7 @@
     dispatch('close');
   }
 
-  function openPicker() {
-    fileInput?.click();
-  }
-
   async function processFile(file: File) {
-    if (!file.name.toLowerCase().endsWith('.csv') && file.type !== 'text/csv') {
-      showToast('Selecciona un archivo CSV', { type: 'error' });
-      return;
-    }
-
     importing = true;
     importPreview = null;
     pendingFile = file;
@@ -60,26 +50,8 @@
     }
   }
 
-  function onFileChange(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    (e.target as HTMLInputElement).value = '';
-    if (file) processFile(file);
-  }
-
-  function onDrop(e: DragEvent) {
-    e.preventDefault();
-    dragOver = false;
-    const file = e.dataTransfer?.files?.[0];
-    if (file) processFile(file);
-  }
-
-  function onDragOver(e: DragEvent) {
-    e.preventDefault();
-    dragOver = true;
-  }
-
-  function onDragLeave() {
-    dragOver = false;
+  function onReject() {
+    showToast('Selecciona un archivo CSV', { type: 'error' });
   }
 
   async function confirmImport() {
@@ -128,32 +100,18 @@
       Solo libro de inversiones. Columnas esperadas: {hint}
     </p>
 
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="ledger-ocr__dropzone bulk-import-panel__dropzone"
-      class:is-dragover={dragOver}
-      on:click={openPicker}
-      on:drop={onDrop}
-      on:dragover={onDragOver}
-      on:dragleave={onDragLeave}
-      on:keydown={(e) => e.key === 'Enter' && openPicker()}
-      role="button"
-      tabindex="0"
-    >
-      <span class="ledger-ocr__dropzone-icon" aria-hidden="true"><IconDownload size={28} /></span>
-      <p class="ledger-ocr__dropzone-title">
-        {importing && !importPreview ? 'Leyendo CSV…' : 'Arrastra tu CSV aquí o haz clic'}
-      </p>
-      <p class="ledger-ocr__dropzone-hint">{hint}</p>
-    </div>
-
-    <input
-      bind:this={fileInput}
-      type="file"
+    <Dropzone
+      class="bulk-import-panel__dropzone"
       accept=".csv,text/csv"
-      class="sr-only"
-      on:change={onFileChange}
-    />
+      on:file={(e) => processFile(e.detail)}
+      on:reject={onReject}
+    >
+      <IconDownload slot="icon" size={28} />
+      <span slot="title">
+        {importing && !importPreview ? 'Leyendo CSV…' : 'Arrastra tu CSV aquí o haz clic'}
+      </span>
+      <span slot="hint">{hint}</span>
+    </Dropzone>
 
     {#if importPreview?.count}
       <div class="ledger-import-preview bulk-import-panel__preview">

@@ -5,3 +5,4 @@ __pycache__/
 *.db
 delfos.db
 .DS_Store
+backend/data/ai_settings.json

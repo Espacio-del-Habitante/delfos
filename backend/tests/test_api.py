@@ -3,9 +3,16 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from app import app
-from services import finance_store, vision_service
+from integrations import registry
+from integrations import settings as ai_settings
+from integrations.base import IntegrationError
+from integrations.gemini import GeminiIntegration
+from integrations.ollama import OllamaIntegration
+from integrations.openai_compatible import OpenAICompatibleIntegration
+from services import ai_service, finance_store, vision_service
 from services.investment_ledger import parse_date, refine_ocr_row
 
 
@@ -668,6 +675,198 @@ class ApiTestCase(unittest.TestCase):
         self.assertTrue(strongest["quote_missing"])
         self.assertAlmostEqual(strongest["cost_basis_usd"], 200.0)
         self.assertTrue(data["quotes_partial"])
+
+
+class AiSettingsTestCase(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.settings_path = Path(self.tmp.name) / "ai_settings.json"
+        self.original_path = ai_settings.SETTINGS_PATH
+        ai_settings.SETTINGS_PATH = self.settings_path
+        registry.clear_cache()
+        # Aislar de variables de entorno del host (p.ej. GEMINI_API_KEY real).
+        self.env_patch = patch.dict(
+            "os.environ",
+            {
+                "AI_PROVIDER": "local",
+                "AI_CLOUD_ENABLED": "false",
+                "AI_TEXT_MODEL": "",
+                "AI_VISION_MODEL": "",
+                "AI_BASE_URL": "",
+                "GEMINI_API_KEY": "",
+                "AI_API_KEY": "",
+            },
+            clear=False,
+        )
+        self.env_patch.start()
+        self.client = app.test_client()
+
+    def tearDown(self):
+        self.env_patch.stop()
+        ai_settings.SETTINGS_PATH = self.original_path
+        registry.clear_cache()
+        self.tmp.cleanup()
+
+    def test_get_settings_defaults_no_key(self):
+        res = self.client.get("/api/settings/ai")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn("config", data)
+        self.assertIn("providers", data)
+        cfg = data["config"]
+        self.assertFalse(cfg["cloud_enabled"])
+        self.assertEqual(cfg["provider"], "local")
+        self.assertFalse(cfg["has_api_key"])
+        self.assertEqual(cfg["masked_key"], "")
+        self.assertNotIn("api_key", cfg)
+        provider_ids = {p["id"] for p in data["providers"]}
+        self.assertEqual(provider_ids, {"local", "gemini", "compatible"})
+
+    def test_api_key_never_returned_plaintext(self):
+        save = self.client.post(
+            "/api/settings/ai",
+            json={"cloud_enabled": True, "provider": "gemini", "api_key": "SECRET123456"},
+        )
+        self.assertEqual(save.status_code, 200)
+        cfg = save.get_json()["config"]
+        self.assertNotIn("api_key", cfg)
+        self.assertTrue(cfg["has_api_key"])
+        self.assertEqual(cfg["masked_key"], "****3456")
+
+        # En el GET tampoco aparece en claro.
+        body = self.client.get("/api/settings/ai").get_json()["config"]
+        self.assertNotIn("api_key", body)
+        self.assertTrue(body["has_api_key"])
+        # Pero el secreto SÍ persiste en el archivo gitignored para uso interno.
+        stored = json.loads(self.settings_path.read_text(encoding="utf-8"))
+        self.assertEqual(stored["api_key"], "SECRET123456")
+
+    def test_saving_without_key_keeps_previous(self):
+        self.client.post(
+            "/api/settings/ai",
+            json={"cloud_enabled": True, "provider": "gemini", "api_key": "FIRSTKEY9999"},
+        )
+        # Guardar cambios sin enviar api_key no debe borrar la previa.
+        res = self.client.post(
+            "/api/settings/ai",
+            json={"cloud_enabled": True, "provider": "gemini", "text_model": "gemini-2.0-flash"},
+        )
+        cfg = res.get_json()["config"]
+        self.assertTrue(cfg["has_api_key"])
+        self.assertEqual(cfg["masked_key"], "****9999")
+        self.assertEqual(cfg["text_model"], "gemini-2.0-flash")
+        stored = json.loads(self.settings_path.read_text(encoding="utf-8"))
+        self.assertEqual(stored["api_key"], "FIRSTKEY9999")
+
+    def test_registry_selects_local_when_cloud_disabled(self):
+        ai_settings.save_config({"cloud_enabled": False, "provider": "gemini"})
+        registry.clear_cache()
+        integration = registry.get_active_integration()
+        self.assertIsInstance(integration, OllamaIntegration)
+
+    def test_registry_selects_gemini(self):
+        ai_settings.save_config({"cloud_enabled": True, "provider": "gemini", "api_key": "k"})
+        registry.clear_cache()
+        integration = registry.get_active_integration()
+        self.assertIsInstance(integration, GeminiIntegration)
+
+    def test_registry_selects_compatible(self):
+        ai_settings.save_config(
+            {"cloud_enabled": True, "provider": "compatible", "api_key": "k", "base_url": "https://x/v1"}
+        )
+        registry.clear_cache()
+        integration = registry.get_active_integration()
+        self.assertIsInstance(integration, OpenAICompatibleIntegration)
+        self.assertEqual(integration.base_url, "https://x/v1")
+
+    def test_test_endpoint_reports_status_without_network(self):
+        fake = OllamaIntegration()
+        with patch.object(OllamaIntegration, "health", return_value={"ok": True, "provider": "local"}):
+            res = self.client.post("/api/settings/ai/test", json={"cloud_enabled": False})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.get_json()["ok"])
+        del fake
+
+    def test_analyze_text_uses_active_integration(self):
+        payload = json.dumps(
+            {
+                "expenses": [{"amount": 18000, "currency": "COP", "category": "Transporte", "description": "Taxi"}],
+                "investments": [],
+                "notes": [],
+                "reflection": "1 gasto",
+            }
+        )
+
+        class FakeIntegration:
+            def complete_json(self, prompt):
+                return payload
+
+            def health(self):
+                return {"ok": True}
+
+        with patch("services.ai_service.registry.get_active_integration", return_value=FakeIntegration()):
+            result = ai_service.analyze_text("taxi 18 mil")
+        self.assertTrue(result["ai_available"])
+        self.assertEqual(result["counts"]["expenses"], 1)
+        self.assertEqual(result["expenses"][0]["amount"], 18000)
+
+    def test_analyze_text_fallback_on_integration_error(self):
+        class FailingIntegration:
+            def complete_json(self, prompt):
+                raise IntegrationError("boom", hint="revisa la key")
+
+            def health(self):
+                return {"ok": False, "error": "down"}
+
+        with patch("services.ai_service.registry.get_active_integration", return_value=FailingIntegration()):
+            result = ai_service.analyze_text("algo")
+        self.assertFalse(result["ai_available"])
+        self.assertTrue(result.get("can_save_as_note"))
+        self.assertIn("boom", result["error"])
+        self.assertEqual(result["hint"], "revisa la key")
+
+    def test_ocr_image_uses_active_integration(self):
+        payload = json.dumps(
+            {
+                "rows": [
+                    {
+                        "operation_type": "Compra",
+                        "date": "2024-11-14",
+                        "asset": "VOO",
+                        "quantity": 0.5,
+                        "amount_usd": 100,
+                        "total": 100,
+                    }
+                ]
+            }
+        )
+
+        class FakeVision:
+            def vision_json(self, prompt, image_b64, mime="image/png"):
+                return payload
+
+            def health(self):
+                return {"ok": True}
+
+        with patch("services.vision_service.registry.get_active_integration", return_value=FakeVision()):
+            result = vision_service.ocr_image(b"fakeimage", "image/png")
+        self.assertTrue(result["ai_available"])
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["rows"][0]["asset"], "VOO")
+
+    def test_ocr_image_fallback_on_integration_error(self):
+        class FailingVision:
+            def vision_json(self, prompt, image_b64, mime="image/png"):
+                raise IntegrationError("no vision", hint="configura el modelo")
+
+            def health(self):
+                return {"ok": False}
+
+        with patch("services.vision_service.registry.get_active_integration", return_value=FailingVision()):
+            result = vision_service.ocr_image(b"fakeimage", "image/png")
+        self.assertFalse(result["ai_available"])
+        self.assertIn("no vision", result["error"])
+        self.assertEqual(result["hint"], "configura el modelo")
 
 
 class OcrRefinementTestCase(unittest.TestCase):

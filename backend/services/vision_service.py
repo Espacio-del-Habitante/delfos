@@ -3,11 +3,10 @@
 import base64
 import json
 import re
-import urllib.error
-import urllib.request
 from typing import Any
 
-import config
+from integrations import registry
+from integrations.base import IntegrationError
 from services.investment_ledger import (
     normalize_ocr_row_fields,
     refine_ocr_row,
@@ -77,42 +76,6 @@ def normalize_ocr_row(row: dict[str, Any]) -> dict[str, Any]:
     return refined
 
 
-def _call_ollama_vision(image_b64: str) -> str:
-    payload = json.dumps(
-        {
-            "model": config.OLLAMA_VISION_MODEL,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": VISION_PROMPT,
-                    "images": [image_b64],
-                }
-            ],
-            "stream": False,
-            "format": "json",
-        }
-    ).encode("utf-8")
-    req = urllib.request.Request(
-        f"{config.OLLAMA_URL}/api/chat",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=config.OLLAMA_TIMEOUT) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        if exc.code == 404:
-            raise ConnectionError(
-                f"Modelo '{config.OLLAMA_VISION_MODEL}' no encontrado. "
-                f"Ejecuta: ollama pull {config.OLLAMA_VISION_MODEL}"
-            ) from exc
-        raise ConnectionError(f"Ollama respondió HTTP {exc.code}: {detail}") from exc
-    message = body.get("message") or {}
-    return message.get("content") or body.get("response") or ""
-
-
 def ocr_image(image_bytes: bytes, content_type: str = "image/png") -> dict[str, Any]:
     if content_type not in ALLOWED_MIME:
         return {
@@ -140,8 +103,10 @@ def ocr_image(image_bytes: bytes, content_type: str = "image/png") -> dict[str, 
         }
 
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
+    mime = "image/jpeg" if content_type == "image/jpg" else content_type
     try:
-        raw = _call_ollama_vision(image_b64)
+        integration = registry.get_active_integration()
+        raw = integration.vision_json(VISION_PROMPT, image_b64, mime)
         parsed = _extract_json(raw)
         raw_rows = parsed.get("rows") or []
         if isinstance(raw_rows, dict):
@@ -164,14 +129,14 @@ def ocr_image(image_bytes: bytes, content_type: str = "image/png") -> dict[str, 
             "count": len(rows),
             "ai_available": True,
         }
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+    except IntegrationError as exc:
         return {
             "rows": [],
             "warnings": [],
             "count": 0,
             "ai_available": False,
-            "error": f"No se pudo contactar Ollama: {exc}",
-            "hint": f"Verifica OLLAMA_URL y OLLAMA_VISION_MODEL ({config.OLLAMA_VISION_MODEL})",
+            "error": f"No se pudo contactar el modelo de visión: {exc}",
+            "hint": exc.hint or "Revisa la configuración de IA en Configuración.",
         }
     except (json.JSONDecodeError, ValueError, KeyError) as exc:
         return {

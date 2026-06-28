@@ -1,9 +1,9 @@
 import json
 import re
-import urllib.error
-import urllib.request
 
-import config
+from integrations import registry
+from integrations.base import IntegrationError
+from integrations.ollama import OllamaIntegration
 from services.finance_store import get_accounts, get_categories, match_account_hint
 
 
@@ -270,79 +270,9 @@ def _fallback_note_preview(text):
     }
 
 
-def _model_found(models, model_name):
-    model_base = model_name.split(":")[0]
-    return any(
-        m.get("name", "") == model_name or m.get("name", "").split(":")[0] == model_base
-        for m in models
-    )
-
-
 def check_ollama_connection():
-    try:
-        req = urllib.request.Request(f"{config.OLLAMA_URL}/api/tags", method="GET")
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-        models = body.get("models", [])
-        model_found = _model_found(models, config.OLLAMA_MODEL)
-        vision_model_found = _model_found(models, config.OLLAMA_VISION_MODEL)
-        return {
-            "ok": True,
-            "url": config.OLLAMA_URL,
-            "model": config.OLLAMA_MODEL,
-            "model_found": model_found,
-            "vision_model": config.OLLAMA_VISION_MODEL,
-            "vision_model_found": vision_model_found,
-            "available_models": [m.get("name") for m in models],
-        }
-    except urllib.error.URLError as exc:
-        return {
-            "ok": False,
-            "url": config.OLLAMA_URL,
-            "model": config.OLLAMA_MODEL,
-            "vision_model": config.OLLAMA_VISION_MODEL,
-            "vision_model_found": False,
-            "error": f"No se pudo conectar a Ollama en {config.OLLAMA_URL}: {exc.reason}",
-            "hint": "Abre la app Ollama o ejecuta 'ollama serve'. Luego: ollama pull " + config.OLLAMA_MODEL,
-        }
-    except TimeoutError:
-        return {
-            "ok": False,
-            "url": config.OLLAMA_URL,
-            "model": config.OLLAMA_MODEL,
-            "vision_model": config.OLLAMA_VISION_MODEL,
-            "vision_model_found": False,
-            "error": f"Timeout al conectar con {config.OLLAMA_URL}",
-            "hint": "Verifica que Ollama esté corriendo.",
-        }
-
-
-def _call_ollama(prompt):
-    payload = json.dumps(
-        {
-            "model": config.OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-        }
-    ).encode("utf-8")
-    req = urllib.request.Request(
-        f"{config.OLLAMA_URL}/api/generate",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=config.OLLAMA_TIMEOUT) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        if exc.code == 404:
-            raise ConnectionError(
-                f"Modelo '{config.OLLAMA_MODEL}' no encontrado. Ejecuta: ollama pull {config.OLLAMA_MODEL}"
-            ) from exc
-        raise ConnectionError(f"Ollama respondió HTTP {exc.code}: {detail}") from exc
-    return body.get("response", "")
+    """Compat: health del adapter Ollama (usado por /api/ollama/health y el gate de OCR local)."""
+    return OllamaIntegration().health()
 
 
 def analyze_text(text):
@@ -350,23 +280,28 @@ def analyze_text(text):
     prompt = build_finance_prompt(text, accounts)
 
     try:
-        raw = _call_ollama(prompt)
+        integration = registry.get_active_integration()
+        raw = integration.complete_json(prompt)
         analysis = _extract_json(raw)
         preview = analysis_to_preview(analysis, accounts)
         preview["items"] = preview["expenses"] + preview["investments"] + preview["notes"]
         preview["counts"]["total"] = len(preview["items"])
+        
         if not preview["items"]:
             preview["reflection"] = preview["reflection"] or "No detecté movimientos claros en el texto."
             preview["can_save_as_note"] = True
         return preview
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-        status = check_ollama_connection()
-        hint = status.get("hint") or f"Verifica OLLAMA_URL y OLLAMA_MODEL en .env ({config.OLLAMA_URL})"
-        message = str(exc) if str(exc) else status.get("error", "Conexión fallida")
+    except IntegrationError as exc:
+        try:
+            status = integration.health()
+        except Exception:  # noqa: BLE001 - health no debe romper el fallback
+            status = {}
+        hint = exc.hint or status.get("hint") or "Revisa la configuración de IA en Configuración."
+        message = str(exc) or status.get("error", "Conexión fallida")
         fallback = _fallback_note_preview(text)
-        fallback["error"] = f"Delfos no pudo contactar el modelo local. {message}"
+        fallback["error"] = f"Delfos no pudo contactar el modelo de IA. {message}"
         fallback["hint"] = hint
-        fallback["ollama_status"] = status
+        fallback["ai_status"] = status
         return fallback
     except (json.JSONDecodeError, ValueError, KeyError) as exc:
         fallback = _fallback_note_preview(text)

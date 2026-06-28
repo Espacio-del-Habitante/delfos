@@ -20,6 +20,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 import type {
+  AiHealthStatus,
+  AiSettingsPatch,
+  AiSettingsResponse,
   AnalysisPreview,
   BulkImportKind,
   Category,
@@ -49,6 +52,26 @@ export function getOllamaHealth(): Promise<OllamaHealth> {
   return fetch(`${API_BASE}/api/ollama/health`)
     .then((r) => r.json())
     .then((data) => data as OllamaHealth);
+}
+
+export function getAiSettings(): Promise<AiSettingsResponse> {
+  return fetchJson<AiSettingsResponse>('/api/settings/ai');
+}
+
+export function saveAiSettings(patch: AiSettingsPatch): Promise<AiSettingsResponse> {
+  return fetchJson<AiSettingsResponse>('/api/settings/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function testAiConnection(patch: AiSettingsPatch): Promise<AiHealthStatus> {
+  return fetchJson<AiHealthStatus>('/api/settings/ai/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
 }
 
 export function createAccount(body: Record<string, unknown>): Promise<FinancePayload & { account?: unknown }> {

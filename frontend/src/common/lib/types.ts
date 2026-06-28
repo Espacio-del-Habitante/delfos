@@ -257,6 +257,54 @@ export interface OllamaHealth {
   hint?: string;
 }
 
+export type AiProviderId = 'local' | 'gemini' | 'compatible';
+
+export interface AiSettings {
+  provider: AiProviderId;
+  cloud_enabled: boolean;
+  text_model: string;
+  vision_model: string;
+  base_url: string;
+  has_api_key: boolean;
+  masked_key: string;
+  effective_provider?: AiProviderId;
+}
+
+export interface AiProviderOption {
+  id: AiProviderId;
+  label: string;
+  needs_api_key: boolean;
+  needs_base_url: boolean;
+  suggested_text_model: string;
+  suggested_vision_model: string;
+}
+
+export interface AiSettingsResponse {
+  config: AiSettings;
+  providers: AiProviderOption[];
+}
+
+export interface AiHealthStatus {
+  ok: boolean;
+  provider?: string;
+  model?: string;
+  model_found?: boolean;
+  vision_model?: string;
+  vision_model_found?: boolean;
+  url?: string;
+  error?: string;
+  hint?: string;
+}
+
+export interface AiSettingsPatch {
+  provider?: AiProviderId;
+  cloud_enabled?: boolean;
+  text_model?: string;
+  vision_model?: string;
+  base_url?: string;
+  api_key?: string;
+}
+
 export interface PortfolioPosition {
   asset: string;
   quantity: number;
