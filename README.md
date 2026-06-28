@@ -119,6 +119,21 @@ npm run build
 
 Output: `frontend/dist/` (served by nginx in Docker).
 
+## App de escritorio (.exe portátil, Windows)
+
+Genera un único ejecutable que sirve el frontend y la API en el mismo proceso (sin Docker, sin Node, sin nginx):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build_exe.ps1
+```
+
+- Resultado: `backend\dist\Delfos.exe` (~38 MB). Doble clic → arranca en `http://localhost:5000` y abre el navegador.
+- Datos persistentes en `%LOCALAPPDATA%\Delfos\data` (sobrevive a cierres y reinstalaciones).
+- **IA**: para análisis/OCR sin instalar Ollama, configura un proveedor en la nube (Gemini / OpenRouter) desde **Configuración** la primera vez. El registro manual funciona sin IA.
+- Internamente usa `waitress` (servidor WSGI puro-Python; `gunicorn` no corre en Windows).
+
+> El `.exe` es específico de Windows. Para Mac/Linux hay que compilar en cada SO.
+
 ## API notes
 
 - Manual notes: `POST /api/note` (singular)

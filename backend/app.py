@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 import io
 
@@ -18,14 +18,29 @@ def finance_response(extra=None):
     return jsonify(payload)
 
 
-@app.route("/")
-def index():
-    return jsonify(
-        {
-            "service": "delfos-api",
-            "docs": "Use frontend at http://localhost:4321",
-        }
-    )
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_frontend(path):
+    """Sirve el frontend compilado (frontend/dist). Las rutas /api/* las atienden
+    las vistas específicas, que tienen prioridad sobre este catch-all."""
+    if path == "api" or path.startswith("api/"):
+        abort(404)
+
+    index_html = config.FRONTEND_DIR / "index.html"
+    if not index_html.is_file():
+        # Sin build (dev con Astro en :4321): no hay nada que servir aquí.
+        return jsonify({"service": "delfos-api", "docs": "Frontend dev en http://localhost:4321"})
+
+    requested = config.FRONTEND_DIR / path
+    if path and requested.is_file():
+        return send_from_directory(config.FRONTEND_DIR, path)
+
+    # Páginas multipágina de Astro (p.ej. /inversiones -> inversiones/index.html).
+    nested = config.FRONTEND_DIR / path / "index.html"
+    if path and nested.is_file():
+        return send_from_directory(config.FRONTEND_DIR / path, "index.html")
+
+    return send_from_directory(config.FRONTEND_DIR, "index.html")
 
 
 @app.route("/api/finance")
@@ -459,5 +474,21 @@ def confirm_analysis_route():
     return finance_response({"saved": result["saved"], "created": result["created"]})
 
 
+def _serve_packaged():
+    """Servidor de producción para el .exe: waitress + abrir el navegador."""
+    import threading
+    import webbrowser
+
+    from waitress import serve
+
+    url = f"http://localhost:{config.FLASK_PORT}"
+    threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+    print(f"Delfos corriendo en {url} (cierra esta ventana para detenerlo)")
+    serve(app, host="127.0.0.1", port=config.FLASK_PORT)
+
+
 if __name__ == "__main__":
-    app.run(debug=config.FLASK_DEBUG, host=config.FLASK_HOST, port=config.FLASK_PORT)
+    if config.FROZEN or not config.FLASK_DEBUG:
+        _serve_packaged()
+    else:
+        app.run(debug=True, host=config.FLASK_HOST, port=config.FLASK_PORT)

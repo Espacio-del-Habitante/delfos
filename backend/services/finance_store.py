@@ -1,9 +1,10 @@
 import json
 from copy import deepcopy
 from datetime import datetime, timezone
-from pathlib import Path
 
-DATA_PATH = Path(__file__).parent.parent / "data" / "delfos_data.json"
+import config
+
+DATA_PATH = config.DATA_DIR / "delfos_data.json"
 
 DEFAULT_CATEGORIES = [
     {"id": "cat_comida", "name": "Comida", "emoji": "🍽️", "kind": "expense"},

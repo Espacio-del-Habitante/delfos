@@ -7,11 +7,10 @@ nunca se serializa al cliente: la UI recibe `has_api_key` + `masked_key`.
 
 import json
 import os
-from pathlib import Path
 
 import config
 
-SETTINGS_PATH = Path(__file__).parent.parent / "data" / "ai_settings.json"
+SETTINGS_PATH = config.DATA_DIR / "ai_settings.json"
 
 VALID_PROVIDERS = ("local", "gemini", "compatible")
 

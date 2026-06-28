@@ -303,6 +303,16 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 404)
         self.assertEqual(res.get_json()["error"], "Account not found")
 
+    def test_frontend_catch_all_does_not_swallow_unknown_api(self):
+        # El catch-all que sirve el frontend no debe devolver index.html para /api/*.
+        res = self.client.get("/api/ruta-que-no-existe")
+        self.assertEqual(res.status_code, 404)
+
+    def test_root_serves_without_crashing(self):
+        # Con o sin build del frontend, la raíz responde 200 (no 500).
+        res = self.client.get("/")
+        self.assertEqual(res.status_code, 200)
+
     def test_export_csv_header_and_rows(self):
         finance_store.add_investment(
             {
