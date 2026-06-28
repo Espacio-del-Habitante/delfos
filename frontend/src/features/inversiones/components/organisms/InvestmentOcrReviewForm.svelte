@@ -118,11 +118,11 @@
         Fila {activeIndex + 1} de {rows.length}
       </p>
       <div class="ocr-review-card__nav">
-        <button type="button" class="icon-button" disabled={!canGoPrev} on:click={goPrev} aria-label="Fila anterior">
+        <button type="button" class="secondary-button ocr-review-card__nav-btn" disabled={!canGoPrev} on:click={goPrev} aria-label="Fila anterior">
           <IconChevron direction="left" size={18} />
           Anterior
         </button>
-        <button type="button" class="icon-button" disabled={!canGoNext} on:click={goNext} aria-label="Fila siguiente">
+        <button type="button" class="secondary-button ocr-review-card__nav-btn" disabled={!canGoNext} on:click={goNext} aria-label="Fila siguiente">
           Siguiente
           <IconChevron direction="right" size={18} />
         </button>

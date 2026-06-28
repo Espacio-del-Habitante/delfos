@@ -93,7 +93,7 @@
       <CategorySelector
         {categories}
         kind="income"
-        {selected}
+        selected={{ name: category, emoji: categoryEmoji }}
         on:change={(e) => {
           category = e.detail.name;
           categoryEmoji = e.detail.emoji;

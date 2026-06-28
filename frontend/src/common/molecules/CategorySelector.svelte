@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import CustomSelect from './CustomSelect.svelte';
   import { categoriesForKind, type CategorySelection } from '@common/lib/categories';
-  import type { Category } from '@common/lib/types';
+  import type { Category, SelectOption } from '@common/lib/types';
 
   export let categories: Category[] = [];
   export let kind: string = 'expense';
@@ -11,7 +11,7 @@
   const dispatch = createEventDispatcher<{ change: CategorySelection; requestCreate: { text: string } }>();
 
   let selectedValue = '';
-  let unmatchedName = '';
+  let lastExternalKey = '';
 
   $: filtered = categoriesForKind(categories, kind);
   $: options = [
@@ -20,34 +20,43 @@
     { value: '__new__', label: '+ Crear nueva categoría' },
   ];
 
-  $: {
-    selectedValue = '';
-    unmatchedName = '';
-    if (selected?.id) {
-      selectedValue = selected.id;
-    } else if (selected?.name) {
-      const match = filtered.find((c) => c.name.toLowerCase() === selected.name!.toLowerCase());
-      if (match) selectedValue = match.id;
-      else unmatchedName = selected.name;
+  function resolveId(sel: typeof selected, list: Category[]): string {
+    if (!sel) return '';
+    if (sel.id) return sel.id;
+    if (sel.name) {
+      const match = list.find((c) => c.name.toLowerCase() === sel.name!.toLowerCase());
+      return match?.id ?? '';
     }
+    return '';
   }
 
-  function notify() {
-    if (!selectedValue) {
-      dispatch('change', { name: '', emoji: '' });
-      return;
-    }
-    const cat = categories.find((c) => c.id === selectedValue);
-    if (cat) dispatch('change', { id: cat.id, name: cat.name, emoji: cat.emoji });
+  // Sync from parent only when the external selection identity changes.
+  $: externalKey = `${selected?.id ?? ''}|${selected?.name ?? ''}|${kind}`;
+  $: if (externalKey !== lastExternalKey) {
+    lastExternalKey = externalKey;
+    selectedValue = resolveId(selected, filtered);
+  }
+  // Categories may load after the first render.
+  $: if (selected?.name && !selectedValue && filtered.length) {
+    const id = resolveId(selected, filtered);
+    if (id) selectedValue = id;
   }
 
-  function onSelectChange(e: CustomEvent<{ value: string }>) {
+  function onSelectChange(e: CustomEvent<{ value: string; option?: SelectOption & { name?: string; emoji?: string } }>) {
     if (e.detail.value === '__new__') {
-      dispatch('requestCreate', { text: unmatchedName });
+      dispatch('requestCreate', { text: selected?.name ?? '' });
       return;
     }
     selectedValue = e.detail.value;
-    notify();
+    const cat = categories.find((c) => c.id === selectedValue);
+    if (cat) {
+      dispatch('change', { id: cat.id, name: cat.name, emoji: cat.emoji });
+      return;
+    }
+    const opt = e.detail.option;
+    if (opt?.name) {
+      dispatch('change', { name: opt.name, emoji: opt.emoji ?? '' });
+    }
   }
 </script>
 
@@ -55,7 +64,7 @@
   <CustomSelect
     class="category-selector__select"
     {options}
-    value={selectedValue}
+    bind:value={selectedValue}
     placeholder="Seleccionar categoría"
     on:change={onSelectChange}
   />

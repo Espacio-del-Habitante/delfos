@@ -358,6 +358,7 @@ def investments_ocr():
     content_type = (uploaded.content_type or "image/png").split(";")[0].strip().lower()
     result = vision_service.analyze_investment_image(image_bytes, content_type)
     status = 200 if result.get("ai_available", True) else 503
+    print("result", result)
     return jsonify(result), status
 
 

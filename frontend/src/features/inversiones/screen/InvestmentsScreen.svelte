@@ -10,6 +10,8 @@
   import InvestmentExportModal from '@features/inversiones/components/molecules/InvestmentExportModal.svelte';
   import InvestmentNewRowModal from '@features/inversiones/components/molecules/InvestmentNewRowModal.svelte';
   import EditModal from '@common/organisms/EditModal.svelte';
+  import BottomNav from '@common/molecules/BottomNav.svelte';
+  import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import { deleteInvestment, fetchPortfolioInsights } from '@common/lib/api';
   import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
@@ -119,7 +121,10 @@
 
   <div class="investments-page-top">
     <section class="investments-hero section">
-      <h1 class="investments-hero__title">Inversiones</h1>
+      <div class="hero-titlebar">
+        <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
+        <h1 class="investments-hero__title">Inversiones</h1>
+      </div>
       <p class="investments-hero__subtitle">Libro de operaciones, análisis visual e importación rápida.</p>
       <InvestmentInsights insights={portfolioInsights} loading={portfolioLoading} />
     </section>
@@ -144,28 +149,7 @@
     />
   </div>
 
-  <nav class="bottom-nav" aria-label="Navegación principal">
-    <a href="/" class="bottom-nav__item">
-      <span class="bottom-nav__icon" aria-hidden="true">⌂</span>
-      Inicio
-    </a>
-    <a href="/inversiones" class="bottom-nav__item is-active">
-      <span class="bottom-nav__icon" aria-hidden="true">📈</span>
-      Inversiones
-    </a>
-    <a href="/#movimientos" class="bottom-nav__item">
-      <span class="bottom-nav__icon" aria-hidden="true">≡</span>
-      Movimientos
-    </a>
-    <a href="/#registrar" class="bottom-nav__item">
-      <span class="bottom-nav__icon" aria-hidden="true">+</span>
-      Registrar
-    </a>
-    <a href="/configuracion" class="bottom-nav__item">
-      <span class="bottom-nav__icon" aria-hidden="true">⚙</span>
-      Ajustes
-    </a>
-  </nav>
+  <BottomNav active="inversiones" />
 </div>
 
 <EditModal

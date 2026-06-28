@@ -85,21 +85,67 @@ def excel_serial_to_iso(serial: float | int) -> str:
     return (base + timedelta(days=float(serial))).strftime("%Y-%m-%d")
 
 
-def _parse_spanish_date(text: str) -> str | None:
-    cleaned = re.sub(r"\bde\b", " ", text.strip().lower())
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    match = re.match(r"^(\d{1,2})\s+([a-záéíóúñ]+)\s+(\d{4})$", cleaned)
-    if not match:
-        return None
-    day = int(match.group(1))
-    month_token = match.group(2).replace("á", "a").replace("é", "e").replace("í", "i")
-    month_token = month_token.replace("ó", "o").replace("ú", "u")
-    year = int(match.group(3))
-    month = SPANISH_MONTHS.get(month_token) or SPANISH_MONTHS.get(month_token[:3])
-    if not month:
-        return None
+# ponytail: heuristic parser for common Colombian/Spanish broker date strings
+# (ISO, dd/mm/yyyy, dd-mm-yyyy, "22 jun 2026", "22 de junio de 2026", month-first,
+# 2-digit years, with label prefixes/trailing time). Ceiling: no English month
+# names and no day/month disambiguation beyond day-first numeric. Upgrade path:
+# swap in `babel`/`dateparser` if locales/ambiguous formats grow.
+_ISO_RE = re.compile(r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})")
+_NUM_DMY_RE = re.compile(r"(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})")
+_SPANISH_DMY_RE = re.compile(
+    r"(\d{1,2})[\s/-]*(?:de\s+)?([a-záéíóúñ]{3,})\.?[\s/-]*(?:de\s+)?(\d{2,4})"
+)
+_SPANISH_MDY_RE = re.compile(r"([a-záéíóúñ]{3,})\.?[\s/-]*(\d{1,2})[\s,/-]*(\d{2,4})")
+
+_ACCENTS = str.maketrans("áéíóúü", "aeiouu")
+
+
+def _norm_year(year: int) -> int:
+    return year + 2000 if year < 100 else year
+
+
+def _month_number(token: str) -> int | None:
+    token = token.translate(_ACCENTS)
+    return SPANISH_MONTHS.get(token) or SPANISH_MONTHS.get(token[:3])
+
+
+def _build_date(year: int, month: int, day: int) -> str | None:
     try:
-        return datetime(year, month, day).strftime("%Y-%m-%d")
+        return datetime(_norm_year(year), month, day).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _parse_date_text(text: str) -> str | None:
+    lowered = text.strip().lower()
+    if not lowered:
+        return None
+    iso = _ISO_RE.search(lowered)
+    if iso:
+        built = _build_date(int(iso.group(1)), int(iso.group(2)), int(iso.group(3)))
+        if built:
+            return built
+    dmy = _SPANISH_DMY_RE.search(lowered)
+    if dmy:
+        month = _month_number(dmy.group(2))
+        if month:
+            built = _build_date(int(dmy.group(3)), month, int(dmy.group(1)))
+            if built:
+                return built
+    mdy = _SPANISH_MDY_RE.search(lowered)
+    if mdy:
+        month = _month_number(mdy.group(1))
+        if month:
+            built = _build_date(int(mdy.group(3)), month, int(mdy.group(2)))
+            if built:
+                return built
+    num = _NUM_DMY_RE.search(lowered)
+    if num:
+        built = _build_date(int(num.group(3)), int(num.group(2)), int(num.group(1)))
+        if built:
+            return built
+    try:
+        return datetime.fromisoformat(lowered.replace("z", "+00:00")[:19]).strftime("%Y-%m-%d")
     except ValueError:
         return None
 
@@ -114,18 +160,9 @@ def parse_date(value: Any) -> str | None:
     text = str(value).strip()
     if not text:
         return None
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
-        try:
-            return datetime.strptime(text[:10], fmt).strftime("%Y-%m-%d")
-        except ValueError:
-            continue
-    spanish = _parse_spanish_date(text)
-    if spanish:
-        return spanish
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")[:19]).strftime("%Y-%m-%d")
-    except ValueError:
-        pass
+    parsed = _parse_date_text(text)
+    if parsed:
+        return parsed
     try:
         return excel_serial_to_iso(float(text))
     except ValueError:

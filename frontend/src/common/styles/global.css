@@ -47,6 +47,18 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  width: 100%;
+  /* Guard at the ROOT: stop any stray wide descendant from expanding the
+     layout viewport (which would zoom-out/pin content left on mobile and leave
+     a gutter). `clip` doesn't create a scroll container, so sticky still works. */
+  overflow-x: clip;
+}
+
+/* Smooth in-page/cross-page anchor scrolling (e.g. /#cuentas), motion-safe only */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 body {
@@ -59,6 +71,10 @@ body {
     radial-gradient(circle at top right, rgba(139, 92, 246, 0.14), transparent 28%),
     var(--bg);
   -webkit-font-smoothing: antialiased;
+  /* Guard: a stray wide child must not expand the layout viewport and shove
+     content left on mobile. `clip` (not `hidden`) avoids making body a
+     scroll container, so sticky table headers keep working. */
+  overflow-x: clip;
 }
 
 img,
@@ -81,16 +97,27 @@ button {
 
 /* Shell â€” web-first, responsive */
 
+/* Mobile-first: full width with comfortable gutters, capped + centered on
+   desktop. Bottom padding leaves room for the fixed bottom-nav on mobile. */
 .app-shell {
-  width: min(100% - 32px, 1180px);
+  width: 100%;
+  max-width: 1180px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 16px 0 48px;
+  padding: 12px 16px 100px;
+}
+
+@media (min-width: 861px) {
+  .app-shell {
+    padding: 16px 24px 48px;
+  }
 }
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
+  /* minmax(0, …) so wide/unbreakable content can't push a track past the
+     container width (default `1fr` == `minmax(auto, 1fr)` overflows). */
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   gap: 24px;
   align-items: start;
 }
@@ -516,13 +543,8 @@ button {
 }
 
 @media (max-width: 860px) {
-  .app-shell {
-    width: min(100% - 20px, 680px);
-    padding: 12px 0 100px;
-  }
-
   .dashboard-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -549,6 +571,48 @@ button {
   font-size: 0.875rem;
   color: var(--text-muted);
   line-height: 1.4;
+}
+
+/* Back affordance — a chevron sitting just left of the screen title */
+.hero-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 0.35rem;
+}
+
+.hero-titlebar > h1 {
+  margin: 0;
+}
+
+.hero-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: -6px;
+  padding: 4px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: transform 160ms var(--ease-out), color 160ms var(--ease-out), background 160ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hero-back:hover {
+    color: var(--text-strong);
+    background: rgba(15, 23, 42, 0.05);
+  }
+}
+
+.hero-back:active {
+  transform: scale(0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-back:active {
+    transform: none;
+  }
 }
 
 .icon-button {
@@ -672,17 +736,18 @@ button {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
 @media (min-width: 861px) {
   .summary-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 .summary-card {
+  min-width: 0;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -691,6 +756,10 @@ button {
   padding: 18px;
   box-shadow: var(--shadow-soft);
   transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+
+.summary-card__value {
+  overflow-wrap: anywhere;
 }
 
 .summary-card:hover {
@@ -946,10 +1015,12 @@ button {
 }
 
 .preview-item {
-  padding: 16px;
+  overflow: hidden;
+  padding: 0;
   border-radius: var(--radius-sm);
-  background: rgba(246, 247, 251, 0.9);
+  background: white;
   border: 1px solid var(--border-soft);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .preview-item__type {
@@ -973,14 +1044,62 @@ button {
   color: var(--text-muted);
 }
 
-.preview-item--expense { border-left: 3px solid var(--danger); }
-.preview-item--investment { border-left: 3px solid var(--primary); }
-.preview-item--note { border-left: 3px solid var(--purple); }
+.preview-item--expense { border-top: 3px solid var(--danger); }
+.preview-item--investment { border-top: 3px solid var(--primary); }
+.preview-item--note { border-top: 3px solid var(--purple); }
+
+.preview-item__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  background: rgba(246, 247, 251, 0.65);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.preview-item__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.preview-item__headings {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.preview-item__kind {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.preview-item__amount-display {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  line-height: 1.2;
+}
+
+.preview-item__summary {
+  margin: 0;
+  padding: 10px 16px 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
 
 .preview-item__fields {
   display: grid;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  margin-top: 0;
 }
 
 .preview-item__fields label {
@@ -1018,7 +1137,7 @@ button {
 
 .preview-item__row {
   display: grid;
-  grid-template-columns: 1fr 72px;
+  grid-template-columns: minmax(0, 1fr) 96px;
   gap: 10px;
 }
 
@@ -1037,11 +1156,15 @@ button {
 
 .accounts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  /* auto-fit (not auto-fill) collapses empty tracks, so a single account card
+     fills the row instead of sitting cramped beside a phantom empty column.
+     min(160px, 100%) keeps the track from ever exceeding a narrow container. */
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
   gap: 12px;
 }
 
 .account-card {
+  min-width: 0;
   padding: 16px;
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.82);
@@ -1049,6 +1172,11 @@ button {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
   transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
   position: relative;
+}
+
+.account-card__balance,
+.account-card__name {
+  overflow-wrap: anywhere;
 }
 
 .account-card__header {
@@ -1283,6 +1411,9 @@ button {
 
 .preview-group {
   margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .preview-group__title {
@@ -1650,7 +1781,7 @@ button {
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
 }
 
-/* Bottom nav â€” mobile only */
+/* Bottom nav — mobile only: a compact icon-only floating pill */
 
 .bottom-nav {
   display: none;
@@ -1660,49 +1791,55 @@ button {
   .bottom-nav {
     display: flex;
     position: fixed;
-    bottom: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
-    width: min(calc(100% - 32px), 680px);
-    justify-content: space-around;
-    align-items: center;
-    padding: 10px 8px;
+    gap: 6px;
+    padding: 6px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
     z-index: 100;
   }
 }
 
 .bottom-nav__item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  border-radius: 999px;
-  font-size: 0.65rem;
-  font-weight: 600;
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
   color: var(--text-muted);
-  transition: color 180ms var(--ease), background 180ms var(--ease);
+  text-decoration: none;
+  transition:
+    color 160ms var(--ease-out),
+    background 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
 }
 
-.bottom-nav__item:hover {
-  color: var(--text-strong);
+@media (hover: hover) and (pointer: fine) {
+  .bottom-nav__item:hover {
+    color: var(--text-strong);
+    background: rgba(15, 23, 42, 0.05);
+  }
+}
+
+.bottom-nav__item:active {
+  transform: scale(0.92);
 }
 
 .bottom-nav__item.is-active {
   color: var(--primary);
-  background: rgba(79, 70, 229, 0.08);
+  background: rgba(79, 70, 229, 0.12);
 }
 
-.bottom-nav__icon {
-  font-size: 1.15rem;
-  line-height: 1;
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav__item:active {
+    transform: none;
+  }
 }
 
 /* Utilities */
@@ -2325,6 +2462,51 @@ body.modal-open {
   .modal__actions-right .primary-button,
   .modal__actions-right .secondary-button {
     flex: 1;
+  }
+}
+
+/* Mobile: modals become bottom sheets — slide up, rounded top, drag handle.
+   Reuses the EmojiPicker sheet technique (translateY + 520px breakpoint). */
+.modal__grabber {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .modal-overlay {
+    place-items: end stretch;
+    padding: 0;
+  }
+
+  .modal,
+  .modal--narrow {
+    width: 100%;
+    max-width: 100%;
+    max-height: 90dvh;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    transform: translateY(100%) translateZ(0);
+  }
+
+  .modal.is-visible {
+    transform: translateY(0) translateZ(0);
+  }
+
+  .modal.is-exiting {
+    transform: translateY(100%) translateZ(0);
+  }
+
+  .modal__grabber {
+    display: block;
+    flex-shrink: 0;
+    width: 40px;
+    height: 4px;
+    margin: 8px auto 2px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.18);
+  }
+
+  .modal__body,
+  .modal__footer {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -3731,8 +3913,8 @@ select[data-native-select-hidden] {
 }
 
 .ocr-review-card__meta {
-  flex: 1;
-  min-width: 180px;
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
 .ocr-review-card__counter {
@@ -3744,7 +3926,15 @@ select[data-native-select-hidden] {
 .ocr-review-card__nav {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
+}
+
+/* Paginator buttons: split the row evenly, never truncate the label */
+.ocr-review-card__nav-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  white-space: nowrap;
+  padding-inline: 0.85rem;
 }
 
 .ocr-review-card__warnings {
@@ -3767,7 +3957,9 @@ select[data-native-select-hidden] {
 
 .ocr-review-card__form {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  /* min(160px, 100%) lets tracks shrink on a narrow modal instead of forcing a
+     column wider than the sheet (which caused horizontal overflow). */
+  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -3819,6 +4011,35 @@ select[data-native-select-hidden] {
 .ocr-review-card__row-btn.is-active {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.ocr-review-card__row-btn span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On mobile the row chips scroll horizontally with snap instead of clipping. */
+@media (max-width: 520px) {
+  .ocr-review-card__row-list {
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.35rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ocr-review-card__row-list > li {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .ocr-review-card__row-btn {
+    width: 14rem;
+  }
 }
 
 .ocr-review-card__actions {

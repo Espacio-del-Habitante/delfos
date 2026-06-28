@@ -110,8 +110,9 @@
     });
   }
 
-  function scrollTo(selector: string) {
-    document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Quick links are now real anchors (work cross-page). On touch we still
+  // collapse the island after a tap; same-page hash links don't blur the link.
+  function collapseOnTouch() {
     if (!canHover) {
       isExpanded = false;
       setRevealed(false);
@@ -245,12 +246,12 @@
         <div class="island-detail" aria-hidden={revealed ? 'false' : 'true'}>
           <div class="island-detail__inner">
             <nav class="island-nav" aria-label="Accesos rápidos">
-              <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#resumen')}>Resumen</button>
-              <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#registrar')}>Registrar</button>
-              <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#movimientos')}>Movimientos</button>
-              <a href="/inversiones" class="island-nav__link">Inversiones</a>
-              <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#cuentas')}>Cuentas</button>
-              <a href="/configuracion" class="island-nav__link">Configuración</a>
+              <a href="/#resumen" class="island-nav__link" on:click={collapseOnTouch}>Resumen</a>
+              <a href="/#registrar" class="island-nav__link" on:click={collapseOnTouch}>Registrar</a>
+              <a href="/#movimientos" class="island-nav__link" on:click={collapseOnTouch}>Movimientos</a>
+              <a href="/inversiones" class="island-nav__link" on:click={collapseOnTouch}>Inversiones</a>
+              <a href="/#cuentas" class="island-nav__link" on:click={collapseOnTouch}>Cuentas</a>
+              <a href="/configuracion" class="island-nav__link" on:click={collapseOnTouch}>Configuración</a>
             </nav>
             <div class="island-meta">
               <div class="island-meta__item">

@@ -4,6 +4,8 @@
   import Modal from '@common/atoms/Modal.svelte';
   import EmojiPickerField from '@common/molecules/EmojiPickerField.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import BottomNav from '@common/molecules/BottomNav.svelte';
+  import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import {
     createCategory,
     deleteCategory,
@@ -198,7 +200,10 @@
   <HeaderIsland summary={$finance?.summary ?? null} />
 
   <section class="settings-hero section">
-    <h1 class="settings-hero__title">Configuración</h1>
+    <div class="hero-titlebar">
+      <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
+      <h1 class="settings-hero__title">Configuración</h1>
+    </div>
     <p class="settings-hero__subtitle">
       Ajusta categorías, el motor de inteligencia artificial y administra tus datos. Las cuentas y
       movimientos se editan desde sus propias tarjetas.
@@ -357,20 +362,7 @@
     </section>
   </div>
 
-  <nav class="bottom-nav" aria-label="Navegación principal">
-    <a href="/" class="bottom-nav__item">
-      <span class="bottom-nav__icon" aria-hidden="true">⌂</span>
-      Inicio
-    </a>
-    <a href="/inversiones" class="bottom-nav__item">
-      <span class="bottom-nav__icon" aria-hidden="true">📈</span>
-      Inversiones
-    </a>
-    <a href="/configuracion" class="bottom-nav__item is-active">
-      <span class="bottom-nav__icon" aria-hidden="true">⚙</span>
-      Ajustes
-    </a>
-  </nav>
+  <BottomNav active="ajustes" />
 </div>
 
 <Modal bind:open={resetOpen} title="Restablecer Delfos" narrow>
@@ -390,7 +382,7 @@
   .settings-hero__title {
     font-size: clamp(1.5rem, 2.5vw, 1.75rem);
     font-weight: 700;
-    margin: 0 0 0.35rem;
+    margin: 0;
     color: var(--text-strong);
     letter-spacing: -0.02em;
   }

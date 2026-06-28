@@ -165,6 +165,7 @@
       aria-modal="true"
       aria-labelledby={titleId}
     >
+      <div class="modal__grabber" aria-hidden="true"></div>
       <div class="modal__header">
         <h2 class="modal__title" id={titleId}>{title}</h2>
         <button type="button" class="modal__close" aria-label="Cerrar" on:click={close}>&times;</button>

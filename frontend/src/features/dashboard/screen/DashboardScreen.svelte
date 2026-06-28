@@ -10,6 +10,7 @@
   import FinanceBulkImportModal from '@features/dashboard/components/organisms/FinanceBulkImportModal.svelte';
   import AiPreview from '@features/dashboard/components/organisms/AiPreview.svelte';
   import MovementsList from '@features/dashboard/components/organisms/MovementsList.svelte';
+  import BottomNav from '@common/molecules/BottomNav.svelte';
   import EditModal from '@common/organisms/EditModal.svelte';
   import {
     deleteAccount,
@@ -43,45 +44,6 @@
 
   onMount(() => {
     refreshFinanceData().catch(() => showToast('No se pudo cargar los datos', { type: 'error' }));
-
-    const items = document.querySelectorAll<HTMLAnchorElement>('.bottom-nav__item');
-    const sections = ['inicio', 'registrar', 'movimientos', 'ia-preview'];
-
-    items.forEach((item) => {
-      item.addEventListener('click', (e) => {
-        const href = item.getAttribute('href') || '';
-        if (!href.startsWith('#')) return; // route links (e.g. /configuracion) navigate normally
-        e.preventDefault();
-        document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        items.forEach((i) => i.classList.remove('is-active'));
-        item.classList.add('is-active');
-      });
-    });
-
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting) return;
-            const id = entry.target.id;
-            items.forEach((item) => {
-              const nav = item.getAttribute('data-nav');
-              const match =
-                (nav === 'inicio' && id === 'inicio') ||
-                (nav === 'registrar' && id === 'registrar') ||
-                (nav === 'movimientos' && id === 'movimientos') ||
-                (nav === 'ia' && id === 'ia-preview');
-              item.classList.toggle('is-active', match);
-            });
-          });
-        },
-        { rootMargin: '-40% 0px -50% 0px', threshold: 0 },
-      );
-      sections.forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) observer.observe(el);
-      });
-    }
   });
 
   function handleAnalyzed(e: CustomEvent<AnalysisPreview>) {
@@ -176,50 +138,26 @@
         on:openIncome={() => (incomeModalOpen = true)}
         on:openImport={() => (importModalOpen = true)}
       />
-      <AiPreview
-        preview={analysisPreview}
-        accounts={$finance?.accounts ?? analysisPreview?.accounts ?? []}
-        categories={$finance?.categories ?? []}
-        on:confirmed={onPreviewConfirmed}
-        on:cancelled={clearPreview}
-      />
     </div>
-
-    <MovementsList
-      movements={$finance?.movements ?? []}
-      movementFilters={$finance?.movement_filters ?? []}
-      on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
-      on:delete={(e) => handleDelete(e.detail.type, e.detail.id)}
-    />
   </div>
 
-  <nav class="bottom-nav" aria-label="Navegación principal">
-    <a href="#inicio" class="bottom-nav__item is-active" data-nav="inicio">
-      <span class="bottom-nav__icon" aria-hidden="true">⌂</span>
-      Inicio
-    </a>
-    <a href="#registrar" class="bottom-nav__item" data-nav="registrar">
-      <span class="bottom-nav__icon" aria-hidden="true">+</span>
-      Registrar
-    </a>
-    <a href="#movimientos" class="bottom-nav__item" data-nav="movimientos">
-      <span class="bottom-nav__icon" aria-hidden="true">≡</span>
-      Movimientos
-    </a>
-    <a href="/inversiones" class="bottom-nav__item">
-      <span class="bottom-nav__icon" aria-hidden="true">📈</span>
-      Inversiones
-    </a>
-    <a href="#ia-preview" class="bottom-nav__item" data-nav="ia">
-      <span class="bottom-nav__icon" aria-hidden="true">✦</span>
-      IA
-    </a>
-    <a href="/configuracion" class="bottom-nav__item">
-      <span class="bottom-nav__icon" aria-hidden="true">⚙</span>
-      Ajustes
-    </a>
-  </nav>
+  <MovementsList
+    movements={$finance?.movements ?? []}
+    movementFilters={$finance?.movement_filters ?? []}
+    on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
+    on:delete={(e) => handleDelete(e.detail.type, e.detail.id)}
+  />
+
+  <BottomNav active="inicio" />
 </div>
+
+<AiPreview
+  preview={analysisPreview}
+  accounts={$finance?.accounts ?? analysisPreview?.accounts ?? []}
+  categories={$finance?.categories ?? []}
+  on:confirmed={onPreviewConfirmed}
+  on:cancelled={clearPreview}
+/>
 
 <EditModal
   bind:open={editOpen}

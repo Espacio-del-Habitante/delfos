@@ -985,6 +985,37 @@ class OcrRefinementTestCase(unittest.TestCase):
         )
         self.assertTrue(any("difiere" in w for w in warnings))
 
+    def test_common_broker_date_formats_normalize_to_iso(self):
+        cases = {
+            "22 jun 2026": "2026-06-22",
+            "22 de junio de 2026": "2026-06-22",
+            "22/06/2026": "2026-06-22",
+            "22-06-2026": "2026-06-22",
+            "2026-06-22": "2026-06-22",
+            "22 jun. 2026": "2026-06-22",
+            "22 jun 2026, 3:45 p.m.": "2026-06-22",
+            "Fecha: 22 jun 2026": "2026-06-22",
+            "jun 22 2026": "2026-06-22",
+            "22 jun 26": "2026-06-22",
+            "22-jun-2026": "2026-06-22",
+        }
+        for raw, expected in cases.items():
+            self.assertEqual(parse_date(raw), expected, msg=raw)
+
+    def test_ocr_row_with_spanish_date_not_flagged_unrecognized(self):
+        row = vision_service.normalize_ocr_row(
+            {
+                "operation_type": "Compra",
+                "date": "Fecha: 22 jun. 2026, 3:45 p.m.",
+                "asset": "ACWI",
+                "quantity": 1.52039,
+                "amount_usd": 240,
+            }
+        )
+        self.assertEqual(row["date"], "2026-06-22")
+        # ocr_image raises "fecha no reconocida" only when refined date is falsy.
+        self.assertTrue(row.get("date"))
+
     def test_vision_normalize_spanish_date_and_refine(self):
         row = vision_service.normalize_ocr_row(
             {

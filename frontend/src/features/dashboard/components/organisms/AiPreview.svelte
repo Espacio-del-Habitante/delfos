@@ -6,39 +6,73 @@
   import { showToast } from '@common/lib/toast';
   import { applyFinancePayload } from '@common/stores/finance';
   import type { Account, AnalysisPreview, Category, ConfirmPayload, PreviewItem } from '@common/lib/types';
+  import Modal from '@common/atoms/Modal.svelte';
+  import CategoryCreateForm from '@common/organisms/CategoryCreateForm.svelte';
 
   export let preview: AnalysisPreview | null = null;
   export let accounts: Account[] = [];
   export let categories: Category[] = [];
 
   const dispatch = createEventDispatcher<{ confirmed: void; cancelled: void }>();
+  const categoryFormId = 'aipreview-category-form';
 
   interface EditableItem extends PreviewItem {
     _index: number;
   }
 
   let items: EditableItem[] = [];
+  let loadedPreview: AnalysisPreview | null = null;
   let confirming = false;
+  let asideOpen = false;
+  let categoryCreateText = '';
+  let categoryCreateKind = 'expense';
+  let categoryTargetIndex: number | null = null;
+  let categorySubmitting = false;
 
-  $: if (preview) {
-    items = [
-      ...(preview.expenses || []).map((i, idx) => ({ ...i, kind: 'expense' as const, _index: idx })),
-      ...(preview.investments || []).map((i, idx) => ({
+  const kindLabels: Record<string, string> = {
+    expense: 'Gasto',
+    investment: 'Inversión',
+    note: 'Nota',
+  };
+
+  function formatAmount(amount: number | string | undefined, currency?: string) {
+    const n = Number(amount) || 0;
+    const cur = currency || 'COP';
+    try {
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: cur,
+        maximumFractionDigits: cur === 'COP' ? 0 : 2,
+      }).format(n);
+    } catch {
+      return `${n} ${cur}`;
+    }
+  }
+
+  function buildItems(p: AnalysisPreview): EditableItem[] {
+    const built = [
+      ...(p.expenses || []).map((i, idx) => ({ ...i, kind: 'expense' as const, _index: idx })),
+      ...(p.investments || []).map((i, idx) => ({
         ...i,
         kind: 'investment' as const,
-        _index: (preview.expenses?.length || 0) + idx,
+        _index: (p.expenses?.length || 0) + idx,
       })),
-      ...(preview.notes || []).map((i, idx) => ({
+      ...(p.notes || []).map((i, idx) => ({
         ...i,
         kind: 'note' as const,
-        _index: (preview.expenses?.length || 0) + (preview.investments?.length || 0) + idx,
+        _index: (p.expenses?.length || 0) + (p.investments?.length || 0) + idx,
       })),
     ];
-    if (!items.length && preview.items?.length) {
-      items = preview.items.map((i, idx) => ({ ...i, _index: idx }));
+    if (!built.length && p.items?.length) {
+      return p.items.map((i, idx) => ({ ...i, _index: idx }));
     }
-  } else {
-    items = [];
+    return built;
+  }
+
+  $: visible = !!preview && (items.length > 0 || !!preview.error);
+  $: if (preview !== loadedPreview) {
+    loadedPreview = preview;
+    items = preview ? buildItems(preview) : [];
   }
 
   $: accountOptions = [
@@ -46,30 +80,59 @@
     ...accounts.map((a) => ({ value: a.id, label: `${a.emoji} ${a.name}` })),
   ];
 
-  $: visible = !!preview && (items.length > 0 || !!preview.error);
+  const currencyOptions = [
+    { value: 'COP', label: 'COP' },
+    { value: 'USD', label: 'USD' },
+  ];
+
+  function patchItem(index: number, patch: Partial<EditableItem>) {
+    items = items.map((i) => (i._index === index ? { ...i, ...patch } : i));
+  }
 
   function acceptSuggestion(item: EditableItem) {
     if (!item.suggested_new_category) return;
-    item.accept_category_suggestion = true;
-    item.category = item.suggested_new_category;
-    items = [...items];
+    patchItem(item._index, {
+      accept_category_suggestion: true,
+      category: item.suggested_new_category,
+    });
     showToast(`Categoría "${item.suggested_new_category}" aplicada`, { type: 'success' });
   }
 
   function ignoreSuggestion(item: EditableItem) {
-    item.suggested_new_category = null;
-    item.accept_category_suggestion = false;
-    items = [...items];
+    patchItem(item._index, {
+      suggested_new_category: null,
+      accept_category_suggestion: false,
+    });
   }
 
   function onCategoryChange(item: EditableItem, cat: { id?: string; name: string; emoji: string; isNew?: boolean }) {
-    item.category = cat.name || item.category;
-    item.category_emoji = cat.emoji || item.category_emoji;
-    if (cat.isNew) {
-      item.suggested_new_category = cat.name;
-      item.accept_category_suggestion = true;
-    }
-    items = [...items];
+    patchItem(item._index, {
+      category: cat.name || item.category,
+      category_emoji: cat.emoji || item.category_emoji,
+      ...(cat.isNew
+        ? { suggested_new_category: cat.name, accept_category_suggestion: true }
+        : {}),
+    });
+  }
+
+  function onRequestCreate(item: EditableItem, e: CustomEvent<{ text: string }>) {
+    categoryTargetIndex = item._index;
+    categoryCreateKind = item.kind === 'investment' ? 'investment' : 'expense';
+    categoryCreateText = e.detail?.text || item.category || '';
+    asideOpen = true;
+  }
+
+  function onCategoryCreated(e: CustomEvent<Category>) {
+    const cat = e.detail;
+    const item = items.find((i) => i._index === categoryTargetIndex);
+    if (item) onCategoryChange(item, { id: cat.id, name: cat.name, emoji: cat.emoji });
+    asideOpen = false;
+    categoryTargetIndex = null;
+  }
+
+  function closeCategoryAside() {
+    asideOpen = false;
+    categoryTargetIndex = null;
   }
 
   function collectPayload(): ConfirmPayload {
@@ -140,24 +203,19 @@
   }
 </script>
 
-<section
-  class="preview-card section"
-  id="ia-preview"
-  aria-label="Previsualización IA"
-  class:is-visible={visible}
-  aria-hidden={visible ? 'false' : 'true'}
+<Modal
+  open={visible}
+  title="Movimientos detectados"
+  on:close={cancel}
+  bind:asideOpen
+  asideTitle="Nueva categoría"
+  on:closeAside={closeCategoryAside}
 >
-  <h2 class="card-title">Movimientos detectados</h2>
-
   {#if preview?.error}
     <p class="ai-unavailable">{preview.error}{preview.hint ? ` ${preview.hint}` : ''}</p>
   {/if}
 
   {#if items.length}
-    <p class="preview-detected-title">
-      Movimientos detectados ({preview?.counts?.total || items.length})
-    </p>
-
     {#each ['expense', 'investment', 'note'] as groupKind}
       {@const groupItems = items.filter((i) => i.kind === groupKind)}
       {#if groupItems.length || groupKind === 'note'}
@@ -171,17 +229,27 @@
           {/if}
           {#each groupItems as item (item._index)}
             <article class="preview-item preview-item--{item.kind}" data-index={item._index}>
-              <div class="preview-item__header">
-                <span class="preview-item__emoji">
-                  {item.category_emoji || (item.kind === 'note' ? '📝' : item.kind === 'investment' ? '📈' : '💸')}
-                </span>
-                <p class="preview-item__type">
-                  {item.title || item.kind}
-                  {#if item.needs_review}
-                    <span class="review-badge">{item.kind === 'investment' ? 'Revisar activo' : 'Revisar monto'}</span>
-                  {/if}
-                </p>
-              </div>
+              <header class="preview-item__top">
+                <div class="preview-item__identity">
+                  <span class="preview-item__emoji">
+                    {item.category_emoji || (item.kind === 'note' ? '📝' : item.kind === 'investment' ? '📈' : '💸')}
+                  </span>
+                  <div class="preview-item__headings">
+                    <span class="preview-item__kind">{kindLabels[item.kind] || item.kind}</span>
+                    {#if item.kind === 'expense' || item.kind === 'investment'}
+                      <span class="preview-item__amount-display">{formatAmount(item.amount, item.currency)}</span>
+                    {:else}
+                      <span class="preview-item__amount-display">{item.description || item.text || 'Nota'}</span>
+                    {/if}
+                  </div>
+                </div>
+                {#if item.needs_review}
+                  <span class="review-badge">{item.kind === 'investment' ? 'Revisar activo' : 'Revisar monto'}</span>
+                {/if}
+              </header>
+              {#if item.description && (item.kind === 'expense' || item.kind === 'investment')}
+                <p class="preview-item__summary">{item.description}</p>
+              {/if}
               <div class="preview-item__fields">
                 <label>
                   Cuenta
@@ -202,10 +270,7 @@
                     </label>
                     <label>
                       Moneda
-                      <select class="preview-currency" bind:value={item.currency}>
-                        <option value="COP">COP</option>
-                        <option value="USD">USD</option>
-                      </select>
+                      <CustomSelect options={currencyOptions} bind:value={item.currency} />
                     </label>
                   </div>
                   <div class="preview-item__row preview-item__category-row">
@@ -216,6 +281,7 @@
                         kind={item.kind === 'investment' ? 'investment' : 'expense'}
                         selected={{ name: item.category, emoji: item.category_emoji }}
                         on:change={(e) => onCategoryChange(item, e.detail)}
+                        on:requestCreate={(e) => onRequestCreate(item, e)}
                       />
                     </label>
                   </div>
@@ -260,13 +326,31 @@
   {#if preview?.reflection}
     <p class="preview-reflection">{preview.reflection}</p>
   {/if}
+  <svelte:fragment slot="footer">
+    {#if items.length}
+      <div class="preview-card__actions">
+        <button type="button" class="primary-button" disabled={confirming} on:click={confirm}>
+          {confirming ? 'Guardando…' : 'Confirmar y guardar'}
+        </button>
+        <button type="button" class="secondary-button" on:click={cancel}>Cancelar</button>
+      </div>
+    {/if}
+  </svelte:fragment>
+  <svelte:fragment slot="aside">
+    <CategoryCreateForm
+      kind={categoryCreateKind}
+      formId={categoryFormId}
+      initialName={categoryCreateText}
+      bind:categories
+      bind:submitting={categorySubmitting}
+      on:created={onCategoryCreated}
+    />
+  </svelte:fragment>
+  <div slot="asideFooter" class="modal__actions modal__actions-right">
+    <button type="button" class="ghost-button" on:click={closeCategoryAside}>Cancelar</button>
+    <button type="submit" form={categoryFormId} class="primary-button" disabled={categorySubmitting}>
+      {categorySubmitting ? 'Guardando…' : 'Guardar'}
+    </button>
+  </div>
+</Modal>
 
-  {#if items.length}
-    <div class="preview-card__actions">
-      <button type="button" class="primary-button" disabled={confirming} on:click={confirm}>
-        {confirming ? 'Guardando…' : 'Confirmar y guardar'}
-      </button>
-      <button type="button" class="secondary-button" on:click={cancel}>Cancelar</button>
-    </div>
-  {/if}
-</section>

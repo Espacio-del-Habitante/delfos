@@ -34,6 +34,7 @@
   let categoryName = '';
   let categoryEmoji = '';
   let investmentAsset = '';
+  let categoryRecordId = '';
 
   $: contentReady = Boolean(open && record && recordType);
   $: syncOpen(contentReady);
@@ -208,9 +209,14 @@
   }
 
   $: if (record && (recordType === 'expense' || recordType === 'income' || recordType === 'investment')) {
-    const r = record as ExpenseRecord | IncomeRecord | InvestmentRecord;
-    categoryName = r.category || '';
-    categoryEmoji = r.category_emoji || '';
+    if (record.id !== categoryRecordId) {
+      categoryRecordId = record.id;
+      const r = record as ExpenseRecord | IncomeRecord | InvestmentRecord;
+      categoryName = r.category || '';
+      categoryEmoji = r.category_emoji || '';
+    }
+  } else {
+    categoryRecordId = '';
   }
 </script>
 
@@ -274,12 +280,14 @@
               </label>
             </div>
             <label class="edit-form__field edit-form__field--full">Categoría
-              <CategorySelector
-                {categories}
-                kind="expense"
-                selected={{ name: r.category, emoji: r.category_emoji }}
-                on:change={(e) => { categoryName = e.detail.name; categoryEmoji = e.detail.emoji; }}
-              />
+              {#key categoryRecordId}
+                <CategorySelector
+                  {categories}
+                  kind="expense"
+                  selected={{ name: categoryName, emoji: categoryEmoji }}
+                  on:change={(e) => { categoryName = e.detail.name; categoryEmoji = e.detail.emoji; }}
+                />
+              {/key}
               <input type="hidden" name="category" value={categoryName} />
               <input type="hidden" name="category_emoji" value={categoryEmoji} />
             </label>
@@ -306,12 +314,14 @@
               </label>
             </div>
             <label class="edit-form__field edit-form__field--full">Categoría
-              <CategorySelector
-                {categories}
-                kind="income"
-                selected={{ name: r.category, emoji: r.category_emoji }}
-                on:change={(e) => { categoryName = e.detail.name; categoryEmoji = e.detail.emoji; }}
-              />
+              {#key categoryRecordId}
+                <CategorySelector
+                  {categories}
+                  kind="income"
+                  selected={{ name: categoryName, emoji: categoryEmoji }}
+                  on:change={(e) => { categoryName = e.detail.name; categoryEmoji = e.detail.emoji; }}
+                />
+              {/key}
               <input type="hidden" name="category" value={categoryName} />
               <input type="hidden" name="category_emoji" value={categoryEmoji} />
             </label>
@@ -390,12 +400,14 @@
             </label>
             <input type="hidden" name="action" value={opType} />
             <label class="edit-form__field edit-form__field--full">Categoría
-              <CategorySelector
-                {categories}
-                kind="investment"
-                selected={{ name: r.category, emoji: r.category_emoji }}
-                on:change={(e) => { categoryName = e.detail.name; categoryEmoji = e.detail.emoji; }}
-              />
+              {#key categoryRecordId}
+                <CategorySelector
+                  {categories}
+                  kind="investment"
+                  selected={{ name: categoryName, emoji: categoryEmoji }}
+                  on:change={(e) => { categoryName = e.detail.name; categoryEmoji = e.detail.emoji; }}
+                />
+              {/key}
               <input type="hidden" name="category" value={categoryName} />
               <input type="hidden" name="category_emoji" value={categoryEmoji} />
             </label>
