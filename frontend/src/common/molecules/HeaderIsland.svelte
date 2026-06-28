@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { fetchPortfolioInsights, getOllamaHealth } from '@common/lib/api';
   import { formatMultiCurrency } from '@common/lib/formatters';
   import type { PortfolioInsights, Summary } from '@common/lib/types';
@@ -8,8 +8,6 @@
   // Optional: parent can pass insights to avoid a duplicate fetch. When omitted,
   // the island self-fetches so it works standalone on any page.
   export let insights: PortfolioInsights | null = null;
-
-  const dispatch = createEventDispatcher<{ openSettings: void }>();
 
   let zoneEl: HTMLDivElement;
   let revealed = false;
@@ -191,17 +189,12 @@
             ></span>
             <span class="island-status__text">{statusText}</span>
           </div>
-          <button
-            type="button"
-            class="island-settings"
-            aria-label="Configuración"
-            on:click|stopPropagation={() => dispatch('openSettings')}
-          >
+          <a href="/configuracion" class="island-settings" aria-label="Configuración">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <circle cx="12" cy="12" r="3" />
               <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
             </svg>
-          </button>
+          </a>
         </div>
 
         <!-- Always-visible signal line: the part that peeks at rest -->
@@ -257,6 +250,7 @@
               <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#movimientos')}>Movimientos</button>
               <a href="/inversiones" class="island-nav__link">Inversiones</a>
               <button type="button" class="island-nav__link" on:click|preventDefault={() => scrollTo('#cuentas')}>Cuentas</button>
+              <a href="/configuracion" class="island-nav__link">Configuración</a>
             </nav>
             <div class="island-meta">
               <div class="island-meta__item">

@@ -869,6 +869,42 @@ class AiSettingsTestCase(unittest.TestCase):
         self.assertEqual(result["hint"], "configura el modelo")
 
 
+class OpenAICompatiblePayloadTestCase(unittest.TestCase):
+    def _capture_payload(self, call):
+        captured = {}
+
+        class FakeResp:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *args):
+                return False
+
+            def read(self_inner):
+                return json.dumps({"choices": [{"message": {"content": "{}"}}]}).encode("utf-8")
+
+        def fake_urlopen(req, timeout=None):
+            captured["payload"] = json.loads(req.data.decode("utf-8"))
+            return FakeResp()
+
+        integration = OpenAICompatibleIntegration(
+            text_model="text-model",
+            vision_model="vision-model",
+            api_key="k",
+        )
+        with patch("integrations.openai_compatible.urllib.request.urlopen", fake_urlopen):
+            call(integration)
+        return captured["payload"]
+
+    def test_vision_json_omits_response_format(self):
+        payload = self._capture_payload(lambda i: i.vision_json("read this", "Zm9v", "image/png"))
+        self.assertNotIn("response_format", payload)
+
+    def test_complete_json_includes_response_format(self):
+        payload = self._capture_payload(lambda i: i.complete_json("hola"))
+        self.assertEqual(payload["response_format"], {"type": "json_object"})
+
+
 class OcrRefinementTestCase(unittest.TestCase):
     def test_parse_spanish_date(self):
         self.assertEqual(parse_date("22 jun 2026"), "2026-06-22")

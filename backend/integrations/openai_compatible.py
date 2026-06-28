@@ -24,7 +24,7 @@ class OpenAICompatibleIntegration(AIIntegration):
         self.api_key = api_key or ""
         self.timeout = timeout
 
-    def _post(self, model: str, messages: list) -> str:
+    def _post(self, model: str, messages: list, json_mode: bool = False) -> str:
         if not self.api_key:
             raise IntegrationError(
                 "Falta la API key del proveedor compatible.",
@@ -33,14 +33,10 @@ class OpenAICompatibleIntegration(AIIntegration):
         if not model:
             raise IntegrationError("Falta el nombre del modelo.", hint="Indica el modelo en Configuracion.")
         url = f"{self.base_url}/chat/completions"
-        payload = json.dumps(
-            {
-                "model": model,
-                "messages": messages,
-                "response_format": {"type": "json_object"},
-                "stream": False,
-            }
-        ).encode("utf-8")
+        body = {"model": model, "messages": messages, "stream": False}
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        payload = json.dumps(body).encode("utf-8")
         req = urllib.request.Request(
             url,
             data=payload,
@@ -69,7 +65,7 @@ class OpenAICompatibleIntegration(AIIntegration):
         return (choices[0].get("message") or {}).get("content") or ""
 
     def complete_json(self, prompt: str) -> str:
-        return self._post(self.text_model, [{"role": "user", "content": prompt}])
+        return self._post(self.text_model, [{"role": "user", "content": prompt}], json_mode=True)
 
     def vision_json(self, prompt: str, image_b64: str, mime: str = "image/png") -> str:
         data_uri = f"data:{mime};base64,{image_b64}"
@@ -82,7 +78,7 @@ class OpenAICompatibleIntegration(AIIntegration):
                 ],
             }
         ]
-        return self._post(self.vision_model, messages)
+        return self._post(self.vision_model, messages, json_mode=False)
 
     def health(self) -> dict:
         base = {

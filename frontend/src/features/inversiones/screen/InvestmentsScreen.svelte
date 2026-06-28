@@ -10,7 +10,6 @@
   import InvestmentExportModal from '@features/inversiones/components/molecules/InvestmentExportModal.svelte';
   import InvestmentNewRowModal from '@features/inversiones/components/molecules/InvestmentNewRowModal.svelte';
   import EditModal from '@common/organisms/EditModal.svelte';
-  import SettingsPanel from '@common/organisms/SettingsPanel.svelte';
   import { deleteInvestment, fetchPortfolioInsights } from '@common/lib/api';
   import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
@@ -23,7 +22,6 @@
     PortfolioInsights,
   } from '@common/lib/types';
 
-  let settingsOpen = false;
   let editOpen = false;
   let editType: EditRecordType | null = null;
   let editRecord: Account | ExpenseRecord | InvestmentRecord | NoteRecord | null = null;
@@ -117,7 +115,7 @@
 </script>
 
 <div class="app-shell">
-  <HeaderIsland summary={$finance?.summary ?? null} on:openSettings={() => (settingsOpen = true)} />
+  <HeaderIsland summary={$finance?.summary ?? null} />
 
   <div class="investments-page-top">
     <section class="investments-hero section">
@@ -163,10 +161,12 @@
       <span class="bottom-nav__icon" aria-hidden="true">+</span>
       Registrar
     </a>
+    <a href="/configuracion" class="bottom-nav__item">
+      <span class="bottom-nav__icon" aria-hidden="true">⚙</span>
+      Ajustes
+    </a>
   </nav>
 </div>
-
-<SettingsPanel bind:open={settingsOpen} categories={$finance?.categories ?? []} />
 
 <EditModal
   bind:open={editOpen}

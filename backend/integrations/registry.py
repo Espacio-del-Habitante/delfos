@@ -94,6 +94,6 @@ def available_providers() -> list[dict]:
             "needs_api_key": True,
             "needs_base_url": True,
             "suggested_text_model": "meta-llama/llama-3.3-70b-instruct:free",
-            "suggested_vision_model": "qwen/qwen-2-vl-7b-instruct:free",
+            "suggested_vision_model": "google/gemma-4-31b-it:free",
         },
     ]

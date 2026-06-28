@@ -10,7 +10,6 @@
   import FinanceBulkImportModal from '@features/dashboard/components/organisms/FinanceBulkImportModal.svelte';
   import AiPreview from '@features/dashboard/components/organisms/AiPreview.svelte';
   import MovementsList from '@features/dashboard/components/organisms/MovementsList.svelte';
-  import SettingsPanel from '@common/organisms/SettingsPanel.svelte';
   import EditModal from '@common/organisms/EditModal.svelte';
   import {
     deleteAccount,
@@ -33,7 +32,6 @@
 
   let draftText = '';
   let analysisPreview: AnalysisPreview | null = null;
-  let settingsOpen = false;
 
   let editOpen = false;
   let editType: EditRecordType | null = null;
@@ -51,9 +49,10 @@
 
     items.forEach((item) => {
       item.addEventListener('click', (e) => {
+        const href = item.getAttribute('href') || '';
+        if (!href.startsWith('#')) return; // route links (e.g. /configuracion) navigate normally
         e.preventDefault();
-        const target = document.querySelector(item.getAttribute('href') || '');
-        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         items.forEach((i) => i.classList.remove('is-active'));
         item.classList.add('is-active');
       });
@@ -152,7 +151,7 @@
 </script>
 
 <div class="app-shell">
-  <HeaderIsland summary={$finance?.summary ?? null} on:openSettings={() => (settingsOpen = true)} />
+  <HeaderIsland summary={$finance?.summary ?? null} />
 
   <div class="dashboard-grid">
     <div class="dashboard-col-left" id="inicio">
@@ -215,10 +214,12 @@
       <span class="bottom-nav__icon" aria-hidden="true">✦</span>
       IA
     </a>
+    <a href="/configuracion" class="bottom-nav__item">
+      <span class="bottom-nav__icon" aria-hidden="true">⚙</span>
+      Ajustes
+    </a>
   </nav>
 </div>
-
-<SettingsPanel bind:open={settingsOpen} categories={$finance?.categories ?? []} />
 
 <EditModal
   bind:open={editOpen}
