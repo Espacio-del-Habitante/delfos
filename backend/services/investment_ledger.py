@@ -2,6 +2,7 @@
 
 import csv
 import io
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -45,6 +46,35 @@ LABEL_TO_OPERATION_TYPE = {
 
 VALID_OPERATION_TYPES = frozenset(OPERATION_TYPE_TO_LABEL)
 
+SPANISH_MONTHS = {
+    "ene": 1,
+    "enero": 1,
+    "feb": 2,
+    "febrero": 2,
+    "mar": 3,
+    "marzo": 3,
+    "abr": 4,
+    "abril": 4,
+    "may": 5,
+    "mayo": 5,
+    "jun": 6,
+    "junio": 6,
+    "jul": 7,
+    "julio": 7,
+    "ago": 8,
+    "agosto": 8,
+    "sep": 9,
+    "sept": 9,
+    "septiembre": 9,
+    "set": 9,
+    "oct": 10,
+    "octubre": 10,
+    "nov": 11,
+    "noviembre": 11,
+    "dic": 12,
+    "diciembre": 12,
+}
+
 
 def normalize_investment(inv: dict) -> dict:
     return finance_store._normalize_investment_ledger(dict(inv))
@@ -53,6 +83,25 @@ def normalize_investment(inv: dict) -> dict:
 def excel_serial_to_iso(serial: float | int) -> str:
     base = datetime(1899, 12, 30)
     return (base + timedelta(days=float(serial))).strftime("%Y-%m-%d")
+
+
+def _parse_spanish_date(text: str) -> str | None:
+    cleaned = re.sub(r"\bde\b", " ", text.strip().lower())
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    match = re.match(r"^(\d{1,2})\s+([a-záéíóúñ]+)\s+(\d{4})$", cleaned)
+    if not match:
+        return None
+    day = int(match.group(1))
+    month_token = match.group(2).replace("á", "a").replace("é", "e").replace("í", "i")
+    month_token = month_token.replace("ó", "o").replace("ú", "u")
+    year = int(match.group(3))
+    month = SPANISH_MONTHS.get(month_token) or SPANISH_MONTHS.get(month_token[:3])
+    if not month:
+        return None
+    try:
+        return datetime(year, month, day).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
 
 
 def parse_date(value: Any) -> str | None:
@@ -70,6 +119,9 @@ def parse_date(value: Any) -> str | None:
             return datetime.strptime(text[:10], fmt).strftime("%Y-%m-%d")
         except ValueError:
             continue
+    spanish = _parse_spanish_date(text)
+    if spanish:
+        return spanish
     try:
         return datetime.fromisoformat(text.replace("Z", "+00:00")[:19]).strftime("%Y-%m-%d")
     except ValueError:
@@ -165,6 +217,61 @@ def normalize_ocr_row_fields(row: dict[str, Any]) -> dict[str, Any]:
     normalized = ledger_row_to_investment_input(row)
     normalized["operation_type_label"] = operation_type_label(normalized.get("operation_type"))
     return normalized
+
+
+def _amounts_close(a: float, b: float, tolerance: float = 0.02) -> bool:
+    return abs(a - b) <= tolerance
+
+
+def refine_ocr_row(row: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Post-process normalized OCR rows: infer missing fields and flag hallucinations."""
+    warnings: list[str] = []
+    refined = dict(row)
+    op = refined.get("operation_type") or "buy"
+
+    if op in ("buy", "deposit") and refined.get("pnl_usd") is not None:
+        warnings.append("P/G USD eliminado: no aplica a compras o depósitos")
+        refined["pnl_usd"] = None
+
+    quantity = refined.get("quantity")
+    amount_usd = refined.get("amount_usd")
+    unit_price = refined.get("unit_price")
+    closing_cost = refined.get("closing_cost")
+    total = refined.get("total")
+    amount_cop = refined.get("amount_cop")
+
+    if quantity and amount_usd and unit_price is None and quantity != 0:
+        refined["unit_price"] = amount_usd / quantity
+        unit_price = refined["unit_price"]
+
+    if op == "buy" and amount_usd is not None:
+        fee = closing_cost or 0.0
+        expected_total = amount_usd + fee
+        if total is None:
+            refined["total"] = expected_total
+            total = expected_total
+        elif closing_cost is not None and not _amounts_close(total, expected_total):
+            warnings.append(f"Total corregido de {total} a {expected_total}")
+            refined["total"] = expected_total
+            total = expected_total
+
+    if total is not None and amount_usd is None and closing_cost is not None:
+        refined["amount_usd"] = total - closing_cost
+        amount_usd = refined["amount_usd"]
+
+    refined["amount"] = refined.get("total") or refined.get("amount_usd") or 0.0
+
+    if amount_cop is not None and amount_usd is not None and amount_cop > amount_usd * 100:
+        warnings.append("Monto COP inusualmente alto respecto a USD (posible alucinación)")
+
+    if quantity and unit_price and amount_usd and amount_usd != 0:
+        expected = quantity * unit_price
+        if abs(expected - amount_usd) / abs(amount_usd) > 0.15:
+            warnings.append(
+                f"Cantidad × precio ({expected:.2f}) difiere >15% del monto USD ({amount_usd})"
+            )
+
+    return refined, warnings
 
 
 def _sorted_investments(investments: list[dict] | None = None) -> list[dict]:

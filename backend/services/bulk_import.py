@@ -1,9 +1,12 @@
-"""Shared CSV bulk import for expenses, notes, and accounts.
+"""Shared CSV bulk import for expenses, incomes, notes, and accounts.
 
 CSV formats (UTF-8 with optional BOM for Excel on Windows):
 
 Expenses:
   Fecha,Cuenta,Monto,Moneda,Categoría,Emoji,Descripción,Método de pago
+
+Incomes:
+  Fecha,Cuenta,Monto,Moneda,Categoría,Emoji,Descripción,Fuente
 
 Notes:
   Fecha,Cuenta,Texto,Tags
@@ -30,6 +33,17 @@ EXPENSE_CSV_HEADER = [
     "Emoji",
     "Descripción",
     "Método de pago",
+]
+
+INCOME_CSV_HEADER = [
+    "Fecha",
+    "Cuenta",
+    "Monto",
+    "Moneda",
+    "Categoría",
+    "Emoji",
+    "Descripción",
+    "Fuente",
 ]
 
 NOTE_CSV_HEADER = [
@@ -106,9 +120,9 @@ def _resolve_account_id(account_hint: Any) -> str | None:
     return finance_store.match_account_hint(str(account_hint).strip())
 
 
-def _resolve_category(name: Any, emoji: Any = None) -> tuple[str, str]:
+def _resolve_category(name: Any, emoji: Any = None, *, kind: str = "expense") -> tuple[str, str]:
     text = str(name or "").strip() or "General"
-    cat = finance_store.find_category_by_name(text, kind="expense")
+    cat = finance_store.find_category_by_name(text, kind=kind)
     if cat:
         return cat["name"], cat.get("emoji") or ""
     return text, str(emoji or "").strip()
@@ -140,6 +154,26 @@ def expense_row_to_input(row: dict[str, Any]) -> dict[str, Any]:
         "payment_method": str(
             _field(row, "Método de pago", "Metodo de pago", "metodo_pago", "payment_method") or ""
         ).strip(),
+    }
+
+
+def income_row_to_input(row: dict[str, Any]) -> dict[str, Any]:
+    amount = parse_number(_field(row, "Monto", "monto", "amount"))
+    currency = str(_field(row, "Moneda", "moneda", "currency") or "COP").strip().upper()
+    category_name, category_emoji = _resolve_category(
+        _field(row, "Categoría", "Categoria", "categoria", "category"),
+        _field(row, "Emoji", "emoji", "category_emoji"),
+        kind="income",
+    )
+    return {
+        "date": parse_date(_field(row, "Fecha", "fecha", "date")),
+        "account_id": _resolve_account_id(_field(row, "Cuenta", "cuenta", "account", "account_name")),
+        "amount": amount,
+        "currency": currency,
+        "category": category_name,
+        "category_emoji": category_emoji,
+        "description": str(_field(row, "Descripción", "Descripcion", "descripcion", "description") or "").strip(),
+        "income_source": str(_field(row, "Fuente", "fuente", "income_source", "source") or "").strip(),
     }
 
 
@@ -180,6 +214,22 @@ def import_expense_rows(csv_text: str) -> dict[str, Any]:
     return {"rows": rows, "preview": rows, "count": len(rows), "warnings": warnings}
 
 
+def import_income_rows(csv_text: str) -> dict[str, Any]:
+    raw_rows, warnings = read_csv_rows(csv_text)
+    rows: list[dict[str, Any]] = []
+    for raw in raw_rows:
+        row_index = raw.pop("_row_index", None)
+        income_input = income_row_to_input(raw)
+        if income_input.get("amount") is None:
+            warnings.append(f"Fila {row_index}: monto inválido o vacío")
+        elif income_input["amount"] <= 0:
+            warnings.append(f"Fila {row_index}: monto debe ser mayor a cero")
+        if not income_input.get("date"):
+            warnings.append(f"Fila {row_index}: fecha inválida o vacía (se usará hoy al confirmar)")
+        rows.append(income_input)
+    return {"rows": rows, "preview": rows, "count": len(rows), "warnings": warnings}
+
+
 def import_note_rows(csv_text: str) -> dict[str, Any]:
     raw_rows, warnings = read_csv_rows(csv_text)
     rows: list[dict[str, Any]] = []
@@ -212,6 +262,19 @@ def import_expenses_csv(csv_text: str, *, confirm: bool = False) -> dict[str, An
         return preview
     valid_rows = [r for r in preview["rows"] if r.get("amount") and r["amount"] > 0]
     created = finance_store.bulk_add_expenses(valid_rows, source="import")
+    return {
+        "count": len(created),
+        "warnings": preview.get("warnings", []),
+        "created": created,
+    }
+
+
+def import_incomes_csv(csv_text: str, *, confirm: bool = False) -> dict[str, Any]:
+    preview = import_income_rows(csv_text)
+    if not confirm:
+        return preview
+    valid_rows = [r for r in preview["rows"] if r.get("amount") and r["amount"] > 0]
+    created = finance_store.bulk_add_incomes(valid_rows, source="import")
     return {
         "count": len(created),
         "warnings": preview.get("warnings", []),

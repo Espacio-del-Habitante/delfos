@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app import app
 from services import finance_store, vision_service
+from services.investment_ledger import parse_date, refine_ocr_row
 
 
 class ApiTestCase(unittest.TestCase):
@@ -20,6 +21,7 @@ class ApiTestCase(unittest.TestCase):
                 "categories": [],
                 "accounts": [],
                 "expenses": [],
+                "incomes": [],
                 "investments": [],
                 "notes": [],
             }
@@ -97,6 +99,19 @@ class ApiTestCase(unittest.TestCase):
         self.assertIn("categories", data)
         self.assertIsInstance(data["categories"], list)
 
+    def test_finance_payload_includes_movement_filters(self):
+        res = self.client.get("/api/finance")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn("movement_filters", data)
+        filters = data["movement_filters"]
+        self.assertEqual(len(filters), 5)
+        self.assertEqual(filters[0], {"id": "all", "label": "Todos"})
+        self.assertEqual(filters[1]["id"], "expense")
+        self.assertEqual(filters[2], {"id": "income", "label": "Ingreso"})
+        self.assertEqual(filters[3]["id"], "investment")
+        self.assertEqual(filters[4]["id"], "note")
+
     def test_legacy_categories_migration(self):
         legacy = {
             "settings": {
@@ -105,6 +120,7 @@ class ApiTestCase(unittest.TestCase):
             },
             "accounts": [],
             "expenses": [],
+            "incomes": [],
             "investments": [],
             "notes": [],
         }
@@ -184,6 +200,30 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(delete.status_code, 200)
         self.assertEqual(delete.get_json()["summary"]["total_movements"], 0)
 
+    def test_income_update_and_delete(self):
+        inc = self.client.post(
+            "/api/incomes",
+            json={"amount": 5000000, "currency": "COP", "description": "Salario", "category": "Salario"},
+        ).get_json()["income"]
+        self.assertEqual(inc["amount"], 5000000.0)
+        self.assertEqual(inc["category"], "Salario")
+
+        patch = self.client.patch(
+            f"/api/incomes/{inc['id']}",
+            json={"description": "Salario editado", "amount": 5500000, "income_source": "Empresa"},
+        )
+        self.assertEqual(patch.status_code, 200)
+        updated = patch.get_json()["income"]
+        self.assertEqual(updated["description"], "Salario editado")
+        self.assertEqual(updated["income_source"], "Empresa")
+
+        movements = self.client.get("/api/finance").get_json()["movements"]
+        self.assertTrue(any(m["type"] == "income" and m["id"] == inc["id"] for m in movements))
+
+        delete = self.client.delete(f"/api/incomes/{inc['id']}")
+        self.assertEqual(delete.status_code, 200)
+        self.assertEqual(delete.get_json()["summary"]["total_movements"], 0)
+
     def test_investment_update_and_delete(self):
         inv = self.client.post(
             "/api/investments",
@@ -203,6 +243,40 @@ class ApiTestCase(unittest.TestCase):
 
         delete = self.client.delete(f"/api/investments/{inv['id']}")
         self.assertEqual(delete.status_code, 200)
+
+    def test_investment_assets_seeded_and_create_endpoint(self):
+        finance_store.add_investment(
+            {"asset": "VOO", "amount": 100, "currency": "USD", "operation_type": "buy"},
+        )
+        finance_store.add_investment(
+            {"asset": "voo", "amount": 50, "currency": "USD", "operation_type": "buy"},
+        )
+        data = self.client.get("/api/finance").get_json()
+        symbols = {a["symbol"] for a in data.get("investment_assets", [])}
+        self.assertIn("VOO", symbols)
+        self.assertEqual(len(symbols), 1)
+
+        create = self.client.post("/api/investment-assets", json={"symbol": "vti", "label": "Vanguard"})
+        self.assertEqual(create.status_code, 200)
+        asset = create.get_json()["investment_asset"]
+        self.assertEqual(asset["symbol"], "VTI")
+        self.assertEqual(asset["label"], "Vanguard")
+
+        dup = self.client.post("/api/investment-assets", json={"symbol": "VTI"})
+        self.assertEqual(dup.status_code, 200)
+        self.assertEqual(dup.get_json()["investment_asset"]["symbol"], "VTI")
+
+        missing = self.client.post("/api/investment-assets", json={})
+        self.assertEqual(missing.status_code, 400)
+
+    def test_add_investment_registers_asset_in_catalog(self):
+        inv = self.client.post(
+            "/api/investments",
+            json={"asset": "NVDA", "amount": 200, "currency": "USD", "operation_type": "buy"},
+        ).get_json()["investment"]
+        self.assertEqual(inv["asset"], "NVDA")
+        assets = self.client.get("/api/finance").get_json().get("investment_assets", [])
+        self.assertTrue(any(a["symbol"] == "NVDA" for a in assets))
 
     def test_note_update_and_delete(self):
         note = self.client.post("/api/note", json={"text": "Mi nota"}).get_json()["note"]
@@ -387,6 +461,37 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(len(data["expenses"]), 2)
         self.assertEqual(data["expenses"][0]["amount"], 25000)
 
+    def test_incomes_import_csv_preview_and_confirm(self):
+        self.client.post(
+            "/api/accounts",
+            json={"name": "Bancolombia", "type": "bank", "currency": "COP", "initial_balance": 0},
+        )
+        csv_text = (
+            "Fecha,Cuenta,Monto,Moneda,Categoría,Emoji,Descripción,Fuente\n"
+            "2025-03-01,Bancolombia,5000000,COP,Salario,💼,Nómina marzo,Empresa SA\n"
+            "2025-03-05,,800000,COP,Freelance,💻,Proyecto web,Cliente X\n"
+        )
+
+        preview = self.client.post("/api/incomes/import.csv", json={"csv": csv_text})
+        self.assertEqual(preview.status_code, 200)
+        preview_data = preview.get_json()
+        self.assertEqual(preview_data["count"], 2)
+        self.assertEqual(preview_data["preview"][0]["amount"], 5000000.0)
+        self.assertEqual(preview_data["preview"][0]["category"], "Salario")
+        self.assertEqual(preview_data["preview"][0]["income_source"], "Empresa SA")
+        self.assertIsNotNone(preview_data["preview"][0]["account_id"])
+
+        confirmed = self.client.post(
+            "/api/incomes/import.csv",
+            json={"csv": csv_text, "confirm": True},
+        )
+        self.assertEqual(confirmed.status_code, 200)
+        data = confirmed.get_json()
+        self.assertEqual(data["imported"], 2)
+        self.assertEqual(len(data["incomes"]), 2)
+        self.assertEqual(data["incomes"][0]["amount"], 5000000)
+        self.assertIn("monthly_incomes", data["summary"])
+
     def test_notes_import_csv_preview_and_confirm(self):
         csv_text = (
             "Fecha,Cuenta,Texto,Tags\n"
@@ -410,6 +515,258 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(data["imported"], 2)
         self.assertEqual(len(data["notes"]), 2)
         self.assertEqual(data["notes"][0]["tags"], ["inversiones", "ideas"])
+
+    def test_portfolio_empty(self):
+        from unittest.mock import patch
+
+        with patch("services.portfolio_service.quote_service.get_quotes", return_value=({}, None, False)):
+            res = self.client.get("/api/investments/portfolio")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data["positions"], [])
+        self.assertIsNone(data["strongest_asset"])
+        self.assertEqual(data["total_pnl_usd"], 0)
+        self.assertFalse(data["has_positions"])
+
+    def test_portfolio_dca_buy_and_sell(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-01",
+                    "asset": "VOO",
+                    "quantity": 1.0,
+                    "amount_usd": 400.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2024-02-01",
+                    "asset": "VOO",
+                    "quantity": 1.0,
+                    "amount_usd": 450.0,
+                },
+                {
+                    "operation_type": "sell",
+                    "date": "2024-03-01",
+                    "asset": "VOO",
+                    "quantity": 0.5,
+                    "amount_usd": 250.0,
+                    "pnl_usd": 25.0,
+                },
+            ]
+        )
+        mock_quotes = {"VOO": 500.0}
+        with patch(
+            "services.portfolio_service.quote_service.get_quotes",
+            return_value=(mock_quotes, "2025-01-01T00:00:00+00:00", False),
+        ):
+            res = self.client.get("/api/investments/portfolio")
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["has_positions"])
+        self.assertEqual(len(data["positions"]), 1)
+        pos = data["positions"][0]
+        self.assertEqual(pos["asset"], "VOO")
+        self.assertAlmostEqual(pos["quantity"], 1.5)
+        self.assertAlmostEqual(pos["cost_basis_usd"], 637.5)
+        self.assertAlmostEqual(pos["market_value_usd"], 750.0)
+        self.assertAlmostEqual(pos["unrealized_pnl_usd"], 112.5)
+        self.assertAlmostEqual(data["total_realized_pnl_usd"], 25.0)
+        self.assertAlmostEqual(data["total_pnl_usd"], 137.5)
+        strongest = data["strongest_asset"]
+        self.assertEqual(strongest["asset"], "VOO")
+        self.assertAlmostEqual(strongest["market_value_usd"], 750.0)
+        self.assertFalse(strongest["quote_missing"])
+
+    def test_portfolio_dividend_and_deposit_ignored(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                {
+                    "operation_type": "deposit",
+                    "date": "2024-01-01",
+                    "amount_usd": 1000.0,
+                    "total": 1000.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-02",
+                    "asset": "NU",
+                    "quantity": 10.0,
+                    "amount_usd": 100.0,
+                },
+                {
+                    "operation_type": "dividend",
+                    "date": "2024-06-01",
+                    "asset": "NU",
+                    "pnl_usd": 5.0,
+                },
+            ]
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quotes",
+            return_value=({"NU": 12.0}, "2025-01-01T00:00:00+00:00", False),
+        ):
+            res = self.client.get("/api/investments/portfolio")
+        data = res.get_json()
+        self.assertEqual(len(data["positions"]), 1)
+        self.assertAlmostEqual(data["total_realized_pnl_usd"], 5.0)
+        self.assertAlmostEqual(data["positions"][0]["market_value_usd"], 120.0)
+
+    def test_portfolio_strongest_by_market_value(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-01",
+                    "asset": "VOO",
+                    "quantity": 1.0,
+                    "amount_usd": 400.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-01",
+                    "asset": "NU",
+                    "quantity": 50.0,
+                    "amount_usd": 500.0,
+                },
+            ]
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quotes",
+            return_value=({"VOO": 500.0, "NU": 8.0}, "2025-01-01T00:00:00+00:00", False),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+        strongest = data["strongest_asset"]
+        self.assertEqual(strongest["asset"], "VOO")
+        self.assertAlmostEqual(strongest["market_value_usd"], 500.0)
+
+    def test_portfolio_missing_quote_fallback(self):
+        from unittest.mock import patch
+
+        finance_store.add_investment(
+            {
+                "operation_type": "buy",
+                "date": "2024-01-01",
+                "asset": "XYZ",
+                "quantity": 2.0,
+                "amount_usd": 200.0,
+            }
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quotes",
+            return_value=({"XYZ": None}, "2025-01-01T00:00:00+00:00", True),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+        strongest = data["strongest_asset"]
+        self.assertEqual(strongest["asset"], "XYZ")
+        self.assertTrue(strongest["quote_missing"])
+        self.assertAlmostEqual(strongest["cost_basis_usd"], 200.0)
+        self.assertTrue(data["quotes_partial"])
+
+
+class OcrRefinementTestCase(unittest.TestCase):
+    def test_parse_spanish_date(self):
+        self.assertEqual(parse_date("22 jun 2026"), "2026-06-22")
+        self.assertEqual(parse_date("5 de diciembre de 2024"), "2024-12-05")
+
+    def test_refine_buy_computes_unit_price_and_total(self):
+        row, warnings = refine_ocr_row(
+            {
+                "operation_type": "buy",
+                "date": "2026-06-22",
+                "asset": "ACWI",
+                "quantity": 1.52039,
+                "amount_usd": 240.0,
+                "unit_price": None,
+                "closing_cost": 0.15,
+                "total": None,
+                "pnl_usd": 50.0,
+                "amount_cop": None,
+                "amount": 240.0,
+            }
+        )
+        self.assertAlmostEqual(row["unit_price"], 240.0 / 1.52039, places=4)
+        self.assertAlmostEqual(row["total"], 240.15, places=2)
+        self.assertIsNone(row["pnl_usd"])
+        self.assertTrue(any("P/G USD eliminado" in w for w in warnings))
+
+    def test_refine_buy_derives_amount_usd_from_total(self):
+        row, _warnings = refine_ocr_row(
+            {
+                "operation_type": "buy",
+                "date": "2026-06-22",
+                "asset": "ACWI",
+                "quantity": 1.52039,
+                "amount_usd": None,
+                "unit_price": 157.85,
+                "closing_cost": 0.15,
+                "total": 240.15,
+                "pnl_usd": None,
+                "amount_cop": None,
+                "amount": 240.15,
+            }
+        )
+        self.assertAlmostEqual(row["amount_usd"], 240.0, places=2)
+
+    def test_refine_flags_cop_hallucination(self):
+        _row, warnings = refine_ocr_row(
+            {
+                "operation_type": "buy",
+                "date": "2026-06-22",
+                "asset": "ACWI",
+                "quantity": 1.0,
+                "amount_usd": 100.0,
+                "amount_cop": 500000.0,
+                "unit_price": 100.0,
+                "closing_cost": None,
+                "total": 100.0,
+                "pnl_usd": None,
+                "amount": 100.0,
+            }
+        )
+        self.assertTrue(any("COP" in w for w in warnings))
+
+    def test_refine_flags_quantity_price_mismatch(self):
+        _row, warnings = refine_ocr_row(
+            {
+                "operation_type": "buy",
+                "date": "2026-06-22",
+                "asset": "ACWI",
+                "quantity": 56.0,
+                "amount_usd": 240.0,
+                "unit_price": 157.85,
+                "closing_cost": None,
+                "total": 240.0,
+                "pnl_usd": None,
+                "amount_cop": None,
+                "amount": 240.0,
+            }
+        )
+        self.assertTrue(any("difiere" in w for w in warnings))
+
+    def test_vision_normalize_spanish_date_and_refine(self):
+        row = vision_service.normalize_ocr_row(
+            {
+                "operation_type": "Compra",
+                "date": "22 jun 2026",
+                "asset": "ACWI",
+                "quantity": 1.52039,
+                "amount_usd": 240,
+                "closing_cost": 0.15,
+                "pnl_usd": 99,
+                "amount_cop": 999999,
+            }
+        )
+        self.assertEqual(row["date"], "2026-06-22")
+        self.assertIsNone(row["pnl_usd"])
+        self.assertAlmostEqual(row["unit_price"], 240.0 / 1.52039, places=4)
+        self.assertAlmostEqual(row["total"], 240.15, places=2)
 
 
 if __name__ == "__main__":

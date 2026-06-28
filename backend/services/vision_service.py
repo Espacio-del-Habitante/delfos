@@ -8,27 +8,52 @@ import urllib.request
 from typing import Any
 
 import config
-from services.investment_ledger import ledger_row_to_investment_input, normalize_ocr_row_fields
+from services.investment_ledger import (
+    normalize_ocr_row_fields,
+    refine_ocr_row,
+)
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 ALLOWED_MIME = frozenset({"image/png", "image/jpeg", "image/jpg", "image/webp"})
 
 VISION_PROMPT = """
-Analiza esta captura de pantalla de una app o broker de inversiones.
-Extrae cada fila de operación visible como un array JSON con objetos que tengan exactamente estos campos:
-- operation_type: uno de Depósito, Compra, Venta, Dividendo (texto en español)
-- date: fecha en formato YYYY-MM-DD si es posible
-- asset: símbolo o nombre del activo (vacío para depósitos)
-- quantity: cantidad numérica o null
-- amount_usd: monto en USD o null
-- amount_cop: monto en COP o null
-- unit_price: precio unitario o null
-- closing_cost: costo de cierre o null
-- pnl_usd: ganancia o pérdida en USD o null
-- total: total de la operación o null
+Analiza esta captura de pantalla de una app o broker de inversiones (confirmación de compra/venta/depósito).
+
+Mapea las etiquetas en español del broker a estos campos JSON:
+- "Compra …" / "Venta …" en el encabezado → operation_type (Compra, Venta, Depósito, Dividendo)
+- Ticker del activo en el encabezado (ej. "Compra ACWI" → asset: "ACWI")
+- "Fecha de compra" / "Fecha de venta" / "Fecha" → date
+- "Monto" → amount_usd
+- "Precio de ejecución" / "Precio ejecución" → unit_price
+- "Acciones" / "Cantidad" → quantity
+- "Costo de cierre" → closing_cost
+- "Total" → total
+
+Reglas estrictas:
+- Extrae SOLO valores que se vean claramente en pantalla. NUNCA inventes datos.
+- amount_cop debe ser null salvo que veas explícitamente un monto en pesos colombianos (COP).
+- pnl_usd (ganancia/pérdida) debe ser null salvo que veas explícitamente P/G o ganancia en una venta o dividendo.
+- En operaciones de Compra (buy), pnl_usd SIEMPRE debe ser null.
+- date: preferir YYYY-MM-DD; si solo ves texto como "22 jun 2026", devuélvelo tal cual.
+- asset: símbolo del ETF/acción; vacío solo para depósitos.
 
 Devuelve SOLO JSON válido con esta forma:
 {"rows": [ ... ]}
+
+Ejemplo para una pantalla de compra ACWI:
+{"rows": [{
+  "operation_type": "Compra",
+  "date": "22 jun 2026",
+  "asset": "ACWI",
+  "quantity": 1.52039,
+  "amount_usd": 240,
+  "amount_cop": null,
+  "unit_price": 157.85,
+  "closing_cost": 0.15,
+  "pnl_usd": null,
+  "total": 240.15
+}]}
+
 No incluyas explicaciones fuera del JSON.
 Si no hay filas legibles, devuelve {"rows": []}.
 """.strip()
@@ -47,7 +72,9 @@ def _extract_json(raw: str) -> dict:
 
 
 def normalize_ocr_row(row: dict[str, Any]) -> dict[str, Any]:
-    return normalize_ocr_row_fields(row)
+    normalized = normalize_ocr_row_fields(row)
+    refined, _warnings = refine_ocr_row(normalized)
+    return refined
 
 
 def _call_ollama_vision(image_b64: str) -> str:
@@ -125,10 +152,12 @@ def ocr_image(image_bytes: bytes, content_type: str = "image/png") -> dict[str, 
             if not isinstance(row, dict):
                 warnings.append(f"Fila {i}: formato inválido")
                 continue
-            normalized = normalize_ocr_row(row)
-            if not normalized.get("date"):
+            normalized = normalize_ocr_row_fields(row)
+            refined, row_warnings = refine_ocr_row(normalized)
+            warnings.extend(row_warnings)
+            if not refined.get("date"):
                 warnings.append(f"Fila {i}: fecha no reconocida")
-            rows.append(normalized)
+            rows.append(refined)
         return {
             "rows": rows,
             "warnings": warnings,

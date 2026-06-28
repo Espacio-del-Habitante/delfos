@@ -3,7 +3,7 @@ from flask_cors import CORS
 import io
 
 import config
-from services import ai_service, bulk_import, finance_store, investment_ledger, vision_service
+from services import ai_service, bulk_import, finance_store, investment_ledger, portfolio_service, vision_service
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:4321"])
@@ -84,6 +84,22 @@ def patch_expense(expense_id):
 def delete_expense_route(expense_id):
     if not finance_store.delete_expense(expense_id):
         return jsonify({"error": "Expense not found"}), 404
+    return finance_response()
+
+
+@app.route("/api/incomes/<income_id>", methods=["PATCH"])
+def patch_income(income_id):
+    body = request.get_json(silent=True) or {}
+    income = finance_store.update_income(income_id, body)
+    if not income:
+        return jsonify({"error": "Income not found"}), 404
+    return finance_response({"income": income})
+
+
+@app.route("/api/incomes/<income_id>", methods=["DELETE"])
+def delete_income_route(income_id):
+    if not finance_store.delete_income(income_id):
+        return jsonify({"error": "Income not found"}), 404
     return finance_response()
 
 
@@ -175,6 +191,15 @@ def create_expense():
     return finance_response({"expense": expense})
 
 
+@app.route("/api/incomes", methods=["POST"])
+def create_income():
+    body = request.get_json(silent=True) or {}
+    if not body.get("amount"):
+        return jsonify({"error": "Monto obligatorio"}), 400
+    income = finance_store.add_income(body)
+    return finance_response({"income": income})
+
+
 @app.route("/api/investments", methods=["POST"])
 def create_investment():
     body = request.get_json(silent=True) or {}
@@ -182,6 +207,23 @@ def create_investment():
         return jsonify({"error": "Monto obligatorio"}), 400
     investment = finance_store.add_investment(body)
     return finance_response({"investment": investment})
+
+
+@app.route("/api/investment-assets", methods=["POST"])
+def create_investment_asset():
+    body = request.get_json(silent=True) or {}
+    symbol = (body.get("symbol") or body.get("asset") or "").strip()
+    if not symbol:
+        return jsonify({"error": "El símbolo del activo es obligatorio"}), 400
+    asset = finance_store.add_investment_asset(symbol, body.get("label"))
+    if not asset:
+        return jsonify({"error": "No se pudo crear el activo"}), 400
+    return finance_response({"investment_asset": asset})
+
+
+@app.route("/api/investments/portfolio")
+def investments_portfolio():
+    return jsonify(portfolio_service.get_portfolio_payload())
 
 
 @app.route("/api/investments/export.csv")
@@ -252,6 +294,15 @@ def import_expenses_csv():
     if error:
         return error
     result = bulk_import.import_expenses_csv(csv_text, confirm=confirm)
+    return _csv_import_response(result, confirm)
+
+
+@app.route("/api/incomes/import.csv", methods=["POST"])
+def import_incomes_csv():
+    csv_text, confirm, error = _parse_csv_import_request()
+    if error:
+        return error
+    result = bulk_import.import_incomes_csv(csv_text, confirm=confirm)
     return _csv_import_response(result, confirm)
 
 
@@ -348,7 +399,13 @@ def analyze():
 @app.route("/api/confirm-analysis", methods=["POST"])
 def confirm_analysis_route():
     body = request.get_json(silent=True) or {}
-    has_items = body.get("items") or body.get("expenses") or body.get("investments") or body.get("notes")
+    has_items = (
+        body.get("items")
+        or body.get("expenses")
+        or body.get("incomes")
+        or body.get("investments")
+        or body.get("notes")
+    )
     if not has_items:
         return jsonify({"error": "Nada que confirmar"}), 400
 
