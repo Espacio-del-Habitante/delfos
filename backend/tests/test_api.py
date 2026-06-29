@@ -543,6 +543,10 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(data["positions"], [])
         self.assertIsNone(data["strongest_asset"])
         self.assertEqual(data["total_pnl_usd"], 0)
+        self.assertEqual(data["total_assets_value_usd"], 0)
+        self.assertEqual(data["cash_available_usd"], 0)
+        self.assertEqual(data["total_portfolio_value_usd"], 0)
+        self.assertIsNone(data["cash_warning"])
         self.assertFalse(data["has_positions"])
 
     def test_portfolio_dca_buy_and_sell(self):
@@ -632,6 +636,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(len(data["positions"]), 1)
         self.assertAlmostEqual(data["total_realized_pnl_usd"], 5.0)
         self.assertAlmostEqual(data["positions"][0]["market_value_usd"], 120.0)
+        self.assertAlmostEqual(data["cash_available_usd"], 905.0)
+        self.assertAlmostEqual(data["total_portfolio_value_usd"], 1025.0)
 
     def test_portfolio_strongest_by_market_value(self):
         from unittest.mock import patch
@@ -685,6 +691,110 @@ class ApiTestCase(unittest.TestCase):
         self.assertTrue(strongest["quote_missing"])
         self.assertAlmostEqual(strongest["cost_basis_usd"], 200.0)
         self.assertTrue(data["quotes_partial"])
+        self.assertAlmostEqual(data["positions"][0]["market_price_usd"], 100.0)
+        self.assertEqual(data["positions"][0]["price_source"], "last_imported_unit_price")
+        self.assertEqual(data["positions"][0]["price_source_label"], "último precio importado")
+        self.assertAlmostEqual(data["total_assets_value_usd"], 200.0)
+
+    def test_portfolio_deposit_with_usd_asset_stays_in_cash(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                {
+                    "operation_type": "deposit",
+                    "date": "2026-06-20",
+                    "asset": "USD",
+                    "quantity": 200.0,
+                    "amount_usd": 200.0,
+                    "total": 200.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2026-06-21",
+                    "asset": "ACWI",
+                    "quantity": 1.0,
+                    "amount_usd": 200.0,
+                    "total": 200.0,
+                    "unit_price": 200.0,
+                },
+            ]
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quotes",
+            return_value=({"ACWI": 210.0}, "2025-01-01T00:00:00+00:00", False),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+
+        assets = [row["asset"] for row in data["positions"]]
+        self.assertEqual(assets, ["ACWI"])
+        self.assertAlmostEqual(data["cash_available_usd"], 0.0)
+        self.assertAlmostEqual(data["total_assets_value_usd"], 210.0)
+        self.assertAlmostEqual(data["total_portfolio_value_usd"], 210.0)
+
+    def test_portfolio_cash_warning_when_negative(self):
+        from unittest.mock import patch
+
+        finance_store.add_investment(
+            {
+                "operation_type": "buy",
+                "date": "2026-06-22",
+                "asset": "GLD",
+                "quantity": 1.0,
+                "amount_usd": 150.0,
+                "total": 150.0,
+                "unit_price": 150.0,
+            }
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quotes",
+            return_value=({"GLD": 151.0}, "2025-01-01T00:00:00+00:00", False),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+
+        self.assertAlmostEqual(data["cash_available_usd"], -150.0)
+        self.assertIsNotNone(data["cash_warning"])
+        self.assertIn("efectivo calculado es negativo", data["cash_warning"])
+
+    def test_portfolio_buy_sell_rebuy_and_deposit_excluded(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                # Efectivo aportado: no debe sumarse al total del portafolio.
+                {"operation_type": "deposit", "date": "2024-01-01", "amount_usd": 1000.0, "total": 1000.0},
+                # Compra promediada: 2@100 y luego 2@150 -> qty 4, cost 500 (avg 125).
+                {"operation_type": "buy", "date": "2024-01-02", "asset": "TEST", "quantity": 2.0, "amount_usd": 200.0},
+                {"operation_type": "buy", "date": "2024-01-03", "asset": "TEST", "quantity": 2.0, "amount_usd": 300.0},
+                # Venta parcial: 1 unidad, cost_sold 125, realized 160-125=35.
+                {"operation_type": "sell", "date": "2024-01-04", "asset": "TEST", "quantity": 1.0, "amount_usd": 160.0},
+                # Venta total del resto: 3 unidades, cost_sold 375, realized 480-375=105.
+                {"operation_type": "sell", "date": "2024-01-05", "asset": "TEST", "quantity": 3.0, "amount_usd": 480.0},
+                # Recompra: el coste arranca limpio (qty 1, cost 200), realized se conserva.
+                {"operation_type": "buy", "date": "2024-01-06", "asset": "TEST", "quantity": 1.0, "amount_usd": 200.0},
+            ]
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quotes",
+            return_value=({"TEST": 250.0}, "2025-01-01T00:00:00+00:00", False),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+
+        self.assertEqual(len(data["positions"]), 1)
+        pos = data["positions"][0]
+        self.assertEqual(pos["asset"], "TEST")
+        self.assertAlmostEqual(pos["quantity"], 1.0)
+        self.assertAlmostEqual(pos["cost_basis_usd"], 200.0)
+        self.assertAlmostEqual(pos["market_value_usd"], 250.0)
+        self.assertAlmostEqual(pos["unrealized_pnl_usd"], 50.0)
+        self.assertAlmostEqual(data["total_realized_pnl_usd"], 140.0)
+        self.assertAlmostEqual(data["total_unrealized_pnl_usd"], 50.0)
+        self.assertAlmostEqual(data["total_pnl_usd"], 190.0)
+        # El depósito de 1000 NO entra: el total es solo el valor del activo.
+        self.assertAlmostEqual(data["total_market_value_usd"], 250.0)
+        self.assertAlmostEqual(data["total_assets_value_usd"], 250.0)
+        self.assertAlmostEqual(data["cash_available_usd"], 940.0)
+        self.assertAlmostEqual(data["total_portfolio_value_usd"], 1190.0)
 
 
 class AiSettingsTestCase(unittest.TestCase):
