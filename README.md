@@ -7,9 +7,29 @@
 Registra por **texto, voz, CSV o foto**, visualiza al instante y deja que la IA haga el trabajo aburrido.
 **Local-first**: tus datos viven en archivos tuyos, la IA es opcional.
 
-`Flask` · `Astro + Svelte` · `Ollama / Gemini / OpenAI-compatible` · `Local-first` · `Windows .exe`
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3-000000?logo=flask&logoColor=white)
+![Astro](https://img.shields.io/badge/Astro-6-BC52EE?logo=astro&logoColor=white)
+![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)
+![Local-first](https://img.shields.io/badge/Local--first-%E2%9C%94-2ea44f)
+![Desktop](https://img.shields.io/badge/Desktop-Windows%20.exe-0078D6?logo=windows&logoColor=white)
+
+**Español** · [English](README.en.md)
 
 </div>
+
+---
+
+## 📸 Vistazo
+
+<!-- Coloca tus capturas en docs/assets/ y descomenta las imágenes:
+<div align="center">
+<img src="docs/assets/dashboard.png" alt="Dashboard de Delfos" width="800" />
+<img src="docs/assets/inversiones.png" alt="Inversiones y ledger" width="800" />
+</div>
+-->
+
+> 📷 _Capturas próximamente._ Suelta `dashboard.png` e `inversiones.png` en [`docs/assets/`](docs/assets/) y descomenta el bloque de imágenes de arriba.
 
 ---
 
