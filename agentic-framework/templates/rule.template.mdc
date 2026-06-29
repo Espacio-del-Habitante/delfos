@@ -1,0 +1,33 @@
+---
+description: <Una línea de qué trata esta regla>
+alwaysApply: true          # SIEMPRE en contexto → mantén la regla mínima.
+# globs:                    # alternativa a alwaysApply: solo aplica a estos archivos
+#   - "*.ts"
+---
+
+# <Nombre de la regla>
+
+> Reglas cortas, numeradas y mínimas. Si crece, mueve el detalle a una skill o a docs/.
+> Una regla NO contiene la arquitectura: obliga a leerla.
+
+## Principios
+
+- <principio 1: idioma, rol del agente, etc.>
+- <principio 2: usa como fuente de verdad `docs/01_arquitectura.md`>
+- <principio 3>
+
+## Alcance
+
+**PUEDE**: <qué está permitido>.
+**NO PUEDE**: <qué está prohibido>.
+
+## Prohibiciones absolutas
+
+| Prohibido | Razón |
+|-----------|-------|
+| <acción> | <por qué rompe algo> |
+| Decir que se ejecutó algo sin haberlo hecho | Evidencia falsa |
+
+## Conectividad / errores 403
+
+Si aparece un 403: detenerse, listar dominios necesarios, explicar por qué, NO continuar.
