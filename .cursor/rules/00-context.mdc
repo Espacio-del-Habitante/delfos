@@ -1,0 +1,14 @@
+---
+description: Contexto obligatorio del proyecto - leer docs antes de codear, respetar la arquitectura
+globs:
+alwaysApply: true
+---
+
+# Contexto
+
+- Responde **siempre** en español. Nombres tecnicos en ingles.
+- **ANTES de escribir cualquier codigo**, lee `docs/00_vision.md` y `docs/01_arquitectura.md`. Son la fuente de verdad.
+- El agente **IMPLEMENTA** la arquitectura definida ahi. **NO la rediseña** ni la reinventa.
+- Respeta las capas del backend Flask (`backend/`): API en `app.py` → `services/` (logica + persistencia JSON) → `integrations/` (proveedores IA via registry + adapters). No saltes capas.
+- Respeta el frontend Astro/Svelte (`frontend/`): feature-based (`features/`) + atomic design (`common/`), cliente HTTP en `lib/api.ts`, estado en `stores/`.
+- Si la tarea exige cambiar la estructura de carpetas o la arquitectura: **DETENERSE Y PREGUNTAR**.

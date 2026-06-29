@@ -1,9 +1,10 @@
 import json
 from copy import deepcopy
 from datetime import datetime, timezone
-from pathlib import Path
 
-DATA_PATH = Path(__file__).parent.parent / "data" / "delfos_data.json"
+import config
+
+DATA_PATH = config.DATA_DIR / "delfos_data.json"
 
 DEFAULT_CATEGORIES = [
     {"id": "cat_comida", "name": "Comida", "emoji": "🍽️", "kind": "expense"},
@@ -14,6 +15,9 @@ DEFAULT_CATEGORIES = [
     {"id": "cat_educacion", "name": "Educación", "emoji": "📚", "kind": "expense"},
     {"id": "cat_entretenimiento", "name": "Entretenimiento", "emoji": "🎬", "kind": "expense"},
     {"id": "cat_servicios", "name": "Servicios", "emoji": "💡", "kind": "expense"},
+    {"id": "cat_salario", "name": "Salario", "emoji": "💼", "kind": "income"},
+    {"id": "cat_freelance", "name": "Freelance", "emoji": "💻", "kind": "income"},
+    {"id": "cat_otros_ingreso", "name": "Otros", "emoji": "💰", "kind": "income"},
     {"id": "cat_inversion", "name": "Inversión", "emoji": "📈", "kind": "investment"},
     {"id": "cat_general", "name": "General", "emoji": "🏷️", "kind": "general"},
     {"id": "cat_nota", "name": "Nota", "emoji": "📝", "kind": "note"},
@@ -24,9 +28,31 @@ DEFAULT_DATA = {
     "categories": deepcopy(DEFAULT_CATEGORIES),
     "accounts": [],
     "expenses": [],
+    "incomes": [],
     "investments": [],
+    "investment_assets": [],
     "notes": [],
 }
+
+MOVEMENT_FILTERS = [
+    {"id": "all", "label": "Todos"},
+    {"id": "expense", "label": "Gasto"},
+    {"id": "income", "label": "Ingreso"},
+    {"id": "investment", "label": "Inversión"},
+    {"id": "note", "label": "Nota"},
+]
+
+INVESTMENT_OPERATION_TYPES = {"deposit", "buy", "sell", "dividend"}
+
+LEDGER_FLOAT_FIELDS = (
+    "quantity",
+    "amount_usd",
+    "amount_cop",
+    "unit_price",
+    "closing_cost",
+    "pnl_usd",
+    "total",
+)
 
 ACCOUNT_TYPES = {
     "cash": "Efectivo",
@@ -83,6 +109,117 @@ def _migrate_categories(data):
     return data
 
 
+def _normalize_investment_ledger(investment):
+    """Soft migration: map legacy fields to ledger columns."""
+    op = investment.get("operation_type")
+    if not op:
+        action = (investment.get("action") or "buy").lower()
+        investment["operation_type"] = action if action in INVESTMENT_OPERATION_TYPES else "buy"
+    elif investment.get("operation_type") not in INVESTMENT_OPERATION_TYPES:
+        investment["operation_type"] = "buy"
+
+    if investment.get("total") is None and investment.get("amount") is not None:
+        investment["total"] = float(investment["amount"])
+    if investment.get("amount") is None and investment.get("total") is not None:
+        investment["amount"] = float(investment["total"])
+
+    for key in LEDGER_FLOAT_FIELDS:
+        if key in investment and investment[key] is not None and investment[key] != "":
+            investment[key] = float(investment[key])
+    return investment
+
+
+def normalize_investment(investment):
+    return _normalize_investment_ledger(dict(investment))
+
+
+def _migrate_investments(data):
+    changed = False
+    for investment in data.get("investments", []):
+        before = json.dumps(investment, sort_keys=True, default=str)
+        _normalize_investment_ledger(investment)
+        after = json.dumps(investment, sort_keys=True, default=str)
+        if before != after:
+            changed = True
+    return changed
+
+
+def _normalize_asset_symbol(symbol):
+    return (symbol or "").strip().upper()
+
+
+def _migrate_investment_assets(data):
+    """Seed investment_assets from unique symbols in investments."""
+    assets = data.setdefault("investment_assets", [])
+    known = {_normalize_asset_symbol(a.get("symbol")) for a in assets if a.get("symbol")}
+    changed = False
+    for investment in data.get("investments", []):
+        symbol = _normalize_asset_symbol(investment.get("asset"))
+        if not symbol or symbol in known:
+            continue
+        assets.append({"id": _next_investment_asset_id(assets), "symbol": symbol})
+        known.add(symbol)
+        changed = True
+    assets.sort(key=lambda a: (a.get("symbol") or "").lower())
+    return changed
+
+
+def _next_investment_asset_id(assets):
+    nums = []
+    for asset in assets:
+        raw = asset.get("id", "")
+        if raw.startswith("iasset_") and raw[7:].isdigit():
+            nums.append(int(raw[7:]))
+    n = max(nums, default=0) + 1
+    return f"iasset_{n:03d}"
+
+
+def get_investment_assets():
+    return list(load_data().get("investment_assets", []))
+
+
+def find_investment_asset_by_symbol(symbol):
+    key = _normalize_asset_symbol(symbol)
+    if not key:
+        return None
+    for asset in get_investment_assets():
+        if _normalize_asset_symbol(asset.get("symbol")) == key:
+            return asset
+    return None
+
+
+def _ensure_investment_asset_in_data(data, symbol, label=None):
+    key = _normalize_asset_symbol(symbol)
+    if not key:
+        return None
+    assets = data.setdefault("investment_assets", [])
+    for asset in assets:
+        if _normalize_asset_symbol(asset.get("symbol")) == key:
+            return asset
+    entry = {
+        "id": _next_investment_asset_id(assets),
+        "symbol": key,
+    }
+    if label and str(label).strip():
+        entry["label"] = str(label).strip()
+    assets.append(entry)
+    assets.sort(key=lambda a: (a.get("symbol") or "").lower())
+    return entry
+
+
+def add_investment_asset(symbol, label=None):
+    key = _normalize_asset_symbol(symbol)
+    if not key:
+        return None
+    data = load_data()
+    existing = find_investment_asset_by_symbol(key)
+    if existing:
+        return existing
+    entry = _ensure_investment_asset_in_data(data, key, label)
+    save_data(data)
+    return entry
+
+
 def load_data():
     if not DATA_PATH.exists():
         save_data(deepcopy(DEFAULT_DATA))
@@ -91,6 +228,14 @@ def load_data():
     needs_save = "categories" in data.get("settings", {}) or not data.get("categories")
     if needs_save:
         _migrate_categories(data)
+    if _migrate_investments(data):
+        needs_save = True
+    if _migrate_investment_assets(data):
+        needs_save = True
+    if "incomes" not in data:
+        data["incomes"] = []
+        needs_save = True
+    if needs_save:
         save_data(data)
     return data
 
@@ -239,7 +384,7 @@ def count_category_usage(category_name):
     data = load_data()
     name_lower = category_name.strip().lower()
     count = 0
-    for key in ("expenses", "investments"):
+    for key in ("expenses", "incomes", "investments"):
         count += sum(1 for item in data[key] if (item.get("category") or "").lower() == name_lower)
     return count
 
@@ -260,7 +405,7 @@ def delete_category(category_id):
 def count_movements_for_account(account_id):
     data = load_data()
     count = 0
-    for key in ("expenses", "investments", "notes"):
+    for key in ("expenses", "incomes", "investments", "notes"):
         count += sum(1 for item in data[key] if item.get("account_id") == account_id)
     return count
 
@@ -288,7 +433,9 @@ RESET_DATA = {
     "categories": deepcopy(DEFAULT_CATEGORIES),
     "accounts": [],
     "expenses": [],
+    "incomes": [],
     "investments": [],
+    "investment_assets": [],
     "notes": [],
 }
 
@@ -321,7 +468,7 @@ def delete_account(account_id):
     data["accounts"] = [a for a in data["accounts"] if a["id"] != account_id]
     if len(data["accounts"]) == before:
         return False
-    for key in ("expenses", "investments", "notes"):
+    for key in ("expenses", "incomes", "investments", "notes"):
         for item in data[key]:
             if item.get("account_id") == account_id:
                 item["account_id"] = None
@@ -333,6 +480,13 @@ def find_expense(expense_id):
     for expense in load_data()["expenses"]:
         if expense["id"] == expense_id:
             return expense
+    return None
+
+
+def find_income(income_id):
+    for income in load_data()["incomes"]:
+        if income["id"] == income_id:
+            return income
     return None
 
 
@@ -375,6 +529,31 @@ def delete_expense(expense_id):
     return True
 
 
+def update_income(income_id, updates):
+    data = load_data()
+    for income in data["incomes"]:
+        if income["id"] != income_id:
+            continue
+        for key in ("date", "account_id", "currency", "category", "category_emoji", "description", "income_source"):
+            if key in updates:
+                income[key] = updates[key]
+        if "amount" in updates and updates["amount"] is not None:
+            income["amount"] = float(updates["amount"])
+        save_data(data)
+        return income
+    return None
+
+
+def delete_income(income_id):
+    data = load_data()
+    before = len(data["incomes"])
+    data["incomes"] = [i for i in data["incomes"] if i["id"] != income_id]
+    if len(data["incomes"]) == before:
+        return False
+    save_data(data)
+    return True
+
+
 def update_investment(investment_id, updates):
     data = load_data()
     for investment in data["investments"]:
@@ -387,14 +566,24 @@ def update_investment(investment_id, updates):
             "asset_type",
             "currency",
             "action",
+            "operation_type",
             "category",
             "category_emoji",
             "notes",
+            "source_image",
         ):
             if key in updates:
                 investment[key] = updates[key]
         if "amount" in updates and updates["amount"] is not None:
             investment["amount"] = float(updates["amount"])
+        for key in LEDGER_FLOAT_FIELDS:
+            if key in updates:
+                investment[key] = None if updates[key] is None else float(updates[key])
+        if "operation_type" in updates and updates["operation_type"]:
+            op = updates["operation_type"]
+            if op in INVESTMENT_OPERATION_TYPES:
+                investment["action"] = op
+        _normalize_investment_ledger(investment)
         save_data(data)
         return investment
     return None
@@ -469,23 +658,72 @@ def add_expense(expense_input, source="manual"):
     return expense
 
 
+def add_income(income_input, source="manual"):
+    data = load_data()
+    income = {
+        "id": _next_id("income", data["incomes"]),
+        "date": income_input.get("date") or _today(),
+        "account_id": income_input.get("account_id"),
+        "amount": float(income_input.get("amount") or 0),
+        "currency": income_input.get("currency", "COP"),
+        "category": income_input.get("category", "General"),
+        "category_emoji": income_input.get("category_emoji", ""),
+        "description": income_input.get("description", ""),
+        "income_source": income_input.get("income_source", ""),
+        "source": source,
+        "created_at": _now_iso(),
+    }
+    data["incomes"].append(income)
+    save_data(data)
+    _adjust_account_balance(income["account_id"], income["amount"], income["currency"], subtract=False)
+    return income
+
+
+def _ledger_float(value):
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
 def add_investment(investment_input, source="manual"):
     data = load_data()
+    operation_type = investment_input.get("operation_type") or investment_input.get("action") or "buy"
+    if operation_type not in INVESTMENT_OPERATION_TYPES:
+        operation_type = "buy"
+
+    amount_raw = investment_input.get("amount")
+    if amount_raw is None:
+        amount_raw = investment_input.get("total")
+    amount = float(amount_raw or 0)
+
     investment = {
         "id": _next_id("investment", data["investments"]),
         "date": investment_input.get("date") or _today(),
         "account_id": investment_input.get("account_id"),
         "asset": investment_input.get("asset", ""),
         "asset_type": investment_input.get("asset_type", "ETF"),
-        "amount": float(investment_input.get("amount") or 0),
+        "amount": amount,
         "currency": investment_input.get("currency", "USD"),
-        "action": investment_input.get("action", "buy"),
+        "action": operation_type,
+        "operation_type": operation_type,
+        "quantity": _ledger_float(investment_input.get("quantity")),
+        "amount_usd": _ledger_float(investment_input.get("amount_usd")),
+        "amount_cop": _ledger_float(investment_input.get("amount_cop")),
+        "unit_price": _ledger_float(investment_input.get("unit_price")),
+        "closing_cost": _ledger_float(investment_input.get("closing_cost")),
+        "pnl_usd": _ledger_float(investment_input.get("pnl_usd")),
+        "total": _ledger_float(investment_input.get("total")),
+        "source_image": investment_input.get("source_image"),
         "category": investment_input.get("category", "Inversión"),
         "category_emoji": investment_input.get("category_emoji", "📈"),
         "notes": investment_input.get("notes") or investment_input.get("description", ""),
         "source": source,
         "created_at": _now_iso(),
     }
+    _normalize_investment_ledger(investment)
+    asset_sym = (investment.get("asset") or "").strip()
+    if asset_sym:
+        _ensure_investment_asset_in_data(data, asset_sym)
     data["investments"].append(investment)
     save_data(data)
     if investment["action"] == "buy":
@@ -493,6 +731,46 @@ def add_investment(investment_input, source="manual"):
             investment["account_id"], investment["amount"], investment["currency"], subtract=True
         )
     return investment
+
+
+def bulk_add_investments(rows, source="import"):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_investment(payload, source=source))
+    return created
+
+
+def bulk_add_expenses(rows, source="import"):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_expense(payload, source=source))
+    return created
+
+
+def bulk_add_incomes(rows, source="import"):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_income(payload, source=source))
+    return created
+
+
+def bulk_add_notes(rows, source="import"):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_note(payload, source=source))
+    return created
+
+
+def bulk_add_accounts(rows):
+    created = []
+    for row in rows:
+        payload = {k: v for k, v in row.items() if k not in ("row_index", "warnings", "needs_review")}
+        created.append(add_account(payload))
+    return created
 
 
 def add_note(note_input, source="manual"):
@@ -512,10 +790,10 @@ def add_note(note_input, source="manual"):
 
 
 def confirm_analysis(payload):
-    """Guarda movimientos desde items[] o {expenses, investments, notes}."""
+    """Guarda movimientos desde items[] o {expenses, incomes, investments, notes}."""
     items = _normalize_confirm_payload(payload)
-    saved = {"expenses": 0, "investments": 0, "notes": 0}
-    created = {"expenses": [], "investments": [], "notes": []}
+    saved = {"expenses": 0, "incomes": 0, "investments": 0, "notes": 0}
+    created = {"expenses": [], "incomes": [], "investments": [], "notes": []}
     skip = {
         "kind",
         "title",
@@ -531,7 +809,7 @@ def confirm_analysis(payload):
 
         if item.get("accept_category_suggestion") and item.get("suggested_new_category"):
             data["category"] = item["suggested_new_category"]
-            cat_kind = kind if kind in ("expense", "investment") else "general"
+            cat_kind = kind if kind in ("expense", "income", "investment") else "general"
             add_category(
                 item["suggested_new_category"],
                 item.get("category_emoji", ""),
@@ -541,6 +819,9 @@ def confirm_analysis(payload):
         if kind == "expense":
             created["expenses"].append(add_expense(data, source="ai"))
             saved["expenses"] += 1
+        elif kind == "income":
+            created["incomes"].append(add_income(data, source="ai"))
+            saved["incomes"] += 1
         elif kind == "investment":
             created["investments"].append(add_investment(data, source="ai"))
             saved["investments"] += 1
@@ -560,6 +841,8 @@ def _normalize_confirm_payload(payload):
     items = []
     for exp in payload.get("expenses") or []:
         items.append({**exp, "kind": "expense"})
+    for inc in payload.get("incomes") or []:
+        items.append({**inc, "kind": "income"})
     for inv in payload.get("investments") or []:
         items.append({**inv, "kind": "investment"})
     for note in payload.get("notes") or []:
@@ -586,6 +869,12 @@ def build_summary():
             cur = exp.get("currency", "COP")
             monthly_expenses[cur] = monthly_expenses.get(cur, 0) + exp["amount"]
 
+    monthly_incomes = {}
+    for inc in data["incomes"]:
+        if inc["date"].startswith(month_prefix):
+            cur = inc.get("currency", "COP")
+            monthly_incomes[cur] = monthly_incomes.get(cur, 0) + inc["amount"]
+
     investments_total = {}
     for inv in data["investments"]:
         cur = inv.get("currency", "USD")
@@ -596,7 +885,7 @@ def build_summary():
         cur = account.get("currency", "COP")
         balances_by_currency[cur] = balances_by_currency.get(cur, 0) + account.get("current_balance", 0)
 
-    total_movements = len(data["expenses"]) + len(data["investments"]) + len(data["notes"])
+    total_movements = len(data["expenses"]) + len(data["incomes"]) + len(data["investments"]) + len(data["notes"])
     last_note_row = max(data["notes"], key=lambda n: n["created_at"], default=None)
     last_note = last_note_row["text"] if last_note_row else "Sin notas todavía"
 
@@ -605,6 +894,7 @@ def build_summary():
 
     return {
         "monthly_expenses": fmt_map(monthly_expenses) or {"COP": format_amount(0, "COP")},
+        "monthly_incomes": fmt_map(monthly_incomes) or {"COP": format_amount(0, "COP")},
         "investments_total": fmt_map(investments_total) or {"USD": format_amount(0, "USD")},
         "balances_by_currency": fmt_map(balances_by_currency) or {},
         "total_movements": total_movements,
@@ -650,6 +940,24 @@ def get_movements(limit=12):
                 "account_name": (find_account(exp.get("account_id")) or {}).get("name"),
                 "date": datetime.fromisoformat(exp["created_at"]).strftime("%d %b"),
                 "created_at": exp["created_at"],
+            }
+        )
+
+    for inc in data["incomes"]:
+        items.append(
+            {
+                "id": inc["id"],
+                "type": "income",
+                "type_label": "Ingreso",
+                "icon": "income",
+                "description": inc.get("description") or inc.get("category", ""),
+                "amount": format_amount(inc["amount"], inc.get("currency", "COP")),
+                "category": inc.get("category"),
+                "category_emoji": inc.get("category_emoji", ""),
+                "account_id": inc.get("account_id"),
+                "account_name": (find_account(inc.get("account_id")) or {}).get("name"),
+                "date": datetime.fromisoformat(inc["created_at"]).strftime("%d %b"),
+                "created_at": inc["created_at"],
             }
         )
 
@@ -779,15 +1087,22 @@ def get_chart_data():
     }
 
 
+def get_movement_filters():
+    return list(MOVEMENT_FILTERS)
+
+
 def get_finance_payload():
     data = load_data()
     return {
         "summary": build_summary(),
         "accounts": get_accounts_view(),
         "movements": get_movements(),
+        "movement_filters": get_movement_filters(),
         "categories": data.get("categories", []),
         "expenses": data["expenses"],
+        "incomes": data["incomes"],
         "investments": data["investments"],
+        "investment_assets": data.get("investment_assets", []),
         "notes": data["notes"],
         "charts": get_chart_data(),
     }

@@ -1,0 +1,34 @@
+---
+name: <nombre-skill>
+description: <Una línea precisa de CUÁNDO aplica esta skill. Esto es lo que el modelo lee siempre para decidir si la invoca. Sé específico.>
+globs:
+  - "<patrón/de/archivos/*.ext>"   # opcional: para auto-invocación por tipo de archivo
+# disable-model-invocation: true   # descomenta si la skill NO debe auto-invocarse (solo bajo demanda)
+---
+
+# Skill: <Nombre>
+
+> Una skill = un propósito. Mantén este archivo entre ~0.5 y ~3 KB.
+> Si necesita scripts/CSVs/binarios, NO va aquí: repiensa el alcance (ver 02-skills.md).
+
+## Cuándo usar
+
+<En qué situaciones aplica. Una o dos frases.>
+
+## Reglas / convenciones
+
+| Caso | Convención | Ejemplo |
+|------|------------|---------|
+| <caso 1> | <regla> | <ejemplo> |
+| <caso 2> | <regla> | <ejemplo> |
+
+## Patrón
+
+```text
+<patrón o snippet de referencia, accionable>
+```
+
+## Validación / checklist
+
+- [ ] <cómo se comprueba que se aplicó bien>
+- [ ] <error común a evitar>

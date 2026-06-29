@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    volumes:
+      - ./backend/data:/app/data
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-llava}
+      FLASK_DEBUG: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        PUBLIC_API_BASE_URL: ""
+    ports:
+      - "8080:80"
+      - "80:80"
+    depends_on:
+      - backend
