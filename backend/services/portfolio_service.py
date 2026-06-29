@@ -28,16 +28,29 @@ def _operation_type(inv: dict[str, Any]) -> str:
     return (inv.get("operation_type") or inv.get("action") or "buy").strip().lower()
 
 
+def _is_non_zero(value: float | None) -> bool:
+    return value is not None and abs(value) > 1e-12
+
+
 def _trade_total_usd(inv: dict[str, Any]) -> float:
     total = _to_float(inv.get("total"))
+    amount_usd = _to_float(inv.get("amount_usd"))
+    amount = _to_float(inv.get("amount"))
+
+    if _is_non_zero(total):
+        return total
+    if _is_non_zero(amount_usd):
+        return amount_usd
+    if _is_non_zero(amount):
+        return amount
+
     if total is not None:
         return total
-    amount_usd = _to_float(inv.get("amount_usd"))
     if amount_usd is not None:
         return amount_usd
-    amount = _to_float(inv.get("amount"))
     if amount is not None:
         return amount
+
     quantity = _to_float(inv.get("quantity"))
     unit_price = _to_float(inv.get("unit_price"))
     if quantity is not None and unit_price is not None:
@@ -47,17 +60,23 @@ def _trade_total_usd(inv: dict[str, Any]) -> float:
 
 def _dividend_total_usd(inv: dict[str, Any]) -> float:
     total = _to_float(inv.get("total"))
-    if total is not None:
-        return total
     amount_usd = _to_float(inv.get("amount_usd"))
-    if amount_usd is not None:
-        return amount_usd
     amount = _to_float(inv.get("amount"))
-    if amount is not None:
-        return amount
     pnl = _to_float(inv.get("pnl_usd"))
+    if _is_non_zero(total):
+        return total
+    if _is_non_zero(amount_usd):
+        return amount_usd
+    if _is_non_zero(amount):
+        return amount
     if pnl is not None:
         return pnl
+    if total is not None:
+        return total
+    if amount_usd is not None:
+        return amount_usd
+    if amount is not None:
+        return amount
     return 0.0
 
 
