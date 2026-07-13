@@ -111,7 +111,7 @@ def _build_position_row(
         if cost_basis > 0:
             unrealized_percent = (unrealized / cost_basis) * 100
 
-    total_pnl = realized_sales + (unrealized or 0.0) + dividends
+    total_pnl = realized_sales + (unrealized or 0.0) + dividends - fees
     total_return_percent: float | None = None
     if capital_invested > 0:
         total_return_percent = (total_pnl / capital_invested) * 100
@@ -264,7 +264,7 @@ def get_portfolio_insights(investments: list[dict[str, Any]] | None = None) -> d
         if conf in ("fallback", "warning", "missing"):
             quotes_partial = True
 
-    total_pnl = total_unrealized + total_realized + total_dividends
+    total_pnl = total_unrealized + total_realized + total_dividends - total_fees
     total_portfolio_value = total_assets_value + cash_available
     cash_warning = NEGATIVE_CASH_WARNING if cash_available < -1e-9 else None
 

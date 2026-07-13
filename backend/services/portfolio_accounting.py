@@ -69,6 +69,39 @@ def _buy_cost_usd(inv: dict[str, Any]) -> float:
     return 0.0
 
 
+def _buy_fee_usd(inv: dict[str, Any]) -> float:
+    closing_cost = _to_float(inv.get("closing_cost")) or 0.0
+    return closing_cost if closing_cost > 0 else 0.0
+
+
+def _buy_principal_usd(inv: dict[str, Any]) -> float:
+    """Coste de posición sin comisiones (fees se restan aparte en PnL neto)."""
+    payment = _buy_cost_usd(inv)
+    fee = _buy_fee_usd(inv)
+    return max(0.0, payment - fee) if fee > 0 else payment
+
+
+def _sell_gross_proceeds_usd(inv: dict[str, Any]) -> float:
+    """Ingreso bruto de venta antes de comisiones."""
+    total = _to_float(inv.get("total"))
+    closing_cost = abs(_to_float(inv.get("closing_cost")) or 0.0)
+    if _is_non_zero(total):
+        return total + closing_cost if closing_cost > 0 else total
+    amount_usd = _to_float(inv.get("amount_usd"))
+    if amount_usd is not None:
+        return amount_usd
+    amount = _to_float(inv.get("amount"))
+    if _is_non_zero(amount):
+        return amount
+    quantity = _to_float(inv.get("quantity"))
+    unit_price = _to_float(inv.get("unit_price"))
+    if quantity is not None and unit_price is not None:
+        return quantity * unit_price
+    if total is not None:
+        return total
+    return 0.0
+
+
 def _sell_proceeds_usd(inv: dict[str, Any]) -> float:
     total = _to_float(inv.get("total"))
     if _is_non_zero(total):
@@ -89,30 +122,48 @@ def _sell_proceeds_usd(inv: dict[str, Any]) -> float:
     return 0.0
 
 
-def _dividend_net_usd(inv: dict[str, Any]) -> tuple[float, float]:
-    """Return (net dividend, fee from withholding)."""
+def _dividend_components(inv: dict[str, Any]) -> tuple[float, float, float]:
+    """Return (gross dividend, fee, net cash)."""
     total = _to_float(inv.get("total"))
     amount_usd = _to_float(inv.get("amount_usd"))
     amount = _to_float(inv.get("amount"))
     pnl = _to_float(inv.get("pnl_usd"))
     closing_cost = _to_float(inv.get("closing_cost")) or 0.0
-    fee = abs(closing_cost) if closing_cost < 0 else 0.0
+
+    fee = 0.0
+    if closing_cost > 0:
+        fee = closing_cost
+    elif closing_cost < 0:
+        fee = abs(closing_cost)
+
+    if amount_usd is not None and _is_non_zero(amount_usd):
+        gross = amount_usd
+    elif _is_non_zero(amount):
+        gross = amount
+    elif pnl is not None and _is_non_zero(pnl):
+        gross = pnl
+    elif _is_non_zero(total):
+        gross = total + fee if fee > 0 else total
+    elif total is not None:
+        gross = total
+    elif amount_usd is not None:
+        gross = amount_usd
+    elif amount is not None:
+        gross = amount
+    else:
+        gross = 0.0
 
     if _is_non_zero(total):
-        return total, fee
-    if _is_non_zero(amount_usd):
-        return amount_usd, fee
-    if _is_non_zero(amount):
-        return amount, fee
-    if pnl is not None:
-        return pnl, fee
-    if total is not None:
-        return total, fee
-    if amount_usd is not None:
-        return amount_usd, fee
-    if amount is not None:
-        return amount, fee
-    return 0.0, fee
+        net = total
+    else:
+        net = gross - fee if fee > 0 else gross
+    return gross, fee, net
+
+
+def _dividend_net_usd(inv: dict[str, Any]) -> tuple[float, float]:
+    """Return (net dividend, fee)."""
+    _, fee, net = _dividend_components(inv)
+    return net, fee
 
 
 def _deposit_amount_usd(inv: dict[str, Any]) -> float:
@@ -141,7 +192,7 @@ def _trade_unit_price(inv: dict[str, Any], *, buy: bool) -> float | None:
     qty = _to_float(inv.get("quantity"))
     if qty is None or qty <= 0:
         return None
-    trade_total = _buy_cost_usd(inv) if buy else _sell_proceeds_usd(inv)
+    trade_total = _buy_principal_usd(inv) if buy else _sell_gross_proceeds_usd(inv)
     if trade_total <= 0:
         return None
     return trade_total / qty
@@ -170,13 +221,13 @@ def aggregate_portfolio(investments: list[dict[str, Any]] | None = None) -> dict
             continue
 
         if op == "dividend":
-            net, fee = _dividend_net_usd(inv)
+            gross, fee, net = _dividend_components(inv)
             cash += net
-            total_dividends += net
+            total_dividends += gross
             total_fees += fee
             if asset:
                 pos = positions.setdefault(asset, _empty_position())
-                pos["dividends"] += net
+                pos["dividends"] += gross
                 pos["fees"] += fee
             continue
 
@@ -184,9 +235,9 @@ def aggregate_portfolio(investments: list[dict[str, Any]] | None = None) -> dict
             continue
 
         if op == "buy":
-            buy_cost = _buy_cost_usd(inv)
-            closing_cost = _to_float(inv.get("closing_cost")) or 0.0
-            fee = closing_cost if closing_cost > 0 else 0.0
+            payment = _buy_cost_usd(inv)
+            principal = _buy_principal_usd(inv)
+            fee = _buy_fee_usd(inv)
             qty = float(inv.get("quantity") or 0)
             unit_price = _trade_unit_price(inv, buy=True)
             if asset and unit_price is not None:
@@ -194,17 +245,20 @@ def aggregate_portfolio(investments: list[dict[str, Any]] | None = None) -> dict
             if asset:
                 pos = positions.setdefault(asset, _empty_position())
                 pos["qty"] += qty
-                pos["cost"] += buy_cost
-                pos["capital_invested"] += buy_cost
+                pos["cost"] += principal
+                pos["capital_invested"] += principal
                 pos["fees"] += fee
             total_fees += fee
-            cash -= buy_cost
+            cash -= payment
             continue
 
         # sell
+        gross = _sell_gross_proceeds_usd(inv)
         proceeds = _sell_proceeds_usd(inv)
         closing_cost = _to_float(inv.get("closing_cost")) or 0.0
         fee = abs(closing_cost) if closing_cost < 0 else (closing_cost if closing_cost > 0 else 0.0)
+        if fee <= 0 and gross > proceeds:
+            fee = gross - proceeds
         unit_price = _trade_unit_price(inv, buy=False)
         if asset and unit_price is not None:
             last_unit_prices[asset] = unit_price
@@ -221,7 +275,7 @@ def aggregate_portfolio(investments: list[dict[str, Any]] | None = None) -> dict
         matched_qty = min(sell_qty, qty_before) if qty_before > 0 and sell_qty > 0 else 0.0
         avg = pos["cost"] / qty_before if qty_before > 0 else 0.0
         cost_sold = matched_qty * avg
-        realized = proceeds - cost_sold
+        realized = gross - cost_sold
         pos["qty"] = max(0.0, qty_before - sell_qty)
         pos["cost"] = max(0.0, pos["cost"] - cost_sold)
         pos["realized_sales"] += realized

@@ -131,7 +131,7 @@
   </div>
 
   <div class="investments-hero__stat investments-hero__stat--highlight">
-    <span class="investments-hero__stat-label">Ganancia total</span>
+    <span class="investments-hero__stat-label">Ganancia neta</span>
     {#if loading}
       <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
     {:else if empty}
@@ -146,7 +146,7 @@
       </span>
       {#if insights}
         <span class="investments-hero__stat-hint">
-          Materializada {formatPnl(insights.total_realized_pnl_usd)} · No materializada {formatPnl(insights.total_unrealized_pnl_usd)} · Dividendos {formatPnl(insights.total_dividends_usd)} · Fees {formatUsd(insights.total_fees_usd)}
+          Materializada {formatPnl(insights.total_realized_pnl_usd)} · No materializada {formatPnl(insights.total_unrealized_pnl_usd)} · Dividendos {formatPnl(insights.total_dividends_usd)} − Fees {formatUsd(insights.total_fees_usd)}
         </span>
       {/if}
     {/if}

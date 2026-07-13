@@ -102,16 +102,41 @@ class PortfolioAccountingTestCase(unittest.TestCase):
                     "operation_type": "dividend",
                     "date": "2024-06-01",
                     "asset": "NU",
+                    "amount_usd": 2.0,
+                    "closing_cost": 0.18,
                     "total": 1.82,
                 },
             ]
         )
         state = agg["positions_state"]["NU"]
-        self.assertAlmostEqual(state["dividends"], 1.82)
+        self.assertAlmostEqual(state["dividends"], 2.0)
+        self.assertAlmostEqual(state["fees"], 0.18)
         self.assertAlmostEqual(state["qty"], 1.0)
         self.assertAlmostEqual(state["cost"], 10.0)
-        self.assertAlmostEqual(agg["total_dividends"], 1.82)
+        self.assertAlmostEqual(agg["total_dividends"], 2.0)
+        self.assertAlmostEqual(agg["total_fees"], 0.18)
         self.assertAlmostEqual(agg["total_realized_sales"], 0.0)
+
+    def test_buy_fee_excluded_from_cost_subtracted_in_pnl(self):
+        agg = aggregate_portfolio(
+            [
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-01",
+                    "asset": "TEST",
+                    "quantity": 1.0,
+                    "amount_usd": 100.0,
+                    "closing_cost": 10.0,
+                    "total": 110.0,
+                }
+            ]
+        )
+        state = agg["positions_state"]["TEST"]
+        self.assertAlmostEqual(state["cost"], 100.0)
+        self.assertAlmostEqual(state["fees"], 10.0)
+        self.assertAlmostEqual(_unrealized(state, 100.0), 0.0)
+        net_pnl = state["realized_sales"] + _unrealized(state, 100.0) + state["dividends"] - state["fees"]
+        self.assertAlmostEqual(net_pnl, -10.0)
 
     def test_deposit_no_usd_position(self):
         agg = aggregate_portfolio(
