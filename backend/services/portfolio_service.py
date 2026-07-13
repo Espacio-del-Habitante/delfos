@@ -6,13 +6,11 @@ from typing import Any
 
 from services import finance_store, quote_service
 from services.investment_ledger import _sorted_investments
+from services.portfolio_accounting import NEGATIVE_CASH_WARNING, aggregate_portfolio
 
 LIVE_QUOTE_SOURCE = "live_quote"
 FALLBACK_PRICE_SOURCE = "last_imported_unit_price"
-NEGATIVE_CASH_WARNING = (
-    "El efectivo calculado es negativo. Puede faltar algún depósito, existir una compra duplicada "
-    "o haber un error en la importación."
-)
+NO_PRICE_SOURCE_LABEL = "Sin precio disponible"
 
 
 def _to_float(value: Any) -> float | None:
@@ -24,147 +22,12 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
-def _operation_type(inv: dict[str, Any]) -> str:
-    return (inv.get("operation_type") or inv.get("action") or "buy").strip().lower()
-
-
-def _is_non_zero(value: float | None) -> bool:
-    return value is not None and abs(value) > 1e-12
-
-
-def _trade_total_usd(inv: dict[str, Any]) -> float:
-    total = _to_float(inv.get("total"))
-    amount_usd = _to_float(inv.get("amount_usd"))
-    amount = _to_float(inv.get("amount"))
-
-    if _is_non_zero(total):
-        return total
-    if _is_non_zero(amount_usd):
-        return amount_usd
-    if _is_non_zero(amount):
-        return amount
-
-    if total is not None:
-        return total
-    if amount_usd is not None:
-        return amount_usd
-    if amount is not None:
-        return amount
-
-    quantity = _to_float(inv.get("quantity"))
-    unit_price = _to_float(inv.get("unit_price"))
-    if quantity is not None and unit_price is not None:
-        return quantity * unit_price
-    return 0.0
-
-
-def _dividend_total_usd(inv: dict[str, Any]) -> float:
-    total = _to_float(inv.get("total"))
-    amount_usd = _to_float(inv.get("amount_usd"))
-    amount = _to_float(inv.get("amount"))
-    pnl = _to_float(inv.get("pnl_usd"))
-    if _is_non_zero(total):
-        return total
-    if _is_non_zero(amount_usd):
-        return amount_usd
-    if _is_non_zero(amount):
-        return amount
-    if pnl is not None:
-        return pnl
-    if total is not None:
-        return total
-    if amount_usd is not None:
-        return amount_usd
-    if amount is not None:
-        return amount
-    return 0.0
-
-
-def _trade_unit_price(inv: dict[str, Any]) -> float | None:
-    unit_price = _to_float(inv.get("unit_price"))
-    if unit_price is not None and unit_price > 0:
-        return unit_price
-    qty = _to_float(inv.get("quantity"))
-    if qty is None or qty <= 0:
-        return None
-    implied_total = _trade_total_usd(inv)
-    if implied_total <= 0:
-        return None
-    return implied_total / qty
-
-
-def _normalize_asset(asset: str | None) -> str:
-    return (asset or "").strip().upper()
-
-
-def _aggregate_positions(
-    investments: list[dict[str, Any]],
-) -> tuple[dict[str, dict[str, float]], float, dict[str, float], float]:
-    """Return per-asset state, total realized P&L, last unit prices and available cash."""
-    positions: dict[str, dict[str, float]] = {}
-    last_unit_prices: dict[str, float] = {}
-    total_realized = 0.0
-    cash_available = 0.0
-
-    for inv in investments:
-        op = _operation_type(inv)
-        asset = _normalize_asset(inv.get("asset"))
-
-        if op == "deposit":
-            cash_available += _trade_total_usd(inv)
-            continue
-
-        if op == "dividend":
-            dividend = _dividend_total_usd(inv)
-            cash_available += dividend
-            if asset:
-                pos = positions.setdefault(asset, {"qty": 0.0, "cost": 0.0, "realized": 0.0})
-                pos["realized"] += dividend
-            total_realized += dividend
-            continue
-
-        if op not in ("buy", "sell"):
-            continue
-
-        trade_total = _trade_total_usd(inv)
-        unit_price = _trade_unit_price(inv)
-        if asset and unit_price is not None:
-            last_unit_prices[asset] = unit_price
-
-        if op == "buy":
-            qty = float(inv.get("quantity") or 0)
-            if asset:
-                pos = positions.setdefault(asset, {"qty": 0.0, "cost": 0.0, "realized": 0.0})
-                pos["qty"] += qty
-                pos["cost"] += trade_total
-            cash_available -= trade_total
-            continue
-
-        if op == "sell":
-            cash_available += trade_total
-            if not asset:
-                continue
-            pos = positions.setdefault(asset, {"qty": 0.0, "cost": 0.0, "realized": 0.0})
-            sell_qty = float(inv.get("quantity") or 0)
-            qty_before = pos["qty"]
-            matched_qty = min(sell_qty, qty_before) if qty_before > 0 and sell_qty > 0 else 0.0
-            cost_sold = pos["cost"] * (matched_qty / qty_before) if qty_before > 0 else 0.0
-            pnl = _to_float(inv.get("pnl_usd"))
-            realized = pnl if pnl is not None else trade_total - cost_sold
-            pos["qty"] = max(0.0, qty_before - sell_qty)
-            pos["cost"] = max(0.0, pos["cost"] - cost_sold)
-            pos["realized"] += realized
-            total_realized += realized
-
-    return positions, total_realized, last_unit_prices, cash_available
-
-
-def _price_source_label(source: str | None) -> str | None:
+def _price_source_label(source: str | None) -> str:
     if source == LIVE_QUOTE_SOURCE:
-        return "cotización actual"
+        return "Cotización actual"
     if source == FALLBACK_PRICE_SOURCE:
-        return "último precio importado"
-    return None
+        return "Último precio importado"
+    return NO_PRICE_SOURCE_LABEL
 
 
 def _build_position_row(
@@ -176,30 +39,44 @@ def _build_position_row(
 ) -> dict[str, Any]:
     qty = state["qty"]
     cost_basis = state["cost"]
-    realized = state["realized"]
-    row: dict[str, Any] = {
-        "asset": asset,
-        "quantity": round(qty, 8),
-        "cost_basis_usd": round(cost_basis, 2),
-        "market_price_usd": round(price, 4) if price is not None else None,
-        "used_price_usd": round(price, 4) if price is not None else None,
-        "price_source": price_source,
-        "price_source_label": _price_source_label(price_source),
-        "market_value_usd": None,
-        "unrealized_pnl_usd": None,
-        "unrealized_pnl_percent": None,
-        "realized_pnl_usd": round(realized, 2),
-        "total_pnl_usd": round(realized, 2),
-    }
+    realized_sales = state["realized_sales"]
+    dividends = state["dividends"]
+    fees = state["fees"]
+    capital_invested = state["capital_invested"]
+    average_cost = cost_basis / qty if qty > 1e-12 else None
+
+    unrealized: float | None = None
+    unrealized_percent: float | None = None
+    market_value: float | None = None
     if price is not None and qty > 0:
         market_value = qty * price
         unrealized = market_value - cost_basis
-        row["market_value_usd"] = round(market_value, 2)
-        row["unrealized_pnl_usd"] = round(unrealized, 2)
-        row["total_pnl_usd"] = round(realized + unrealized, 2)
         if cost_basis > 0:
-            row["unrealized_pnl_percent"] = round((unrealized / cost_basis) * 100, 2)
-    return row
+            unrealized_percent = (unrealized / cost_basis) * 100
+
+    total_pnl = realized_sales + (unrealized or 0.0) + dividends
+    total_return_percent: float | None = None
+    if capital_invested > 0:
+        total_return_percent = (total_pnl / capital_invested) * 100
+
+    return {
+        "asset": asset,
+        "quantity": round(qty, 8),
+        "cost_basis_usd": round(cost_basis, 2),
+        "average_cost_usd": round(average_cost, 4) if average_cost is not None else None,
+        "market_price_usd": round(price, 4) if price is not None else None,
+        "used_price_usd": round(price, 4) if price is not None else None,
+        "price_source": price_source,
+        "price_source_label": _price_source_label(price_source) if price is not None else NO_PRICE_SOURCE_LABEL,
+        "market_value_usd": round(market_value, 2) if market_value is not None else None,
+        "unrealized_pnl_usd": round(unrealized, 2) if unrealized is not None else None,
+        "unrealized_pnl_percent": round(unrealized_percent, 2) if unrealized_percent is not None else None,
+        "realized_pnl_usd": round(realized_sales, 2),
+        "dividends_usd": round(dividends, 2),
+        "fees_paid_usd": round(fees, 2),
+        "total_pnl_usd": round(total_pnl, 2),
+        "total_return_percent": round(total_return_percent, 2) if total_return_percent is not None else None,
+    }
 
 
 def _pick_strongest_asset(
@@ -231,7 +108,15 @@ def _pick_strongest_asset(
 
 def get_portfolio_insights(investments: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     rows = _sorted_investments(investments)
-    positions_state, total_realized, last_unit_prices, cash_available = _aggregate_positions(rows)
+    agg = aggregate_portfolio(rows)
+    positions_state = agg["positions_state"]
+    last_unit_prices = agg["last_unit_prices"]
+    cash_available = agg["cash"]
+    warnings = list(agg["warnings"])
+    total_realized = agg["total_realized_sales"]
+    total_dividends = agg["total_dividends"]
+    total_fees = agg["total_fees"]
+    total_deposits = agg["total_deposits"]
 
     open_positions = {asset: state for asset, state in positions_state.items() if state["qty"] > 1e-12}
     tickers = list(open_positions.keys())
@@ -256,10 +141,15 @@ def get_portfolio_insights(investments: list[dict[str, Any]] | None = None) -> d
             total_unrealized += float(row["unrealized_pnl_usd"])
         positions.append(row)
 
-    total_pnl = total_unrealized + total_realized
+    total_pnl = total_unrealized + total_realized + total_dividends
     total_assets_value = sum(float(p.get("market_value_usd") or 0) for p in positions)
     total_portfolio_value = total_assets_value + cash_available
     cash_warning = NEGATIVE_CASH_WARNING if cash_available < -1e-9 else None
+
+    global_gain = total_portfolio_value - total_deposits
+    total_return_percent: float | None = None
+    if total_deposits > 0:
+        total_return_percent = (global_gain / total_deposits) * 100
 
     return {
         "positions": positions,
@@ -269,9 +159,15 @@ def get_portfolio_insights(investments: list[dict[str, Any]] | None = None) -> d
         "cash_available_usd": round(cash_available, 2),
         "total_portfolio_value_usd": round(total_portfolio_value, 2),
         "cash_warning": cash_warning,
+        "warnings": warnings,
         "total_unrealized_pnl_usd": round(total_unrealized, 2),
         "total_realized_pnl_usd": round(total_realized, 2),
+        "total_dividends_usd": round(total_dividends, 2),
+        "total_fees_usd": round(total_fees, 2),
         "total_pnl_usd": round(total_pnl, 2),
+        "total_deposits_usd": round(total_deposits, 2),
+        "global_gain_by_contributions_usd": round(global_gain, 2),
+        "total_return_percent": round(total_return_percent, 2) if total_return_percent is not None else None,
         "quotes_as_of": quotes_as_of,
         "quotes_partial": quotes_partial,
         "has_positions": len(positions) > 0,

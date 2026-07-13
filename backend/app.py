@@ -254,6 +254,17 @@ def export_investments_csv():
     )
 
 
+@app.route("/api/investments/template.csv")
+def download_investments_template_csv():
+    content = investment_ledger.export_template_csv()
+    return send_file(
+        io.BytesIO(content.encode("utf-8")),
+        mimetype="text/csv; charset=utf-8",
+        as_attachment=True,
+        download_name="plantilla-inversiones.csv",
+    )
+
+
 @app.route("/api/investments/export.xlsx")
 def export_investments_xlsx():
     content = investment_ledger.export_xlsx()

@@ -241,8 +241,20 @@ async function fetchBlob(path: string): Promise<Blob> {
   return res.blob();
 }
 
+async function fetchAssetBlob(path: string): Promise<Blob> {
+  const res = await fetch(path);
+  if (!res.ok) {
+    throw new ApiError(res.statusText, res.status);
+  }
+  return res.blob();
+}
+
 export function exportInvestmentsCsv(): Promise<Blob> {
   return fetchBlob('/api/investments/export.csv');
+}
+
+export function downloadInvestmentsTemplateCsv(): Promise<Blob> {
+  return fetchAssetBlob('/plantillas/plantilla-inversiones.csv');
 }
 
 export function exportInvestmentsXlsx(): Promise<Blob> {

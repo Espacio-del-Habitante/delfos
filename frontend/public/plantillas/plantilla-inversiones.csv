@@ -1,0 +1,5 @@
+﻿Tipo de Operación,Fecha,Activo,Cantidad,Monto USD,Monto COP,Precio Unitario,Costo de Cierre,Ganancia/Pérdida USD,Total
+Depósito,2024-11-14,,,100.0,400000.0,,,,100.0
+Compra,2024-11-15,ACWI,0.5,60.0,,120.0,0.15,,60.15
+Venta,2025-01-10,ACWI,0.1,12.5,,125.0,0.1,0.5,12.4
+Dividendo,2025-03-01,ACWI,,2.5,,,,,2.5

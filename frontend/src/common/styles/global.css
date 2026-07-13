@@ -3838,6 +3838,27 @@ select[data-native-select-hidden] {
   color: #b45309;
 }
 
+.investments-hero__stat-sub {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.investments-hero__warnings {
+  margin: 0.5rem 0 0;
+  padding: 0.65rem 1rem;
+  list-style: none;
+  border-radius: var(--radius-md);
+  background: rgba(180, 83, 9, 0.08);
+  border: 1px solid rgba(180, 83, 9, 0.2);
+}
+
+.investments-hero__warning {
+  font-size: 0.8rem;
+  color: #b45309;
+  line-height: 1.4;
+}
+
 .investments-hero__stat-badge {
   display: inline-block;
   align-self: flex-start;
@@ -3896,7 +3917,7 @@ select[data-native-select-hidden] {
 .investments-audit__table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 680px;
+  min-width: 1100px;
 }
 
 .investments-audit__table th,

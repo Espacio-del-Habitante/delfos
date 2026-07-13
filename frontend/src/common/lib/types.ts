@@ -309,6 +309,7 @@ export interface PortfolioPosition {
   asset: string;
   quantity: number;
   cost_basis_usd: number;
+  average_cost_usd?: number | null;
   market_price_usd: number | null;
   used_price_usd?: number | null;
   price_source?: 'live_quote' | 'last_imported_unit_price' | null;
@@ -317,7 +318,10 @@ export interface PortfolioPosition {
   unrealized_pnl_usd: number | null;
   unrealized_pnl_percent: number | null;
   realized_pnl_usd?: number;
+  dividends_usd?: number;
+  fees_paid_usd?: number;
   total_pnl_usd?: number;
+  total_return_percent?: number | null;
 }
 
 export interface StrongestAsset {
@@ -336,9 +340,15 @@ export interface PortfolioInsights {
   cash_available_usd?: number;
   total_portfolio_value_usd?: number;
   cash_warning?: string | null;
+  warnings?: string[];
   total_unrealized_pnl_usd: number;
   total_realized_pnl_usd: number;
+  total_dividends_usd?: number;
+  total_fees_usd?: number;
   total_pnl_usd: number;
+  total_deposits_usd?: number;
+  global_gain_by_contributions_usd?: number;
+  total_return_percent?: number | null;
   quotes_as_of: string | null;
   quotes_partial: boolean;
   has_positions: boolean;

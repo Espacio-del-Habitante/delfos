@@ -313,6 +313,22 @@ class ApiTestCase(unittest.TestCase):
         res = self.client.get("/")
         self.assertEqual(res.status_code, 200)
 
+    def test_investments_template_csv_has_header_and_examples(self):
+        res = self.client.get("/api/investments/template.csv")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/csv", res.content_type)
+        text = res.data.decode("utf-8-sig")
+        lines = text.strip().splitlines()
+        self.assertEqual(
+            lines[0],
+            "Tipo de Operación,Fecha,Activo,Cantidad,Monto USD,Monto COP,Precio Unitario,Costo de Cierre,Ganancia/Pérdida USD,Total",
+        )
+        self.assertGreaterEqual(len(lines), 5)
+        self.assertIn("Depósito", text)
+        self.assertIn("Compra", text)
+        self.assertIn("Venta", text)
+        self.assertIn("Dividendo", text)
+
     def test_export_csv_header_and_rows(self):
         finance_store.add_investment(
             {
@@ -594,8 +610,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertAlmostEqual(pos["cost_basis_usd"], 637.5)
         self.assertAlmostEqual(pos["market_value_usd"], 750.0)
         self.assertAlmostEqual(pos["unrealized_pnl_usd"], 112.5)
-        self.assertAlmostEqual(data["total_realized_pnl_usd"], 25.0)
-        self.assertAlmostEqual(data["total_pnl_usd"], 137.5)
+        self.assertAlmostEqual(data["total_realized_pnl_usd"], 37.5)
+        self.assertAlmostEqual(data["total_pnl_usd"], 150.0)
         strongest = data["strongest_asset"]
         self.assertEqual(strongest["asset"], "VOO")
         self.assertAlmostEqual(strongest["market_value_usd"], 750.0)
@@ -634,7 +650,8 @@ class ApiTestCase(unittest.TestCase):
             res = self.client.get("/api/investments/portfolio")
         data = res.get_json()
         self.assertEqual(len(data["positions"]), 1)
-        self.assertAlmostEqual(data["total_realized_pnl_usd"], 5.0)
+        self.assertAlmostEqual(data["total_realized_pnl_usd"], 0.0)
+        self.assertAlmostEqual(data["total_dividends_usd"], 5.0)
         self.assertAlmostEqual(data["positions"][0]["market_value_usd"], 120.0)
         self.assertAlmostEqual(data["cash_available_usd"], 905.0)
         self.assertAlmostEqual(data["total_portfolio_value_usd"], 1025.0)
@@ -693,7 +710,7 @@ class ApiTestCase(unittest.TestCase):
         self.assertTrue(data["quotes_partial"])
         self.assertAlmostEqual(data["positions"][0]["market_price_usd"], 100.0)
         self.assertEqual(data["positions"][0]["price_source"], "last_imported_unit_price")
-        self.assertEqual(data["positions"][0]["price_source_label"], "último precio importado")
+        self.assertEqual(data["positions"][0]["price_source_label"], "Último precio importado")
         self.assertAlmostEqual(data["total_assets_value_usd"], 200.0)
 
     def test_portfolio_deposit_with_usd_asset_stays_in_cash(self):
@@ -755,6 +772,7 @@ class ApiTestCase(unittest.TestCase):
         self.assertAlmostEqual(data["cash_available_usd"], -150.0)
         self.assertIsNotNone(data["cash_warning"])
         self.assertIn("efectivo calculado es negativo", data["cash_warning"])
+        self.assertIn(data["cash_warning"], data["warnings"])
 
     def test_portfolio_buy_sell_rebuy_and_deposit_excluded(self):
         from unittest.mock import patch

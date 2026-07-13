@@ -25,6 +25,12 @@
     return `${sign}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
+  function formatPercent(n: number | null | undefined): string {
+    if (n == null) return '—';
+    const sign = n > 0 ? '+' : n < 0 ? '−' : '';
+    return `${sign}${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  }
+
   function pnlClass(value: number | null | undefined): string {
     if (value == null) return '';
     if (value > 0) return 'pnl--positive';
@@ -43,6 +49,7 @@
   $: totalPnl = insights?.total_pnl_usd ?? null;
   $: cashTone = pnlClass(cash);
   $: totalPnlTone = pnlClass(totalPnl);
+  $: portfolioWarnings = insights?.warnings ?? (insights?.cash_warning ? [insights.cash_warning] : []);
 </script>
 
 <div class="investments-hero__stats">
@@ -64,7 +71,7 @@
   </div>
 
   <div class="investments-hero__stat investments-hero__stat--highlight">
-    <span class="investments-hero__stat-label">Total dinero / efectivo</span>
+    <span class="investments-hero__stat-label">Efectivo disponible</span>
     {#if loading}
       <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
     {:else if empty}
@@ -96,7 +103,7 @@
   </div>
 
   <div class="investments-hero__stat investments-hero__stat--highlight">
-    <span class="investments-hero__stat-label">Ganancia total (P/G USD)</span>
+    <span class="investments-hero__stat-label">Ganancia total</span>
     {#if loading}
       <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
     {:else if empty}
@@ -105,15 +112,26 @@
     {:else}
       <span class="investments-hero__stat-value investments-hero__stat-value--large {totalPnlTone}">
         {formatPnl(totalPnl)}
+        {#if insights?.total_return_percent != null}
+          <span class="investments-hero__stat-sub">({formatPercent(insights.total_return_percent)})</span>
+        {/if}
       </span>
       {#if insights}
         <span class="investments-hero__stat-hint">
-          Realizada {formatPnl(insights.total_realized_pnl_usd)} · No realizada {formatPnl(insights.total_unrealized_pnl_usd)}
+          Materializada {formatPnl(insights.total_realized_pnl_usd)} · No materializada {formatPnl(insights.total_unrealized_pnl_usd)} · Dividendos {formatPnl(insights.total_dividends_usd)} · Fees {formatUsd(insights.total_fees_usd)}
         </span>
       {/if}
     {/if}
   </div>
 </div>
+
+{#if portfolioWarnings.length > 0}
+  <ul class="investments-hero__warnings" aria-label="Advertencias del portafolio">
+    {#each portfolioWarnings as warning}
+      <li class="investments-hero__warning">{warning}</li>
+    {/each}
+  </ul>
+{/if}
 
 <section class="investments-audit" aria-label="Auditoría del portafolio">
   <div class="investments-audit__header">
@@ -133,11 +151,18 @@
         <thead>
           <tr>
             <th>Activo</th>
-            <th class="investments-audit__num">Cantidad neta</th>
+            <th class="investments-audit__num">Cantidad</th>
+            <th class="investments-audit__num">Costo acum.</th>
+            <th class="investments-audit__num">Costo prom.</th>
             <th class="investments-audit__num">Precio usado</th>
-            <th>Fuente del precio</th>
-            <th class="investments-audit__num">Valor estimado</th>
-            <th class="investments-audit__num">P/G USD</th>
+            <th>Fuente</th>
+            <th class="investments-audit__num">Valor est.</th>
+            <th class="investments-audit__num">Mat.</th>
+            <th class="investments-audit__num">No mat.</th>
+            <th class="investments-audit__num">Div.</th>
+            <th class="investments-audit__num">Fees</th>
+            <th class="investments-audit__num">P/G total</th>
+            <th class="investments-audit__num">Rent. %</th>
           </tr>
         </thead>
         <tbody>
@@ -145,12 +170,17 @@
             <tr>
               <td class="investments-audit__asset">{pos.asset}</td>
               <td class="investments-audit__num">{formatQty(pos.quantity)}</td>
+              <td class="investments-audit__num">{formatUsd(pos.cost_basis_usd)}</td>
+              <td class="investments-audit__num">{formatPrice(pos.average_cost_usd)}</td>
               <td class="investments-audit__num">{formatPrice(pos.used_price_usd ?? pos.market_price_usd)}</td>
-              <td>{pos.price_source_label ?? 'sin precio'}</td>
+              <td>{pos.price_source_label ?? 'Sin precio disponible'}</td>
               <td class="investments-audit__num">{formatUsd(pos.market_value_usd)}</td>
-              <td class="investments-audit__num {pnlClass(pos.unrealized_pnl_usd)}">
-                {formatPnl(pos.unrealized_pnl_usd)}
-              </td>
+              <td class="investments-audit__num {pnlClass(pos.realized_pnl_usd)}">{formatPnl(pos.realized_pnl_usd)}</td>
+              <td class="investments-audit__num {pnlClass(pos.unrealized_pnl_usd)}">{formatPnl(pos.unrealized_pnl_usd)}</td>
+              <td class="investments-audit__num {pnlClass(pos.dividends_usd)}">{formatPnl(pos.dividends_usd)}</td>
+              <td class="investments-audit__num">{formatUsd(pos.fees_paid_usd)}</td>
+              <td class="investments-audit__num {pnlClass(pos.total_pnl_usd)}">{formatPnl(pos.total_pnl_usd)}</td>
+              <td class="investments-audit__num {pnlClass(pos.total_return_percent)}">{formatPercent(pos.total_return_percent)}</td>
             </tr>
           {/each}
         </tbody>

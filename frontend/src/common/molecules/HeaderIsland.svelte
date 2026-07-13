@@ -271,6 +271,12 @@
                   <span class="island-meta__label">No realizada</span>
                   <span class="island-meta__value">{formatPnl(portfolio?.total_unrealized_pnl_usd)}</span>
                 </div>
+                {#if portfolio?.total_dividends_usd}
+                  <div class="island-meta__item">
+                    <span class="island-meta__label">Dividendos</span>
+                    <span class="island-meta__value">{formatPnl(portfolio.total_dividends_usd)}</span>
+                  </div>
+                {/if}
               {/if}
             </div>
             {#if portfolio?.quotes_partial}
