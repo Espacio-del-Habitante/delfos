@@ -33,6 +33,9 @@ import type {
   OllamaHealth,
   OcrPreviewResponse,
   PortfolioInsights,
+  QuoteSettings,
+  QuoteSettingsPatch,
+  QuoteTestStatus,
 } from './types';
 
 export function getFinanceData(): Promise<FinancePayload> {
@@ -68,6 +71,26 @@ export function saveAiSettings(patch: AiSettingsPatch): Promise<AiSettingsRespon
 
 export function testAiConnection(patch: AiSettingsPatch): Promise<AiHealthStatus> {
   return fetchJson<AiHealthStatus>('/api/settings/ai/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function getQuoteSettings(): Promise<{ config: QuoteSettings }> {
+  return fetchJson<{ config: QuoteSettings }>('/api/settings/quotes');
+}
+
+export function saveQuoteSettings(patch: QuoteSettingsPatch): Promise<{ config: QuoteSettings }> {
+  return fetchJson<{ config: QuoteSettings }>('/api/settings/quotes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function testQuoteSettings(patch: QuoteSettingsPatch): Promise<QuoteTestStatus> {
+  return fetchJson<QuoteTestStatus>('/api/settings/quotes/test', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),

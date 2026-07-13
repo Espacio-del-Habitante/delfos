@@ -282,11 +282,15 @@ def ledger_row_to_investment_input(row: dict[str, Any]) -> dict[str, Any]:
     amount = total or amount_usd or 0.0
     if operation_type == "buy" and amount < 0:
         amount = abs(amount)
+
+    from services.quote_symbol import infer_asset_type
+
     return {
         "operation_type": operation_type,
         "action": operation_type if operation_type in ("buy", "sell") else "buy",
         "date": date,
         "asset": asset,
+        "asset_type": infer_asset_type(asset, row.get("asset_type")),
         "quantity": quantity,
         "amount_usd": amount_usd,
         "amount_cop": amount_cop,

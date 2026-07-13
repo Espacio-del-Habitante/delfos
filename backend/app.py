@@ -5,7 +5,16 @@ import io
 import config
 from integrations import registry, settings as ai_settings
 from integrations.base import IntegrationError
-from services import ai_service, bulk_import, finance_store, investment_ledger, portfolio_service, vision_service
+from services import (
+    ai_service,
+    bulk_import,
+    finance_store,
+    investment_ledger,
+    portfolio_service,
+    quote_service,
+    quote_settings,
+    vision_service,
+)
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:4321"])
@@ -453,6 +462,30 @@ def test_ai_settings():
         return jsonify({"ok": False, "error": str(exc), "hint": exc.hint}), 200
     code = 200 if status.get("ok") else 200
     return jsonify(status), code
+
+
+@app.route("/api/settings/quotes", methods=["GET"])
+def get_quote_settings():
+    return jsonify({"config": quote_settings.get_public_config()})
+
+
+@app.route("/api/settings/quotes", methods=["POST"])
+def save_quote_settings():
+    body = request.get_json(silent=True) or {}
+    public = quote_settings.save_config(body)
+    quote_service.clear_cache()
+    return jsonify({"config": public})
+
+
+@app.route("/api/settings/quotes/test", methods=["POST"])
+def test_quote_settings():
+    body = request.get_json(silent=True) or {}
+    merged = quote_settings.load_config()
+    for key in quote_settings.ALLOWED_KEYS:
+        if key in body and body[key] is not None:
+            merged[key] = body[key]
+    status = quote_service.test_provider_connection(merged)
+    return jsonify(status), 200
 
 
 @app.route("/api/analyze", methods=["POST"])

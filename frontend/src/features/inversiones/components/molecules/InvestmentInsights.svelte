@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { PortfolioInsights } from '@common/lib/types';
+  import type { PortfolioInsights, QuoteConfidence } from '@common/lib/types';
+  import { assetTypeLabel } from '@common/lib/investmentTypes';
 
   export let insights: PortfolioInsights | null = null;
   export let loading = false;
@@ -38,6 +39,20 @@
     return '';
   }
 
+  function confidenceClass(confidence: QuoteConfidence | undefined): string {
+    if (!confidence) return 'quote--missing';
+    return `quote--${confidence}`;
+  }
+
+  function formatTimestamp(ts: string | null | undefined): string {
+    if (!ts) return '—';
+    try {
+      return new Date(ts).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+    } catch {
+      return ts;
+    }
+  }
+
   $: hasData = !!insights;
   $: totalAssets = insights?.total_assets_value_usd ?? insights?.total_market_value_usd ?? null;
   $: cash = insights?.cash_available_usd ?? null;
@@ -50,6 +65,10 @@
   $: cashTone = pnlClass(cash);
   $: totalPnlTone = pnlClass(totalPnl);
   $: portfolioWarnings = insights?.warnings ?? (insights?.cash_warning ? [insights.cash_warning] : []);
+  $: priceAlerts = insights?.price_alerts ?? [];
+  $: priceProblems = insights?.price_problem_assets ?? [];
+  $: quoteSources = insights?.quote_sources ?? [];
+  $: brokerComparison = insights?.broker_comparison ?? null;
 </script>
 
 <div class="investments-hero__stats">
@@ -66,6 +85,9 @@
       </span>
       {#if insights?.quotes_partial}
         <span class="investments-hero__stat-hint">Algunas cotizaciones no disponibles</span>
+      {/if}
+      {#if insights?.total_assets_excluded_usd}
+        <span class="investments-hero__stat-hint">Excluidos (sin precio): {formatUsd(insights.total_assets_excluded_usd)} costo base</span>
       {/if}
     {/if}
   </div>
@@ -99,6 +121,12 @@
         {formatUsd(totalBalance)}
       </span>
       <span class="investments-hero__stat-hint">Activos + efectivo disponible</span>
+      {#if brokerComparison}
+        <span class="investments-hero__stat-hint">
+          vs broker: {formatUsd(brokerComparison.reference_total_usd)}
+          ({formatPnl(brokerComparison.diff_usd)}, {formatPercent(brokerComparison.diff_percent)})
+        </span>
+      {/if}
     {/if}
   </div>
 
@@ -151,36 +179,36 @@
         <thead>
           <tr>
             <th>Activo</th>
+            <th>Tipo</th>
+            <th>Confianza</th>
+            <th>Proveedor</th>
+            <th>Timestamp</th>
+            <th>Delayed</th>
             <th class="investments-audit__num">Cantidad</th>
             <th class="investments-audit__num">Costo acum.</th>
-            <th class="investments-audit__num">Costo prom.</th>
             <th class="investments-audit__num">Precio usado</th>
-            <th>Fuente</th>
             <th class="investments-audit__num">Valor est.</th>
-            <th class="investments-audit__num">Mat.</th>
-            <th class="investments-audit__num">No mat.</th>
-            <th class="investments-audit__num">Div.</th>
-            <th class="investments-audit__num">Fees</th>
             <th class="investments-audit__num">P/G total</th>
-            <th class="investments-audit__num">Rent. %</th>
           </tr>
         </thead>
         <tbody>
           {#each positions as pos (pos.asset)}
             <tr>
               <td class="investments-audit__asset">{pos.asset}</td>
+              <td>{assetTypeLabel(pos.asset_type)}</td>
+              <td>
+                <span class="quote-badge {confidenceClass(pos.quote_confidence)}">
+                  {pos.quote_confidence_label ?? pos.quote_confidence ?? '—'}
+                </span>
+              </td>
+              <td>{pos.quote_provider_label ?? pos.price_source_label ?? '—'}</td>
+              <td>{formatTimestamp(pos.quote_timestamp)}</td>
+              <td>{pos.is_delayed ? (pos.delay_label ?? 'Sí') : 'No'}</td>
               <td class="investments-audit__num">{formatQty(pos.quantity)}</td>
               <td class="investments-audit__num">{formatUsd(pos.cost_basis_usd)}</td>
-              <td class="investments-audit__num">{formatPrice(pos.average_cost_usd)}</td>
               <td class="investments-audit__num">{formatPrice(pos.used_price_usd ?? pos.market_price_usd)}</td>
-              <td>{pos.price_source_label ?? 'Sin precio disponible'}</td>
               <td class="investments-audit__num">{formatUsd(pos.market_value_usd)}</td>
-              <td class="investments-audit__num {pnlClass(pos.realized_pnl_usd)}">{formatPnl(pos.realized_pnl_usd)}</td>
-              <td class="investments-audit__num {pnlClass(pos.unrealized_pnl_usd)}">{formatPnl(pos.unrealized_pnl_usd)}</td>
-              <td class="investments-audit__num {pnlClass(pos.dividends_usd)}">{formatPnl(pos.dividends_usd)}</td>
-              <td class="investments-audit__num">{formatUsd(pos.fees_paid_usd)}</td>
               <td class="investments-audit__num {pnlClass(pos.total_pnl_usd)}">{formatPnl(pos.total_pnl_usd)}</td>
-              <td class="investments-audit__num {pnlClass(pos.total_return_percent)}">{formatPercent(pos.total_return_percent)}</td>
             </tr>
           {/each}
         </tbody>
@@ -188,3 +216,87 @@
     </div>
   {/if}
 </section>
+
+{#if priceAlerts.length > 0 || priceProblems.length > 0}
+  <section class="investments-audit investments-audit--alerts" aria-label="Alertas de cotización">
+    <h2 class="card-title">Alertas de cotización</h2>
+    {#if priceAlerts.length}
+      <ul class="investments-hero__warnings">
+        {#each priceAlerts as alert}
+          <li class="investments-hero__warning">{alert}</li>
+        {/each}
+      </ul>
+    {/if}
+    {#if priceProblems.length}
+      <ul class="investments-audit__problem-list">
+        {#each priceProblems as pos (pos.asset)}
+          <li>
+            <strong>{pos.asset}</strong>
+            — {pos.quote_confidence_label ?? pos.quote_confidence}
+            {#if pos.quote_warnings?.length}
+              ({pos.quote_warnings.join('; ')})
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+{/if}
+
+{#if quoteSources.length > 0}
+  <section class="investments-audit investments-audit--sources" aria-label="Fuentes y timestamps">
+    <h2 class="card-title">Fuentes y timestamps</h2>
+    <ul class="investments-audit__sources">
+      {#each quoteSources as source (source.provider)}
+        <li>
+          <strong>{source.provider_label}</strong>
+          — {source.symbols.join(', ')}
+          · {formatTimestamp(source.fetched_at)}
+          {#if source.delayed_count > 0}
+            · {source.delayed_count} delayed
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  </section>
+{/if}
+
+{#if brokerComparison}
+  <section class="investments-audit investments-audit--broker" aria-label="Comparación con broker">
+    <h2 class="card-title">Comparación con broker</h2>
+    <p class="investments-audit__broker-row">
+      Referencia del broker: {formatUsd(brokerComparison.reference_total_usd)}
+      · Delfos: {formatUsd(totalBalance)}
+      · Diferencia: {formatPnl(brokerComparison.diff_usd)} ({formatPercent(brokerComparison.diff_percent)})
+    </p>
+  </section>
+{/if}
+
+<style>
+  .quote-badge {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .investments-audit__problem-list,
+  .investments-audit__sources {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .investments-audit--alerts,
+  .investments-audit--sources,
+  .investments-audit--broker {
+    margin-top: 1.25rem;
+  }
+
+  .investments-audit__broker-row {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+</style>

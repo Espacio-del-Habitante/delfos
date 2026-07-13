@@ -47,6 +47,8 @@
       worst == null || (p.unrealized_pnl_usd ?? 0) < (worst.unrealized_pnl_usd ?? 0) ? p : worst,
     null as (typeof losers)[number] | null,
   );
+  $: strongestPos = (portfolio?.positions ?? []).find((p) => p.asset === strongest?.asset) ?? null;
+  $: strongestMissing = strongestPos?.quote_confidence === 'missing';
   $: hasLoss = (totalPnl != null && totalPnl < 0) || losers.length > 0;
   $: balanceText =
     summary?.balances_by_currency && Object.keys(summary.balances_by_currency).length
@@ -209,7 +211,7 @@
               <span class="island-chip__value">
                 {strongest?.asset ?? '—'}
                 <span class="island-chip__sub">
-                  {strongest?.quote_missing
+                  {strongestMissing
                     ? formatUsd(strongest?.cost_basis_usd)
                     : formatUsd(strongest?.market_value_usd)}
                 </span>

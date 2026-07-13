@@ -160,7 +160,6 @@
           amount: Number(item.amount) || 0,
           currency: item.currency || 'USD',
           asset: item.asset || '',
-          asset_type: item.asset_type || 'ETF',
           action: item.action || 'buy',
           category: item.category,
           category_emoji: item.category_emoji || '📈',

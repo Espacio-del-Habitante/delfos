@@ -12,8 +12,34 @@ from integrations.base import IntegrationError
 from integrations.gemini import GeminiIntegration
 from integrations.ollama import OllamaIntegration
 from integrations.openai_compatible import OpenAICompatibleIntegration
-from services import ai_service, finance_store, vision_service
+from services import ai_service, finance_store, quote_service, quote_settings, vision_service
 from services.investment_ledger import parse_date, refine_ocr_row
+
+
+def _mock_quote_snapshots(prices: dict[str, float | None], alerts=None):
+    snapshots = {}
+    for sym, price in prices.items():
+        if price is None:
+            snapshots[sym] = quote_service.QuoteSnapshot(
+                symbol=sym,
+                price=None,
+                currency="USD",
+                timestamp=None,
+                provider=None,
+                confidence="missing",
+                asset_type="stock",
+            )
+        else:
+            snapshots[sym] = quote_service.QuoteSnapshot(
+                symbol=sym,
+                price=price,
+                currency="USD",
+                timestamp="2025-01-01T00:00:00+00:00",
+                provider="yfinance",
+                confidence="ok",
+                asset_type="stock",
+            )
+    return snapshots, alerts or []
 
 
 class ApiTestCase(unittest.TestCase):
@@ -445,7 +471,7 @@ class ApiTestCase(unittest.TestCase):
     def test_investments_ocr_503_when_vision_model_missing(self):
         from unittest.mock import patch
 
-        with patch(
+        with patch("app.ai_settings.effective_provider", return_value="local"), patch(
             "app.ai_service.check_ollama_connection",
             return_value={
                 "ok": True,
@@ -552,7 +578,10 @@ class ApiTestCase(unittest.TestCase):
     def test_portfolio_empty(self):
         from unittest.mock import patch
 
-        with patch("services.portfolio_service.quote_service.get_quotes", return_value=({}, None, False)):
+        with patch(
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=({}, []),
+        ):
             res = self.client.get("/api/investments/portfolio")
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
@@ -596,8 +625,8 @@ class ApiTestCase(unittest.TestCase):
         )
         mock_quotes = {"VOO": 500.0}
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=(mock_quotes, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots(mock_quotes),
         ):
             res = self.client.get("/api/investments/portfolio")
         self.assertEqual(res.status_code, 200)
@@ -644,8 +673,8 @@ class ApiTestCase(unittest.TestCase):
             ]
         )
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"NU": 12.0}, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"NU": 12.0}),
         ):
             res = self.client.get("/api/investments/portfolio")
         data = res.get_json()
@@ -678,8 +707,8 @@ class ApiTestCase(unittest.TestCase):
             ]
         )
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"VOO": 500.0, "NU": 8.0}, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"VOO": 500.0, "NU": 8.0}),
         ):
             data = self.client.get("/api/investments/portfolio").get_json()
         strongest = data["strongest_asset"]
@@ -698,14 +727,25 @@ class ApiTestCase(unittest.TestCase):
                 "amount_usd": 200.0,
             }
         )
+        fallback_snap = {
+            "XYZ": quote_service.QuoteSnapshot(
+                symbol="XYZ",
+                price=100.0,
+                currency="USD",
+                timestamp=None,
+                provider="last_imported_unit_price",
+                confidence="fallback",
+                asset_type="stock",
+            )
+        }
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"XYZ": None}, "2025-01-01T00:00:00+00:00", True),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=(fallback_snap, []),
         ):
             data = self.client.get("/api/investments/portfolio").get_json()
         strongest = data["strongest_asset"]
         self.assertEqual(strongest["asset"], "XYZ")
-        self.assertTrue(strongest["quote_missing"])
+        self.assertFalse(strongest["quote_missing"])
         self.assertAlmostEqual(strongest["cost_basis_usd"], 200.0)
         self.assertTrue(data["quotes_partial"])
         self.assertAlmostEqual(data["positions"][0]["market_price_usd"], 100.0)
@@ -738,8 +778,8 @@ class ApiTestCase(unittest.TestCase):
             ]
         )
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"ACWI": 210.0}, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"ACWI": 210.0}),
         ):
             data = self.client.get("/api/investments/portfolio").get_json()
 
@@ -764,8 +804,8 @@ class ApiTestCase(unittest.TestCase):
             }
         )
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"GLD": 151.0}, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"GLD": 151.0}),
         ):
             data = self.client.get("/api/investments/portfolio").get_json()
 
@@ -793,8 +833,8 @@ class ApiTestCase(unittest.TestCase):
             ]
         )
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"TEST": 250.0}, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"TEST": 250.0}),
         ):
             data = self.client.get("/api/investments/portfolio").get_json()
 
@@ -1171,6 +1211,57 @@ class OcrRefinementTestCase(unittest.TestCase):
         self.assertIsNone(row["pnl_usd"])
         self.assertAlmostEqual(row["unit_price"], 240.0 / 1.52039, places=4)
         self.assertAlmostEqual(row["total"], 240.15, places=2)
+
+
+class QuoteSettingsApiTestCase(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.settings_path = Path(self.tmp.name) / "quote_settings.json"
+        self.original_path = quote_settings.SETTINGS_PATH
+        quote_settings.SETTINGS_PATH = self.settings_path
+        self.client = app.test_client()
+        self.env_patch = patch.dict(
+            "os.environ",
+            {"TWELVE_DATA_API_KEY": "", "ALPHA_VANTAGE_API_KEY": ""},
+            clear=False,
+        )
+        self.env_patch.start()
+
+    def tearDown(self):
+        quote_settings.SETTINGS_PATH = self.original_path
+        self.env_patch.stop()
+        self.tmp.cleanup()
+
+    def test_get_quote_settings_no_keys_exposed(self):
+        res = self.client.get("/api/settings/quotes")
+        self.assertEqual(res.status_code, 200)
+        cfg = res.get_json()["config"]
+        self.assertFalse(cfg["has_twelve_data_key"])
+        self.assertNotIn("twelve_data_api_key", cfg)
+
+    def test_save_quote_settings_masks_keys(self):
+        res = self.client.post(
+            "/api/settings/quotes",
+            json={
+                "twelve_data_api_key": "secret-twelve-key",
+                "broker_reference_total_usd": 10000,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        cfg = res.get_json()["config"]
+        self.assertTrue(cfg["has_twelve_data_key"])
+        self.assertIn("****", cfg["masked_twelve_data_key"])
+        self.assertNotIn("secret", cfg["masked_twelve_data_key"])
+        self.assertEqual(cfg["broker_reference_total_usd"], 10000)
+
+    def test_test_quote_settings_mocked(self):
+        with patch(
+            "services.quote_service.test_provider_connection",
+            return_value={"ok": True, "provider": "yfinance", "symbol": "AAPL", "price": 100.0},
+        ):
+            res = self.client.post("/api/settings/quotes/test", json={})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.get_json()["ok"])
 
 
 if __name__ == "__main__":

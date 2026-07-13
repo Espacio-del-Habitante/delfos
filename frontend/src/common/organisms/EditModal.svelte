@@ -16,6 +16,7 @@
     updateNote,
   } from '@common/lib/api';
   import { ACCOUNT_TYPES } from '@common/lib/formatters';
+  import { INVESTMENT_ASSET_TYPES, INVESTMENT_OPERATION_TYPES, normalizeAssetType } from '@common/lib/investmentTypes';
   import { applyFinancePayload } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
   import { createModalShellState, hideModalShell, showModalShell } from '@common/lib/modalShell';
@@ -144,7 +145,7 @@
           date: val('date'),
           account_id: val('account_id') || null,
           asset: val('asset'),
-          asset_type: val('asset_type') || 'ETF',
+          asset_type: normalizeAssetType(val('asset_type')),
           operation_type: val('operation_type') || val('action') || 'buy',
           action: val('operation_type') || val('action') || 'buy',
           quantity: parseOptionalFloat(val('quantity')),
@@ -342,10 +343,9 @@
             </label>
             <label class="edit-form__field">Tipo de operación
               <select class="edit-form__input" name="operation_type">
-                <option value="deposit" selected={opType === 'deposit'}>Depósito</option>
-                <option value="buy" selected={opType === 'buy'}>Compra</option>
-                <option value="sell" selected={opType === 'sell'}>Venta</option>
-                <option value="dividend" selected={opType === 'dividend'}>Dividendo</option>
+                {#each INVESTMENT_OPERATION_TYPES as opt}
+                  <option value={opt.value} selected={opType === opt.value}>{opt.label}</option>
+                {/each}
               </select>
             </label>
             <label class="edit-form__field">Activo
@@ -358,8 +358,8 @@
             </label>
             <label class="edit-form__field">Tipo de activo
               <select class="edit-form__input" name="asset_type">
-                {#each ['ETF', 'Stock', 'Crypto', 'Fund', 'Other'] as t}
-                  <option value={t} selected={r.asset_type === t}>{t}</option>
+                {#each INVESTMENT_ASSET_TYPES as opt}
+                  <option value={opt.value} selected={normalizeAssetType(r.asset_type) === opt.value}>{opt.label}</option>
                 {/each}
               </select>
             </label>

@@ -305,13 +305,54 @@ export interface AiSettingsPatch {
   api_key?: string;
 }
 
+export interface QuoteSettings {
+  has_twelve_data_key: boolean;
+  masked_twelve_data_key: string;
+  has_alpha_vantage_key: boolean;
+  masked_alpha_vantage_key: string;
+  broker_reference_total_usd: number | null;
+}
+
+export interface QuoteSettingsPatch {
+  twelve_data_api_key?: string;
+  alpha_vantage_api_key?: string;
+  broker_reference_total_usd?: number | null;
+}
+
+export interface QuoteTestStatus {
+  ok: boolean;
+  provider?: string;
+  symbol?: string;
+  price?: number;
+  error?: string;
+}
+
+export type QuoteConfidence = 'ok' | 'fallback' | 'warning' | 'missing';
+
+export interface QuoteCandidate {
+  provider: string;
+  price: number;
+  timestamp: string;
+}
+
 export interface PortfolioPosition {
   asset: string;
+  asset_type?: string;
   quantity: number;
   cost_basis_usd: number;
   average_cost_usd?: number | null;
   market_price_usd: number | null;
   used_price_usd?: number | null;
+  currency?: string;
+  quote_timestamp?: string | null;
+  quote_provider?: string | null;
+  quote_provider_label?: string | null;
+  quote_confidence?: QuoteConfidence;
+  quote_confidence_label?: string;
+  is_delayed?: boolean;
+  delay_label?: string | null;
+  quote_warnings?: string[];
+  quote_candidates?: QuoteCandidate[] | null;
   price_source?: 'live_quote' | 'last_imported_unit_price' | null;
   price_source_label?: string | null;
   market_value_usd: number | null;
@@ -332,15 +373,40 @@ export interface StrongestAsset {
   quote_missing: boolean;
 }
 
+export interface QuoteSourceSummary {
+  provider: string;
+  provider_label: string;
+  symbols: string[];
+  fetched_at: string | null;
+  delayed_count: number;
+}
+
+export interface BrokerComparison {
+  reference_total_usd: number;
+  diff_usd: number;
+  diff_percent: number;
+}
+
+export interface ExcludedPosition {
+  asset: string;
+  reason: string;
+}
+
 export interface PortfolioInsights {
   positions: PortfolioPosition[];
   strongest_asset: StrongestAsset | null;
   total_market_value_usd: number;
   total_assets_value_usd?: number;
+  total_assets_excluded_usd?: number;
   cash_available_usd?: number;
   total_portfolio_value_usd?: number;
   cash_warning?: string | null;
   warnings?: string[];
+  price_alerts?: string[];
+  price_problem_assets?: PortfolioPosition[];
+  quote_sources?: QuoteSourceSummary[];
+  excluded_from_total?: ExcludedPosition[];
+  broker_comparison?: BrokerComparison | null;
   total_unrealized_pnl_usd: number;
   total_realized_pnl_usd: number;
   total_dividends_usd?: number;

@@ -191,7 +191,7 @@ de visión extrae filas del ledger que el usuario revisa antes de guardar.
 **Inversiones:**
 - Ledger de 10 columnas con export **CSV/XLSX** e import **CSV**.
 - **OCR** de capturas de broker por modelo de visión (`/api/investments/ocr` + `/ocr/confirm`).
-- Portafolio con posiciones, costo base, valor de mercado (yfinance) y P&L realizado/no realizado.
+- Portafolio con posiciones, costo base, valor de mercado (motor en capas: Twelve Data → Alpha Vantage → yfinance → precio importado) y P&L realizado/no realizado.
 
 **IA multi-proveedor:**
 - Proveedor **local** (Ollama) o **nube** (Gemini / compatible OpenAI: OpenRouter, Groq).

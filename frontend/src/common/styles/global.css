@@ -4921,3 +4921,23 @@ select[data-native-select-hidden] {
   }
 }
 
+/* Badges de confianza de cotización */
+.quote--ok {
+  background: rgba(52, 199, 89, 0.16);
+  color: #1a7f37;
+}
+
+.quote--fallback {
+  background: rgba(255, 149, 0, 0.16);
+  color: #b45309;
+}
+
+.quote--warning {
+  background: rgba(255, 59, 48, 0.14);
+  color: #c0392b;
+}
+
+.quote--missing {
+  background: rgba(120, 120, 128, 0.2);
+  color: var(--text-muted);
+}

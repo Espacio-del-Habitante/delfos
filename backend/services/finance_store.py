@@ -148,6 +148,21 @@ def _normalize_asset_symbol(symbol):
     return (symbol or "").strip().upper()
 
 
+def _migrate_investment_asset_types(data):
+    """Normaliza asset_type y corrige cripto mal tipada en imports previos."""
+    from services.quote_symbol import infer_asset_type
+
+    changed = False
+    for investment in data.get("investments", []):
+        asset = investment.get("asset") or ""
+        old = investment.get("asset_type")
+        new = infer_asset_type(asset, old)
+        if old != new:
+            investment["asset_type"] = new
+            changed = True
+    return changed
+
+
 def _migrate_investment_assets(data):
     """Seed investment_assets from unique symbols in investments."""
     assets = data.setdefault("investment_assets", [])
@@ -231,6 +246,8 @@ def load_data():
     if _migrate_investments(data):
         needs_save = True
     if _migrate_investment_assets(data):
+        needs_save = True
+    if _migrate_investment_asset_types(data):
         needs_save = True
     if "incomes" not in data:
         data["incomes"] = []
@@ -583,6 +600,13 @@ def update_investment(investment_id, updates):
             op = updates["operation_type"]
             if op in INVESTMENT_OPERATION_TYPES:
                 investment["action"] = op
+        if "asset" in updates or "asset_type" in updates:
+            from services.quote_symbol import infer_asset_type
+
+            investment["asset_type"] = infer_asset_type(
+                investment.get("asset") or "",
+                investment.get("asset_type"),
+            )
         _normalize_investment_ledger(investment)
         save_data(data)
         return investment
@@ -686,6 +710,8 @@ def _ledger_float(value):
 
 
 def add_investment(investment_input, source="manual"):
+    from services.quote_symbol import infer_asset_type
+
     data = load_data()
     operation_type = investment_input.get("operation_type") or investment_input.get("action") or "buy"
     if operation_type not in INVESTMENT_OPERATION_TYPES:
@@ -695,13 +721,14 @@ def add_investment(investment_input, source="manual"):
     if amount_raw is None:
         amount_raw = investment_input.get("total")
     amount = float(amount_raw or 0)
+    asset = investment_input.get("asset", "")
 
     investment = {
         "id": _next_id("investment", data["investments"]),
         "date": investment_input.get("date") or _today(),
         "account_id": investment_input.get("account_id"),
-        "asset": investment_input.get("asset", ""),
-        "asset_type": investment_input.get("asset_type", "ETF"),
+        "asset": asset,
+        "asset_type": infer_asset_type(asset, investment_input.get("asset_type")),
         "amount": amount,
         "currency": investment_input.get("currency", "USD"),
         "action": operation_type,

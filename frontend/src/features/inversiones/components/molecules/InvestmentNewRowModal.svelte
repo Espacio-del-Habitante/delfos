@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import Modal from '@common/atoms/Modal.svelte';
   import AssetSelect from '@common/molecules/AssetSelect.svelte';
+  import { INVESTMENT_OPERATION_TYPES } from '@common/lib/investmentTypes';
   import { createInvestment } from '@common/lib/api';
   import { applyFinancePayload, finance } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
@@ -100,10 +101,9 @@
         <label class="edit-form__field">
           Tipo
           <select class="edit-form__input" bind:value={newRow.operation_type}>
-            <option value="deposit">Depósito</option>
-            <option value="buy">Compra</option>
-            <option value="sell">Venta</option>
-            <option value="dividend">Dividendo</option>
+            {#each INVESTMENT_OPERATION_TYPES as opt}
+              <option value={opt.value}>{opt.label}</option>
+            {/each}
           </select>
         </label>
         <label class="edit-form__field">
