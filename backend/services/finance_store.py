@@ -42,7 +42,7 @@ MOVEMENT_FILTERS = [
     {"id": "note", "label": "Nota"},
 ]
 
-INVESTMENT_OPERATION_TYPES = {"deposit", "buy", "sell", "dividend"}
+INVESTMENT_OPERATION_TYPES = {"deposit", "withdrawal", "buy", "sell", "dividend"}
 
 LEDGER_FLOAT_FIELDS = (
     "quantity",

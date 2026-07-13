@@ -41,6 +41,7 @@ def _empty_position() -> dict[str, float]:
         "qty": 0.0,
         "cost": 0.0,
         "realized_sales": 0.0,
+        "sell_fees": 0.0,
         "dividends": 0.0,
         "fees": 0.0,
         "capital_invested": 0.0,
@@ -205,8 +206,10 @@ def aggregate_portfolio(investments: list[dict[str, Any]] | None = None) -> dict
     last_unit_prices: dict[str, float] = {}
     cash = 0.0
     total_deposits = 0.0
+    total_withdrawals = 0.0
     warnings: list[str] = []
     total_realized_sales = 0.0
+    total_sell_fees = 0.0
     total_dividends = 0.0
     total_fees = 0.0
 
@@ -218,6 +221,12 @@ def aggregate_portfolio(investments: list[dict[str, Any]] | None = None) -> dict
             deposit = _deposit_amount_usd(inv)
             cash += deposit
             total_deposits += deposit
+            continue
+
+        if op == "withdrawal":
+            withdrawal = _deposit_amount_usd(inv)
+            cash -= withdrawal
+            total_withdrawals += withdrawal
             continue
 
         if op == "dividend":
@@ -268,6 +277,8 @@ def aggregate_portfolio(investments: list[dict[str, Any]] | None = None) -> dict
             continue
         pos = positions.setdefault(asset, _empty_position())
         pos["fees"] += fee
+        pos["sell_fees"] += fee
+        total_sell_fees += fee
         sell_qty = float(inv.get("quantity") or 0)
         qty_before = pos["qty"]
         if sell_qty > qty_before + 1e-12:
@@ -289,8 +300,10 @@ def aggregate_portfolio(investments: list[dict[str, Any]] | None = None) -> dict
         "last_unit_prices": last_unit_prices,
         "cash": cash,
         "total_deposits": total_deposits,
+        "total_withdrawals": total_withdrawals,
         "warnings": warnings,
         "total_realized_sales": total_realized_sales,
+        "total_sell_fees": total_sell_fees,
         "total_dividends": total_dividends,
         "total_fees": total_fees,
     }

@@ -54,16 +54,17 @@
   }
 
   $: hasData = !!insights;
+  $: totalBalance = insights?.total_portfolio_value_usd ?? null;
+  $: netContributions = insights?.net_contributions_usd ?? null;
   $: totalAssets = insights?.total_assets_value_usd ?? insights?.total_market_value_usd ?? null;
   $: cash = insights?.cash_available_usd ?? null;
-  $: totalBalance =
-    insights?.total_portfolio_value_usd ??
-    ((totalAssets ?? 0) + (cash ?? 0));
   $: positions = insights?.positions ?? [];
-  $: empty = !hasData || (!insights?.has_positions && Math.abs(totalBalance ?? 0) < 1e-9);
+  $: empty = !hasData || (!insights?.has_positions && Math.abs(totalBalance ?? 0) < 1e-9 && Math.abs(netContributions ?? 0) < 1e-9);
   $: totalPnl = insights?.total_pnl_usd ?? null;
   $: cashTone = pnlClass(cash);
   $: totalPnlTone = pnlClass(totalPnl);
+  $: realizedTone = pnlClass(insights?.total_realized_pnl_usd);
+  $: unrealizedTone = pnlClass(insights?.total_unrealized_pnl_usd);
   $: portfolioWarnings = insights?.warnings ?? (insights?.cash_warning ? [insights.cash_warning] : []);
   $: priceAlerts = insights?.price_alerts ?? [];
   $: priceProblems = insights?.price_problem_assets ?? [];
@@ -73,44 +74,7 @@
 
 <div class="investments-hero__stats">
   <div class="investments-hero__stat investments-hero__stat--highlight">
-    <span class="investments-hero__stat-label">Total en activos</span>
-    {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
-    {:else if empty}
-      <span class="investments-hero__stat-value">—</span>
-      <span class="investments-hero__stat-hint">Importa operaciones para ver tu cartera</span>
-    {:else}
-      <span class="investments-hero__stat-value investments-hero__stat-value--large">
-        {formatUsd(totalAssets)}
-      </span>
-      {#if insights?.quotes_partial}
-        <span class="investments-hero__stat-hint">Algunas cotizaciones no disponibles</span>
-      {/if}
-      {#if insights?.total_assets_excluded_usd}
-        <span class="investments-hero__stat-hint">Excluidos (sin precio): {formatUsd(insights.total_assets_excluded_usd)} costo base</span>
-      {/if}
-    {/if}
-  </div>
-
-  <div class="investments-hero__stat investments-hero__stat--highlight">
-    <span class="investments-hero__stat-label">Efectivo disponible</span>
-    {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
-    {:else if empty}
-      <span class="investments-hero__stat-value">—</span>
-      <span class="investments-hero__stat-hint">Sin movimientos para calcular efectivo</span>
-    {:else}
-      <span class="investments-hero__stat-value investments-hero__stat-value--large {cashTone}">
-        {formatUsd(cash)}
-      </span>
-      {#if insights?.cash_warning}
-        <span class="investments-hero__stat-hint investments-hero__stat-hint--warning">{insights.cash_warning}</span>
-      {/if}
-    {/if}
-  </div>
-
-  <div class="investments-hero__stat investments-hero__stat--highlight">
-    <span class="investments-hero__stat-label">Balance total</span>
+    <span class="investments-hero__stat-label">Valor total del portafolio</span>
     {#if loading}
       <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
     {:else if empty}
@@ -120,34 +84,126 @@
       <span class="investments-hero__stat-value investments-hero__stat-value--large">
         {formatUsd(totalBalance)}
       </span>
-      <span class="investments-hero__stat-hint">Activos + efectivo disponible</span>
-      {#if brokerComparison}
-        <span class="investments-hero__stat-hint">
-          vs broker: {formatUsd(brokerComparison.reference_total_usd)}
-          ({formatPnl(brokerComparison.diff_usd)}, {formatPercent(brokerComparison.diff_percent)})
-        </span>
+      <span class="investments-hero__stat-hint">Activos {formatUsd(totalAssets)} + efectivo</span>
+      {#if insights?.quotes_partial}
+        <span class="investments-hero__stat-hint">Algunas cotizaciones no disponibles</span>
       {/if}
     {/if}
   </div>
 
   <div class="investments-hero__stat investments-hero__stat--highlight">
-    <span class="investments-hero__stat-label">Ganancia neta</span>
+    <span class="investments-hero__stat-label">Aportes netos</span>
     {#if loading}
       <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
-      <span class="investments-hero__stat-hint">Importa operaciones para ver tu cartera</span>
+    {:else}
+      <span class="investments-hero__stat-value investments-hero__stat-value--large">
+        {formatUsd(netContributions)}
+      </span>
+      <span class="investments-hero__stat-hint">
+        Depósitos {formatUsd(insights?.total_deposits_usd)} − retiros {formatUsd(insights?.total_withdrawals_usd)}
+      </span>
+    {/if}
+  </div>
+
+  <div class="investments-hero__stat investments-hero__stat--highlight">
+    <span class="investments-hero__stat-label">Rentabilidad neta</span>
+    {#if loading}
+      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+    {:else if empty}
+      <span class="investments-hero__stat-value">—</span>
     {:else}
       <span class="investments-hero__stat-value investments-hero__stat-value--large {totalPnlTone}">
         {formatPnl(totalPnl)}
-        {#if insights?.total_return_percent != null}
-          <span class="investments-hero__stat-sub">({formatPercent(insights.total_return_percent)})</span>
+      </span>
+      <span class="investments-hero__stat-hint">P&L neto (realizada + no realizada + dividendos − fees)</span>
+    {/if}
+  </div>
+
+  <div class="investments-hero__stat investments-hero__stat--highlight">
+    <span class="investments-hero__stat-label">Rentabilidad vs aportes</span>
+    {#if loading}
+      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+    {:else if empty}
+      <span class="investments-hero__stat-value">—</span>
+    {:else}
+      <span class="investments-hero__stat-value investments-hero__stat-value--large {totalPnlTone}">
+        {formatPercent(insights?.total_return_percent)}
+        {#if insights?.global_gain_by_contributions_usd != null}
+          <span class="investments-hero__stat-sub">({formatPnl(insights.global_gain_by_contributions_usd)})</span>
         {/if}
       </span>
-      {#if insights}
-        <span class="investments-hero__stat-hint">
-          Materializada {formatPnl(insights.total_realized_pnl_usd)} · No materializada {formatPnl(insights.total_unrealized_pnl_usd)} · Dividendos {formatPnl(insights.total_dividends_usd)} − Fees {formatUsd(insights.total_fees_usd)}
-        </span>
+      <span class="investments-hero__stat-hint">Sobre aportes netos acumulados</span>
+    {/if}
+  </div>
+
+  <div class="investments-hero__stat investments-hero__stat--highlight">
+    <span class="investments-hero__stat-label">Realizada neta</span>
+    {#if loading}
+      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+    {:else if empty}
+      <span class="investments-hero__stat-value">—</span>
+    {:else}
+      <span class="investments-hero__stat-value investments-hero__stat-value--large {realizedTone}">
+        {formatPnl(insights?.total_realized_pnl_usd)}
+      </span>
+      <span class="investments-hero__stat-hint">Ventas cerradas, neto de comisiones</span>
+    {/if}
+  </div>
+
+  <div class="investments-hero__stat investments-hero__stat--highlight">
+    <span class="investments-hero__stat-label">No realizada</span>
+    {#if loading}
+      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+    {:else if empty}
+      <span class="investments-hero__stat-value">—</span>
+    {:else}
+      <span class="investments-hero__stat-value investments-hero__stat-value--large {unrealizedTone}">
+        {formatPnl(insights?.total_unrealized_pnl_usd)}
+      </span>
+      <span class="investments-hero__stat-hint">Posiciones abiertas</span>
+    {/if}
+  </div>
+
+  <div class="investments-hero__stat investments-hero__stat--highlight">
+    <span class="investments-hero__stat-label">Dividendos cobrados</span>
+    {#if loading}
+      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+    {:else if empty}
+      <span class="investments-hero__stat-value">—</span>
+    {:else}
+      <span class="investments-hero__stat-value investments-hero__stat-value--large {pnlClass(insights?.total_dividends_usd)}">
+        {formatPnl(insights?.total_dividends_usd)}
+      </span>
+    {/if}
+  </div>
+
+  <div class="investments-hero__stat investments-hero__stat--highlight">
+    <span class="investments-hero__stat-label">Comisiones pagadas</span>
+    {#if loading}
+      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+    {:else if empty}
+      <span class="investments-hero__stat-value">—</span>
+    {:else}
+      <span class="investments-hero__stat-value investments-hero__stat-value--large">
+        {formatUsd(insights?.total_fees_usd)}
+      </span>
+    {/if}
+  </div>
+
+  <div class="investments-hero__stat investments-hero__stat--highlight">
+    <span class="investments-hero__stat-label">Efectivo disponible</span>
+    {#if loading}
+      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+    {:else if empty}
+      <span class="investments-hero__stat-value">—</span>
+    {:else}
+      <span class="investments-hero__stat-value investments-hero__stat-value--large {cashTone}">
+        {formatUsd(cash)}
+      </span>
+      {#if insights?.cash_warning}
+        <span class="investments-hero__stat-hint investments-hero__stat-hint--warning">{insights.cash_warning}</span>
       {/if}
     {/if}
   </div>
@@ -181,13 +237,13 @@
             <th>Activo</th>
             <th>Tipo</th>
             <th>Confianza</th>
-            <th>Proveedor</th>
-            <th>Timestamp</th>
-            <th>Delayed</th>
             <th class="investments-audit__num">Cantidad</th>
+            <th class="investments-audit__num">Precio prom.</th>
             <th class="investments-audit__num">Costo acum.</th>
             <th class="investments-audit__num">Precio usado</th>
             <th class="investments-audit__num">Valor est.</th>
+            <th class="investments-audit__num" title="Materializada neta">Mat. neta</th>
+            <th class="investments-audit__num">No mat.</th>
             <th class="investments-audit__num">P/G total</th>
           </tr>
         </thead>
@@ -201,13 +257,13 @@
                   {pos.quote_confidence_label ?? pos.quote_confidence ?? '—'}
                 </span>
               </td>
-              <td>{pos.quote_provider_label ?? pos.price_source_label ?? '—'}</td>
-              <td>{formatTimestamp(pos.quote_timestamp)}</td>
-              <td>{pos.is_delayed ? (pos.delay_label ?? 'Sí') : 'No'}</td>
               <td class="investments-audit__num">{formatQty(pos.quantity)}</td>
+              <td class="investments-audit__num">{formatPrice(pos.average_cost_usd)}</td>
               <td class="investments-audit__num">{formatUsd(pos.cost_basis_usd)}</td>
               <td class="investments-audit__num">{formatPrice(pos.used_price_usd ?? pos.market_price_usd)}</td>
               <td class="investments-audit__num">{formatUsd(pos.market_value_usd)}</td>
+              <td class="investments-audit__num {pnlClass(pos.realized_pnl_usd)}">{formatPnl(pos.realized_pnl_usd)}</td>
+              <td class="investments-audit__num {pnlClass(pos.unrealized_pnl_usd)}">{formatPnl(pos.unrealized_pnl_usd)}</td>
               <td class="investments-audit__num {pnlClass(pos.total_pnl_usd)}">{formatPnl(pos.total_pnl_usd)}</td>
             </tr>
           {/each}

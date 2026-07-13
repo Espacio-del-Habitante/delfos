@@ -413,6 +413,8 @@ export interface PortfolioInsights {
   total_fees_usd?: number;
   total_pnl_usd: number;
   total_deposits_usd?: number;
+  total_withdrawals_usd?: number;
+  net_contributions_usd?: number;
   global_gain_by_contributions_usd?: number;
   total_return_percent?: number | null;
   quotes_as_of: string | null;

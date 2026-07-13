@@ -52,10 +52,46 @@ class PortfolioAccountingTestCase(unittest.TestCase):
         )
         state = agg["positions_state"]["TEST"]
         self.assertAlmostEqual(state["realized_sales"], 80.0)
+        self.assertAlmostEqual(state["sell_fees"], 0.0)
         self.assertAlmostEqual(state["qty"], 6.0)
         self.assertAlmostEqual(state["cost"], 600.0)
         self.assertAlmostEqual(_unrealized(state, 130.0), 180.0)
         self.assertAlmostEqual(state["realized_sales"] + _unrealized(state, 130.0), 260.0)
+
+    def test_sell_fee_tracked_separately_from_gross_realized(self):
+        agg = aggregate_portfolio(
+            [
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-01",
+                    "asset": "TEST",
+                    "quantity": 10.0,
+                    "amount_usd": 1000.0,
+                    "unit_price": 100.0,
+                },
+                {
+                    "operation_type": "sell",
+                    "date": "2024-02-01",
+                    "asset": "TEST",
+                    "quantity": 4.0,
+                    "amount_usd": 475.0,
+                    "unit_price": 120.0,
+                    "closing_cost": 5.0,
+                    "total": 475.0,
+                },
+            ]
+        )
+        state = agg["positions_state"]["TEST"]
+        self.assertAlmostEqual(state["realized_sales"], 80.0)
+        self.assertAlmostEqual(state["sell_fees"], 5.0)
+        self.assertAlmostEqual(agg["total_sell_fees"], 5.0)
+        realized_net = state["realized_sales"] - state["sell_fees"]
+        self.assertAlmostEqual(realized_net, 75.0)
+        net_pnl = state["realized_sales"] + _unrealized(state, 130.0) + state["dividends"] - state["fees"]
+        self.assertAlmostEqual(
+            realized_net + _unrealized(state, 130.0) + state["dividends"] - (state["fees"] - state["sell_fees"]),
+            net_pnl,
+        )
 
     def test_dca_sell(self):
         agg = aggregate_portfolio(
@@ -153,6 +189,28 @@ class PortfolioAccountingTestCase(unittest.TestCase):
         self.assertAlmostEqual(agg["cash"], 100.0)
         self.assertAlmostEqual(agg["total_deposits"], 100.0)
         self.assertAlmostEqual(agg["total_realized_sales"], 0.0)
+
+    def test_deposit_and_withdrawal_net_contributions(self):
+        agg = aggregate_portfolio(
+            [
+                {
+                    "operation_type": "deposit",
+                    "date": "2024-01-01",
+                    "total": 1000.0,
+                },
+                {
+                    "operation_type": "withdrawal",
+                    "date": "2024-02-01",
+                    "amount_usd": 200.0,
+                    "total": 200.0,
+                },
+            ]
+        )
+        self.assertAlmostEqual(agg["cash"], 800.0)
+        self.assertAlmostEqual(agg["total_deposits"], 1000.0)
+        self.assertAlmostEqual(agg["total_withdrawals"], 200.0)
+        net = agg["total_deposits"] - agg["total_withdrawals"]
+        self.assertAlmostEqual(net, 800.0)
 
     def test_deposit_then_buy_cash(self):
         agg = aggregate_portfolio(

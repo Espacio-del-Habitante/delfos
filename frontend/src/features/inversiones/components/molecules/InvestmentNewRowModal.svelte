@@ -55,7 +55,7 @@
     e.preventDefault();
     const asset = (await assetSelect?.commit()) ?? newRow.asset.trim();
     newRow.asset = asset;
-    if (newRow.operation_type !== 'deposit' && !asset) {
+    if (newRow.operation_type !== 'deposit' && newRow.operation_type !== 'withdrawal' && !asset) {
       showToast('El activo es obligatorio', { type: 'error' });
       return;
     }
@@ -118,7 +118,7 @@
           bind:this={assetSelect}
           assets={investmentAssets}
           bind:value={newRow.asset}
-          required={newRow.operation_type !== 'deposit'}
+          required={newRow.operation_type !== 'deposit' && newRow.operation_type !== 'withdrawal'}
         />
       </label>
 

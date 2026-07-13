@@ -266,7 +266,7 @@
               </div>
               {#if hasPositions}
                 <div class="island-meta__item">
-                  <span class="island-meta__label">Realizada</span>
+                  <span class="island-meta__label">Realizada neta</span>
                   <span class="island-meta__value">{formatPnl(portfolio?.total_realized_pnl_usd)}</span>
                 </div>
                 <div class="island-meta__item">

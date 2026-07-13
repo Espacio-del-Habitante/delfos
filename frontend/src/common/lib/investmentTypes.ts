@@ -9,6 +9,7 @@ export type InvestmentAssetType = (typeof INVESTMENT_ASSET_TYPES)[number]['value
 
 export const INVESTMENT_OPERATION_TYPES = [
   { value: 'deposit', label: 'Depósito' },
+  { value: 'withdrawal', label: 'Retiro' },
   { value: 'buy', label: 'Compra' },
   { value: 'sell', label: 'Venta' },
   { value: 'dividend', label: 'Dividendo' },

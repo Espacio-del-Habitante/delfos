@@ -27,6 +27,7 @@ SHEET_NAME = "Inversiones - Tabla Central"
 
 OPERATION_TYPE_TO_LABEL = {
     "deposit": "Depósito",
+    "withdrawal": "Retiro",
     "buy": "Compra",
     "sell": "Venta",
     "dividend": "Dividendo",
@@ -36,6 +37,8 @@ LABEL_TO_OPERATION_TYPE = {
     "depósito": "deposit",
     "deposito": "deposit",
     "deposit": "deposit",
+    "retiro": "withdrawal",
+    "withdrawal": "withdrawal",
     "compra": "buy",
     "compra mercado": "buy",
     "buy": "buy",
@@ -206,6 +209,8 @@ def normalize_operation_type(value: Any) -> str:
         return "dividend"
     if "depósito" in key or "deposito" in key:
         return "deposit"
+    if "retiro" in key or "withdrawal" in key:
+        return "withdrawal"
     return "buy"
 
 
@@ -287,7 +292,7 @@ def ledger_row_to_investment_input(row: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "operation_type": operation_type,
-        "action": operation_type if operation_type in ("buy", "sell") else "buy",
+        "action": operation_type,
         "date": date,
         "asset": asset,
         "asset_type": infer_asset_type(asset, row.get("asset_type")),
@@ -319,8 +324,8 @@ def refine_ocr_row(row: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     refined = dict(row)
     op = refined.get("operation_type") or "buy"
 
-    if op in ("buy", "deposit") and refined.get("pnl_usd") is not None:
-        warnings.append("P/G USD eliminado: no aplica a compras o depósitos")
+    if op in ("buy", "deposit", "withdrawal") and refined.get("pnl_usd") is not None:
+        warnings.append("P/G USD eliminado: no aplica a compras, depósitos o retiros")
         refined["pnl_usd"] = None
 
     quantity = refined.get("quantity")

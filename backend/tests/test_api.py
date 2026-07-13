@@ -814,6 +814,56 @@ class ApiTestCase(unittest.TestCase):
         self.assertIn("efectivo calculado es negativo", data["cash_warning"])
         self.assertIn(data["cash_warning"], data["warnings"])
 
+    def test_portfolio_withdrawal_fields_and_net_contributions(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                {"operation_type": "deposit", "date": "2024-01-01", "total": 1000.0},
+                {"operation_type": "withdrawal", "date": "2024-02-01", "total": 150.0},
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-15",
+                    "asset": "VOO",
+                    "quantity": 1.0,
+                    "amount_usd": 400.0,
+                },
+            ]
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"VOO": 450.0}),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+
+        self.assertAlmostEqual(data["total_deposits_usd"], 1000.0)
+        self.assertAlmostEqual(data["total_withdrawals_usd"], 150.0)
+        self.assertAlmostEqual(data["net_contributions_usd"], 850.0)
+        self.assertAlmostEqual(data["cash_available_usd"], 450.0)
+        self.assertAlmostEqual(data["total_portfolio_value_usd"], 900.0)
+        self.assertAlmostEqual(data["global_gain_by_contributions_usd"], 50.0)
+        self.assertAlmostEqual(data["total_return_percent"], 5.88, places=2)
+
+    def test_create_withdrawal_via_api(self):
+        finance_store.add_investment(
+            {"operation_type": "deposit", "date": "2024-01-01", "total": 500.0, "amount": 500.0}
+        )
+        res = self.client.post(
+            "/api/investments",
+            json={
+                "operation_type": "withdrawal",
+                "date": "2024-03-01",
+                "amount_usd": 75.0,
+                "total": 75.0,
+                "amount": 75.0,
+                "currency": "USD",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        inv = res.get_json()["investment"]
+        self.assertEqual(inv["operation_type"], "withdrawal")
+        self.assertEqual(inv["total"], 75.0)
+
     def test_portfolio_buy_sell_rebuy_and_deposit_excluded(self):
         from unittest.mock import patch
 

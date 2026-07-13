@@ -63,6 +63,7 @@
   const typeOptions = [
     { value: 'all', label: 'Todos' },
     { value: 'deposit', label: 'Depósito' },
+    { value: 'withdrawal', label: 'Retiro' },
     { value: 'buy', label: 'Compra' },
     { value: 'sell', label: 'Venta' },
     { value: 'dividend', label: 'Dividendo' },

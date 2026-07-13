@@ -96,6 +96,8 @@ def _build_position_row(
     qty = state["qty"]
     cost_basis = state["cost"]
     realized_sales = state["realized_sales"]
+    sell_fees = state.get("sell_fees", 0.0)
+    realized_net = realized_sales - sell_fees
     dividends = state["dividends"]
     fees = state["fees"]
     capital_invested = state["capital_invested"]
@@ -141,7 +143,7 @@ def _build_position_row(
         "market_value_usd": _round_money(market_value),
         "unrealized_pnl_usd": _round_money(unrealized),
         "unrealized_pnl_percent": _round_money(unrealized_percent),
-        "realized_pnl_usd": _round_money(realized_sales),
+        "realized_pnl_usd": _round_money(realized_net),
         "dividends_usd": _round_money(dividends),
         "fees_paid_usd": _round_money(fees),
         "total_pnl_usd": _round_money(total_pnl),
@@ -206,10 +208,12 @@ def get_portfolio_insights(investments: list[dict[str, Any]] | None = None) -> d
     last_unit_prices = agg["last_unit_prices"]
     cash_available = agg["cash"]
     warnings = list(agg["warnings"])
-    total_realized = agg["total_realized_sales"]
+    total_realized = agg["total_realized_sales"] - agg.get("total_sell_fees", 0.0)
     total_dividends = agg["total_dividends"]
     total_fees = agg["total_fees"]
     total_deposits = agg["total_deposits"]
+    total_withdrawals = agg["total_withdrawals"]
+    net_contributions = total_deposits - total_withdrawals
 
     open_positions = {asset: state for asset, state in positions_state.items() if state["qty"] > 1e-12}
     asset_types = _resolve_asset_types(rows, list(open_positions.keys()))
@@ -268,10 +272,10 @@ def get_portfolio_insights(investments: list[dict[str, Any]] | None = None) -> d
     total_portfolio_value = total_assets_value + cash_available
     cash_warning = NEGATIVE_CASH_WARNING if cash_available < -1e-9 else None
 
-    global_gain = total_portfolio_value - total_deposits
+    global_gain = total_portfolio_value - net_contributions
     total_return_percent: float | None = None
-    if total_deposits > 0:
-        total_return_percent = (global_gain / total_deposits) * 100
+    if net_contributions > 0:
+        total_return_percent = (global_gain / net_contributions) * 100
 
     quote_sources = _build_quote_sources(positions, quotes_as_of)
 
@@ -308,6 +312,8 @@ def get_portfolio_insights(investments: list[dict[str, Any]] | None = None) -> d
         "total_fees_usd": _round_money(total_fees),
         "total_pnl_usd": _round_money(total_pnl),
         "total_deposits_usd": _round_money(total_deposits),
+        "total_withdrawals_usd": _round_money(total_withdrawals),
+        "net_contributions_usd": _round_money(net_contributions),
         "global_gain_by_contributions_usd": _round_money(global_gain),
         "total_return_percent": _round_money(total_return_percent),
         "quotes_as_of": quotes_as_of,

@@ -353,7 +353,7 @@
                 assets={investmentAssets}
                 bind:value={investmentAsset}
                 name="asset"
-                required
+                required={opType !== 'deposit' && opType !== 'withdrawal'}
               />
             </label>
             <label class="edit-form__field">Tipo de activo

@@ -138,7 +138,7 @@
   </div>
 
   <div class="investments-layout">
-    <InvestmentCharts {investments} on:filterAsset={onChartFilter} />
+    <InvestmentCharts {investments} portfolioInsights={portfolioInsights} on:filterAsset={onChartFilter} />
 
     <InvestmentLedger
       {investments}
