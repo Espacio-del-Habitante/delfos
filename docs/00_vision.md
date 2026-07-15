@@ -200,11 +200,21 @@ de visión extrae filas del ledger que el usuario revisa antes de guardar.
 **Distribución:**
 - **App de escritorio** `.exe` portátil (waitress), datos en `%LOCALAPPDATA%\Delfos\data`.
 
-### 6.3 Etapa 3 — Reportes y más IA (futuro)
+### 6.3 Etapa 3 — Asistente: perfil, chat, alertas y reportes (futuro)
 
-- Más reportes y estadísticas (rangos, comparativos, presupuestos).
-- Mayor potenciación con IA (insights, resúmenes, categorización más fina).
-- UI para el endpoint de charts más allá de lo actual.
+Extensión del copiloto **sobre** el núcleo ya implementado (mismas capas, JSON local-first,
+IA opcional). Detalle accionable en `PLAN_IMPLEMENTACION_DELFOS_ASISTENTE_FINANCIERO.md`.
+
+- **Perfil financiero y metas:** onboarding guiado; ingreso, % ahorro/inversión, emergencia,
+  riesgo, horizonte y `goals` persistidos en el store JSON (sin usuarios ni auth).
+- **Chat con memoria estructurada:** conversación anclada a un context pack (perfil, KPIs,
+  metas, alertas, facts/summaries); el chat no es la fuente de verdad; mutaciones siguen
+  preview → confirm. Sin RAG/vector DB en esta etapa.
+- **Alertas por reglas:** disparadores deterministas (gasto vs meta, liquidez, concentración);
+  el LLM puede explicar, no inventar el trigger.
+- **Reportes anuales de apoyo:** resumen del año desde el ledger (dividendos, fees, ventas,
+  patrimonio a corte) y borradores para contador; wording de apoyo, no asesoría fiscal.
+- IA sigue siendo **opcional e intercambiable**; los datos siguen en archivos locales del usuario.
 
 ---
 
