@@ -33,32 +33,61 @@ function runOrFail(command, args, cwd) {
   }
 }
 
+function resolveUvCommand(cwd) {
+  const envBinary = process.env.DELFOS_UV_BIN;
+  const candidates = [];
+
+  if (envBinary) {
+    candidates.push({ command: envBinary, baseArgs: [] });
+  }
+
+  candidates.push(
+    { command: "uv", baseArgs: [] },
+    { command: "python3", baseArgs: ["-m", "uv"] },
+    { command: "python", baseArgs: ["-m", "uv"] },
+  );
+
+  for (const candidate of candidates) {
+    const probe = spawnSync(candidate.command, [...candidate.baseArgs, "--version"], {
+      cwd,
+      stdio: "ignore",
+      env: process.env,
+    });
+    if (probe.status === 0) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    "No se encontró `uv` en PATH ni como módulo Python. Instala uv o define DELFOS_UV_BIN=/ruta/a/uv.",
+  );
+}
+
+const uvCommand = resolveUvCommand(backendDir);
+const runUv = (args) => runOrFail(uvCommand.command, [...uvCommand.baseArgs, ...args], backendDir);
+
 if (!existsSync(frontendDist)) {
   throw new Error("No existe frontend/dist. Ejecuta `npm --prefix frontend run build`.");
 }
 
 console.log("==> Sincronizando backend (uv sync --group dev)...");
-runOrFail("uv", ["sync", "--group", "dev"], backendDir);
+runUv(["sync", "--group", "dev"]);
 
 console.log("==> Generando binario backend (PyInstaller onefile)...");
-runOrFail(
-  "uv",
-  [
-    "run",
-    "pyinstaller",
-    "--noconfirm",
-    "--clean",
-    "--onefile",
-    "--name",
-    backendName,
-    "--add-data",
-    `../frontend/dist${addDataSeparator}frontend_dist`,
-    "--collect-all",
-    "yfinance",
-    "app.py",
-  ],
-  backendDir,
-);
+runUv([
+  "run",
+  "pyinstaller",
+  "--noconfirm",
+  "--clean",
+  "--onefile",
+  "--name",
+  backendName,
+  "--add-data",
+  `../frontend/dist${addDataSeparator}frontend_dist`,
+  "--collect-all",
+  "yfinance",
+  "app.py",
+]);
 
 if (!existsSync(backendBinary)) {
   throw new Error(`PyInstaller no generó el binario esperado: ${backendBinary}`);

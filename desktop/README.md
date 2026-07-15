@@ -58,6 +58,7 @@ El pipeline hace:
 - `DELFOS_BACKEND_CMD`: comando para arrancar Flask (default: `uv run python app.py`)
 - `DELFOS_BACKEND_TIMEOUT_MS`: timeout de arranque del backend (default: `45000`)
 - `DELFOS_RENDERER_URL`: URL de renderer alternativa (ej. `http://localhost:4321` para Astro dev)
+- `DELFOS_UV_BIN`: ruta/binario de `uv` para el build del backend (`dist:*`)
 
 ## Notas
 
