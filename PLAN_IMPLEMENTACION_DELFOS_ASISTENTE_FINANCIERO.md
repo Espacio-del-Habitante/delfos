@@ -319,25 +319,26 @@ Puede sugerir (sin forzar) cuentas que falten según tipos existentes (`savings`
 - **Hacer:** tratar §§3–6 como contrato.
 - **No:** reescribir núcleo ni “documento técnico de DB”.
 
-### Fase 1 — Perfil + metas + onboarding (~1–2 sem)
+### Fase 1 — Perfil + metas + onboarding — **HECHA**
 
-- Extensión `DEFAULT_DATA` + `_migrate_assistant` (o similar)
-- CRUD API perfil/metas
-- Wizard UI
-- **No:** chat onboarding complejo; no auth
+- Extensión `DEFAULT_DATA` + `_migrate_assistant`
+- CRUD API perfil/metas (`/api/assistant/profile`, `/api/assistant/goals`)
+- Wizard UI en `/perfil` + banner en dashboard
+- **No** incluido (correcto): chat onboarding complejo; auth
 
-### Fase 2 — KPIs de copiloto (~3–5 días)
+### Fase 2 — KPIs de copiloto — **HECHA**
 
 - Ahorro vs meta; liquidez / meses de emergencia (aprox. desde saldos + perfil)
-- Concentración portafolio (desde `portfolio_service`)
-- Endpoint context pack
-- **No:** snapshots diarios con cron
+- Concentración portafolio por costo (`assistant_service` + `portfolio_accounting`)
+- Endpoint `GET /api/assistant/context` + `assistant_kpis` en `/api/finance`
+- UI: ProfilePeek en inicio, `/perfil` con cards, acceso en BottomNav
+- **No** incluido (correcto): snapshots diarios con cron
 
-### Fase 3 — Chat contextual (~2–3 sem)
+### Fase 3 — Chat contextual — **HECHA**
 
-- Feature `asistente`, threads/messages JSON, prompt builder, `complete_json`
-- Memoria facts/summaries (mínimo viable)
-- **No:** RAG / vector DB
+- Feature `/asistente`: chat conversacional (no quiz), thread principal, `complete_json`
+- Prompt builder + context pack; memory_facts / memory_summaries mínimos
+- **No** incluido (correcto): RAG / vector DB
 
 ### Fase 4 — Alertas + recomendaciones (~1–2 sem)
 
@@ -482,6 +483,4 @@ No empezar por “un chat potente” sin perfil ni pack.
 
 ## 19. Próximo paso
 
-Implementar **Fase 1** según §6.3 y §9 (campos JSON, migrate, endpoints profile/goals, wizard). Luego Fase 2 (KPIs + context pack) y chat mínimo de Fase 3.
-
-Un agente puede implementar Fase 1 **sin inventar DB** y **sin romper** `finance_store`: solo claves nuevas + migraciones suaves + rutas/services/feature UI.
+**Fases 1–3 hechas.** Siguiente: **Fase 4** — alertas por reglas + recomendaciones accionables.

@@ -290,6 +290,9 @@
       Ajusta categorías, el motor de inteligencia artificial y administra tus datos. Las cuentas y
       movimientos se editan desde sus propias tarjetas.
     </p>
+    <p class="settings-hero__subtitle">
+      <a href="/perfil">Perfil financiero</a> — ingresos, metas y preferencias del asistente.
+    </p>
   </section>
 
   <div class="settings-layout">

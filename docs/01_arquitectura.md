@@ -110,12 +110,20 @@ estado en una sola respuesta tras cada mutación.
 | POST | `/api/settings/ai/test` | probar conexión con config aún no guardada |
 | GET/POST | `/api/settings/quotes` | leer / guardar config de cotizaciones |
 | POST | `/api/settings/quotes/test` | probar conexión con proveedores de cotización |
+| GET/PATCH | `/api/assistant/profile` | leer / actualizar `financial_profile` |
+| GET/POST | `/api/assistant/goals` | listar / crear meta |
+| PATCH/DELETE | `/api/assistant/goals/<id>` | editar / borrar meta |
+| GET | `/api/assistant/context` | context pack (perfil + KPIs + metas; sin LLM) |
+| GET/POST | `/api/assistant/threads` | listar / asegurar thread principal |
+| GET | `/api/assistant/threads/<id>/messages` | historial del hilo |
+| POST | `/api/assistant/chat` | mensaje → pack → LLM → guarda turno |
 
 ### 3.2 Services — `backend/services/*` (lógica de negocio + persistencia JSON)
 
 | Servicio | Responsabilidad |
 |----------|-----------------|
-| `finance_store` | **Núcleo de datos.** Carga/guarda el JSON, migraciones suaves, CRUD de cuentas/gastos/ingresos/inversiones/notas/categorías, ajuste de saldos, resúmenes, charts, `get_finance_payload`, `confirm_analysis` |
+| `finance_store` | **Núcleo de datos.** Carga/guarda el JSON, migraciones suaves, CRUD de cuentas/gastos/ingresos/inversiones/notas/categorías, `financial_profile`/`goals` (asistente), ajuste de saldos, resúmenes, charts, `get_finance_payload`, `confirm_analysis` |
+| `assistant_service` | KPIs del copiloto + context pack (`build_kpis`, `build_context_pack`) sin LLM |
 | `ai_service` | Construye el prompt financiero, llama al proveedor activo (`registry`), parsea el JSON y arma la **vista previa** de análisis; fallback a nota si la IA falla |
 | `vision_service` | OCR de capturas de broker: valida la imagen, llama a `vision_json` del proveedor, normaliza/depura filas del ledger |
 | `investment_ledger` | Export CSV/XLSX, import CSV, parseo de fechas/números (heurística español/COP), mapeo fila↔inversión, refinado/anti-alucinación de filas OCR |
@@ -222,6 +230,8 @@ frontend/src/
 ├── pages/
 │   ├── index.astro            # Dashboard
 │   ├── inversiones.astro      # Inversiones
+│   ├── perfil.astro           # Perfil financiero / onboarding (asistente Fase 1)
+│   ├── asistente.astro        # Chat conversacional (asistente Fase 3)
 │   └── configuracion.astro    # Configuración (IA, reset)
 ├── features/
 │   ├── dashboard/
@@ -232,6 +242,10 @@ frontend/src/
 │   │   ├── screen/InvestmentsScreen.svelte
 │   │   └── components/{molecules,organisms}/   # InvestmentLedger, OcrModal/Upload/Review,
 │   │                                            # CsvImportModal, ExportBar, Insights, Charts…
+│   ├── asistente/
+│   │   ├── screen/ProfileScreen.svelte
+│   │   ├── screen/ChatScreen.svelte
+│   │   └── components/organisms/OnboardingWizard.svelte
 │   └── settings/
 │       └── screen/SettingsScreen.svelte
 └── common/

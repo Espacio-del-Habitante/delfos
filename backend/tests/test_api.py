@@ -1314,5 +1314,512 @@ class QuoteSettingsApiTestCase(unittest.TestCase):
         self.assertTrue(res.get_json()["ok"])
 
 
+class AssistantProfileTestCase(unittest.TestCase):
+    """Fase 1: perfil financiero + metas en JSON local."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.data_path = Path(self.tmp.name) / "delfos_data.json"
+        self.original_path = finance_store.DATA_PATH
+        finance_store.DATA_PATH = self.data_path
+        finance_store.save_data(
+            {
+                "settings": {"currency": "COP"},
+                "categories": [],
+                "accounts": [],
+                "expenses": [],
+                "incomes": [],
+                "investments": [],
+                "notes": [],
+            }
+        )
+        self.client = app.test_client()
+
+    def tearDown(self):
+        finance_store.DATA_PATH = self.original_path
+        self.tmp.cleanup()
+
+    def test_profile_migrates_and_patches(self):
+        res = self.client.get("/api/assistant/profile")
+        self.assertEqual(res.status_code, 200)
+        profile = res.get_json()["profile"]
+        self.assertFalse(profile["onboarding_completed"])
+        self.assertEqual(profile["fiscal_country"], "CO")
+
+        res = self.client.patch(
+            "/api/assistant/profile",
+            json={
+                "monthly_income_fixed": 5000000,
+                "savings_target_percent": 20,
+                "investment_target_percent": 10,
+                "cushion_percent": 10,
+                "risk_profile": "moderate",
+                "onboarding_completed": True,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        profile = res.get_json()["profile"]
+        self.assertEqual(profile["monthly_income_fixed"], 5000000.0)
+        self.assertEqual(profile["savings_target_percent"], 20.0)
+        self.assertEqual(profile["cushion_percent"], 10.0)
+        self.assertTrue(profile["onboarding_completed"])
+        self.assertIsNotNone(profile["last_reviewed_at"])
+
+        finance = self.client.get("/api/finance").get_json()
+        self.assertTrue(finance["financial_profile"]["onboarding_completed"])
+
+    def test_goals_crud(self):
+        res = self.client.post(
+            "/api/assistant/goals",
+            json={"title": "Fondo emergencia", "type": "emergency_fund", "target_amount": 12000000},
+        )
+        self.assertEqual(res.status_code, 201)
+        goal = res.get_json()["goal"]
+        self.assertTrue(goal["id"].startswith("goal_"))
+        self.assertEqual(goal["title"], "Fondo emergencia")
+
+        res2 = self.client.post(
+            "/api/assistant/goals",
+            json={"title": "Viaje", "type": "savings", "target_amount": 3000000},
+        )
+        self.assertEqual(res2.status_code, 201)
+        self.assertEqual(len(res2.get_json()["goals"]), 2)
+
+        gid = goal["id"]
+        res = self.client.patch(f"/api/assistant/goals/{gid}", json={"status": "paused"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["goal"]["status"], "paused")
+
+        res = self.client.delete(f"/api/assistant/goals/{gid}")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.get_json()["goals"]), 1)
+
+    def test_goal_requires_title(self):
+        res = self.client.post("/api/assistant/goals", json={"type": "savings"})
+        self.assertEqual(res.status_code, 400)
+
+    def test_assistant_context_pack(self):
+        self.client.patch(
+            "/api/assistant/profile",
+            json={
+                "monthly_income_fixed": 5000000,
+                "savings_target_percent": 20,
+                "cushion_percent": 10,
+                "emergency_fund_target_months": 6,
+                "onboarding_completed": True,
+            },
+        )
+        self.client.post(
+            "/api/accounts",
+            json={"name": "Nequi", "type": "wallet", "currency": "COP", "initial_balance": 3000000},
+        )
+        self.client.post(
+            "/api/incomes",
+            json={"amount": 5000000, "currency": "COP", "description": "Salario", "category": "Salario"},
+        )
+        self.client.post(
+            "/api/expenses",
+            json={"amount": 1000000, "currency": "COP", "description": "Renta", "category": "Vivienda"},
+        )
+
+        res = self.client.get("/api/assistant/context")
+        self.assertEqual(res.status_code, 200)
+        pack = res.get_json()
+        self.assertIn("profile", pack)
+        self.assertIn("kpis", pack)
+        self.assertIn("goals", pack)
+        kpis = pack["kpis"]
+        self.assertIsNotNone(kpis["savings_actual_percent"])
+        self.assertEqual(kpis["cushion_percent"], 10.0)
+
+        finance = self.client.get("/api/finance").get_json()
+        self.assertIsNotNone(finance.get("assistant_kpis"))
+        self.assertEqual(finance["assistant_kpis"]["cushion_percent"], 10.0)
+
+    def test_assistant_chat_persists_turn(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Vas bien: tu ahorro del mes está encima de la meta.",
+                        "follow_ups": ["¿Y mi emergencia?"],
+                        "memory_updates": [],
+                        "memory_summary": None,
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "¿Cómo voy de ahorro?"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertTrue(body["ai_available"])
+        self.assertIn("ahorro", body["assistant_message"]["content"].lower())
+        self.assertEqual(body["follow_ups"], ["¿Y mi emergencia?"])
+
+        tid = body["thread"]["id"]
+        hist = self.client.get(f"/api/assistant/threads/{tid}/messages").get_json()
+        self.assertGreaterEqual(len(hist["messages"]), 2)
+        roles = [m["role"] for m in hist["messages"]]
+        self.assertIn("user", roles)
+        self.assertIn("assistant", roles)
+
+    def test_chat_profile_suggestion_requires_confirm(self):
+        self.client.patch(
+            "/api/assistant/profile",
+            json={"monthly_income_fixed": 5000000, "onboarding_completed": True},
+        )
+
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Anoto: ahorro 30% y tus fijos. Confirma en la app para guardar.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "memory_updates": [
+                            {"fact": "Quiere ahorrar 30%", "category": "goal"}
+                        ],
+                        "memory_summary": None,
+                        "profile_patch": {
+                            "savings_target_percent": 30,
+                            "fixed_expenses": [
+                                {"label": "Arriendo", "amount": 1500000},
+                                {"label": "Internet", "amount": 80000},
+                            ],
+                            "monthly_income_fixed": None,
+                            "risk_profile": None,
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "Quiero ahorrar 30%. Fijos: arriendo 1.5M e internet 80 mil"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        suggestion = body["profile_suggestion"]
+        self.assertEqual(suggestion["savings_target_percent"], 30.0)
+        self.assertEqual(suggestion["monthly_fixed_expenses"], 1580000.0)
+        self.assertNotIn("monthly_income_fixed", suggestion)
+        self.assertNotIn("risk_profile", suggestion)
+
+        # Sin confirmar, el perfil aún no cambia
+        profile = self.client.get("/api/assistant/profile").get_json()["profile"]
+        self.assertIsNone(profile.get("savings_target_percent"))
+
+        res = self.client.post(
+            "/api/assistant/apply-profile",
+            json={"suggestion": suggestion},
+        )
+        self.assertEqual(res.status_code, 200)
+        applied = res.get_json()["profile"]
+        self.assertEqual(applied["savings_target_percent"], 30.0)
+        self.assertEqual(applied["monthly_fixed_expenses"], 1580000.0)
+        self.assertEqual(len(applied["fixed_expenses"]), 2)
+
+    def test_apply_profile_rejects_empty(self):
+        res = self.client.post("/api/assistant/apply-profile", json={"suggestion": {}})
+        self.assertEqual(res.status_code, 400)
+
+    def test_sanitize_profile_patch_drops_nulls(self):
+        clean = finance_store.sanitize_profile_patch(
+            {
+                "savings_target_percent": 25,
+                "monthly_income_fixed": None,
+                "fixed_expenses": [{"label": "Arriendo", "amount": 1000}],
+            }
+        )
+        self.assertEqual(clean["savings_target_percent"], 25.0)
+        self.assertNotIn("monthly_income_fixed", clean)
+        self.assertEqual(clean["monthly_fixed_expenses"], 1000.0)
+
+    def test_summarize_compacts_old_messages(self):
+        thread = finance_store.get_or_create_main_thread()
+        tid = thread["id"]
+        for i in range(12):
+            role = "user" if i % 2 == 0 else "assistant"
+            finance_store.append_chat_message(tid, role, f"mensaje financiero {i}")
+
+        class _Fake:
+            def complete_json(self, prompt):
+                assert "Mensajes a condensar" in prompt
+                return json.dumps(
+                    {
+                        "summary": "Quiere ahorrar 30% y controla fijos de arriendo.",
+                        "memory_updates": [
+                            {"fact": "Meta de ahorro 30%", "category": "goal"}
+                        ],
+                        "reply": "Compacté el historial viejo; seguimos con lo reciente.",
+                    }
+                )
+
+        fake = _Fake()
+        with patch("integrations.registry.get_active_integration", return_value=fake):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "/sumarize", "thread_id": tid},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertTrue(body["summarized"])
+        self.assertGreater(body["compacted_count"], 0)
+        self.assertIn("30%", body["memory_summary"])
+
+        visible = finance_store.list_chat_messages(tid, limit=None)
+        # Cola reciente + /sumarize + reply del asistente
+        self.assertLessEqual(len(visible), 10)
+        compacted = finance_store.list_chat_messages(tid, limit=None, include_compacted=True)
+        self.assertGreater(len(compacted), len(visible))
+
+    def test_summarize_alias_too_short(self):
+        thread = finance_store.get_or_create_main_thread()
+        finance_store.append_chat_message(thread["id"], "user", "hola corta")
+
+        class _Fake:
+            def complete_json(self, prompt):
+                raise AssertionError("no debe llamar LLM si hay poco historial")
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "/summarize", "thread_id": thread["id"]},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertFalse(body["summarized"])
+        self.assertEqual(body["compacted_count"], 0)
+
+    def test_chat_movement_draft_confirm_saves_expense(self):
+        self.client.post(
+            "/api/accounts",
+            json={"name": "Nequi", "type": "wallet", "currency": "COP", "initial_balance": 200000},
+        )
+
+        class _Fake:
+            def complete_json(self, prompt):
+                assert "movement_draft" in prompt
+                return json.dumps(
+                    {
+                        "reply": "Anoto un Uber de 25 mil. Confirma para guardarlo.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "memory_updates": [],
+                        "memory_summary": None,
+                        "profile_patch": {},
+                        "movement_draft": {
+                            "needs_clarification": None,
+                            "expenses": [
+                                {
+                                    "amount": 25000,
+                                    "currency": "COP",
+                                    "category": "Transporte",
+                                    "category_emoji": "🚌",
+                                    "description": "Uber",
+                                    "payment_method": "",
+                                    "account_name_hint": "Nequi",
+                                    "suggested_new_category": None,
+                                }
+                            ],
+                            "incomes": [],
+                            "investments": [],
+                            "notes": [],
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "Gasté 25 mil en Uber por Nequi"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        draft = body["movement_draft"]
+        self.assertIsNotNone(draft)
+        self.assertEqual(draft["counts"]["expenses"], 1)
+        self.assertEqual(draft["items"][0]["amount"], 25000)
+        self.assertIsNotNone(draft["items"][0]["account_id"])
+
+        # Sin confirmar, aún no hay gasto
+        finance = self.client.get("/api/finance").get_json()
+        before = len(finance.get("expenses") or [])
+
+        confirm = self.client.post(
+            "/api/confirm-analysis",
+            json={"items": draft["items"]},
+        )
+        self.assertEqual(confirm.status_code, 200)
+        saved = confirm.get_json()["saved"]
+        self.assertEqual(saved["expenses"], 1)
+
+        finance = self.client.get("/api/finance").get_json()
+        self.assertEqual(len(finance.get("expenses") or []), before + 1)
+
+    def test_chat_asks_clarification_without_draft_items(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "¿Cuánto fue el gasto?",
+                        "off_topic": False,
+                        "follow_ups": ["Fueron 40 mil"],
+                        "memory_updates": [],
+                        "profile_patch": {},
+                        "movement_draft": {
+                            "needs_clarification": "falta el monto",
+                            "expenses": [],
+                            "incomes": [],
+                            "investments": [],
+                            "notes": [],
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "Pagué un Uber"},
+            )
+        body = res.get_json()
+        draft = body["movement_draft"]
+        self.assertIsNotNone(draft)
+        self.assertEqual(draft["needs_clarification"], "falta el monto")
+        self.assertEqual(draft["counts"]["total"], 0)
+
+    def test_chat_multi_movement_draft(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Anoto 3 gastos. Confirma para guardarlos.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {
+                            "needs_clarification": None,
+                            "expenses": [
+                                {
+                                    "amount": 12000,
+                                    "currency": "COP",
+                                    "category": "Café",
+                                    "description": "Café",
+                                    "account_name_hint": "",
+                                },
+                                {
+                                    "amount": 45000,
+                                    "currency": "COP",
+                                    "category": "Comida",
+                                    "description": "Almuerzo",
+                                    "account_name_hint": "",
+                                },
+                                {
+                                    "amount": 18000,
+                                    "currency": "COP",
+                                    "category": "Transporte",
+                                    "description": "Uber",
+                                    "account_name_hint": "",
+                                },
+                            ],
+                            "incomes": [],
+                            "investments": [],
+                            "notes": [],
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "café 12 mil, almuerzo 45 mil y Uber 18 mil"},
+            )
+        body = res.get_json()
+        self.assertEqual(body["movement_draft"]["counts"]["expenses"], 3)
+        self.assertEqual(len(body["movement_draft"]["items"]), 3)
+
+    def test_buscar_command_and_lookup_intent(self):
+        self.client.post(
+            "/api/expenses",
+            json={
+                "amount": 25000,
+                "currency": "COP",
+                "description": "Uber aeropuerto",
+                "category": "Transporte",
+            },
+        )
+        res = self.client.post(
+            "/api/assistant/chat",
+            json={"message": "/buscar Uber"},
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertGreaterEqual(body["lookup"]["count"], 1)
+        self.assertIn("Uber", body["assistant_message"]["content"])
+
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Revisé tus movimientos.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {},
+                        "lookup": {"q": "Uber", "kind": "expense", "period": "month"},
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "¿Cuánto gasté en Uber este mes?"},
+            )
+        body = res.get_json()
+        self.assertGreaterEqual(body["lookup"]["count"], 1)
+        self.assertIn("25000", body["assistant_message"]["content"])
+
+    def test_chat_account_draft_apply(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Puedo crear Nequi como billetera. Confirma.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {},
+                        "account_draft": {
+                            "name": "Nequi Chat",
+                            "type": "billetera",
+                            "currency": "COP",
+                            "initial_balance": 0,
+                            "emoji": "💜",
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "Crea una cuenta Nequi Chat"},
+            )
+        body = res.get_json()
+        draft = body["account_draft"]
+        self.assertEqual(draft["name"], "Nequi Chat")
+        self.assertEqual(draft["type"], "wallet")
+
+        applied = self.client.post(
+            "/api/assistant/apply-account",
+            json={"suggestion": draft},
+        )
+        self.assertEqual(applied.status_code, 200)
+        accounts = applied.get_json()["accounts"]
+        self.assertTrue(any(a["name"] == "Nequi Chat" for a in accounts))
+
+
 if __name__ == "__main__":
     unittest.main()

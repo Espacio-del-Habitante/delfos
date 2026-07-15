@@ -200,20 +200,23 @@ de visión extrae filas del ledger que el usuario revisa antes de guardar.
 **Distribución:**
 - **App de escritorio** `.exe` portátil (waitress), datos en `%LOCALAPPDATA%\Delfos\data`.
 
-### 6.3 Etapa 3 — Asistente: perfil, chat, alertas y reportes (futuro)
+### 6.3 Etapa 3 — Asistente: perfil, chat, alertas y reportes (en evolución)
 
 Extensión del copiloto **sobre** el núcleo ya implementado (mismas capas, JSON local-first,
 IA opcional). Detalle accionable en `PLAN_IMPLEMENTACION_DELFOS_ASISTENTE_FINANCIERO.md`.
 
-- **Perfil financiero y metas:** onboarding guiado; ingreso, % ahorro/inversión, emergencia,
-  riesgo, horizonte y `goals` persistidos en el store JSON (sin usuarios ni auth).
-- **Chat con memoria estructurada:** conversación anclada a un context pack (perfil, KPIs,
-  metas, alertas, facts/summaries); el chat no es la fuente de verdad; mutaciones siguen
-  preview → confirm. Sin RAG/vector DB en esta etapa.
-- **Alertas por reglas:** disparadores deterministas (gasto vs meta, liquidez, concentración);
-  el LLM puede explicar, no inventar el trigger.
-- **Reportes anuales de apoyo:** resumen del año desde el ledger (dividendos, fees, ventas,
-  patrimonio a corte) y borradores para contador; wording de apoyo, no asesoría fiscal.
+- **Perfil financiero y metas (implementado — Fase 1):** onboarding guiado en `/perfil`;
+  ingreso, % ahorro/inversión/colchón, emergencia, riesgo, horizonte y `goals` en
+  `delfos_data.json` (sin usuarios ni auth). API `/api/assistant/profile` y `/api/assistant/goals`.
+- **KPIs / context pack (implementado — Fase 2):** ahorro vs meta, meses de emergencia,
+  concentración de portafolio; `GET /api/assistant/context` y cards en inicio/`/perfil`.
+- **Chat con memoria estructurada (implementado — Fase 3):** conversación libre en `/asistente`
+  anclada al context pack; memoria facts/summaries ligera; el chat no es la fuente de verdad.
+  Sin RAG/vector DB.
+- **Alertas por reglas (futuro):** disparadores deterministas (gasto vs meta, liquidez,
+  concentración); el LLM puede explicar, no inventar el trigger.
+- **Reportes anuales de apoyo (futuro):** resumen del año desde el ledger (dividendos, fees,
+  ventas, patrimonio a corte) y borradores para contador; wording de apoyo, no asesoría fiscal.
 - IA sigue siendo **opcional e intercambiable**; los datos siguen en archivos locales del usuario.
 
 ---
@@ -262,6 +265,8 @@ IA opcional). Detalle accionable en `PLAN_IMPLEMENTACION_DELFOS_ASISTENTE_FINANC
 - InvestmentAsset (activo/ticker conocido)
 - Note (nota)
 - Category (categoría con `kind`)
+- FinancialProfile (perfil del asistente: ingresos, % metas, riesgo, onboarding)
+- Goal (meta financiera persistida)
 
 **Derivados (no persistidos):**
 - Summary (resumen mensual y de saldos)

@@ -23,6 +23,48 @@ DEFAULT_CATEGORIES = [
     {"id": "cat_nota", "name": "Nota", "emoji": "📝", "kind": "note"},
 ]
 
+DEFAULT_FINANCIAL_PROFILE = {
+    "monthly_income_fixed": None,
+    "monthly_income_variable_avg": None,
+    "monthly_fixed_expenses": None,  # total mensual de gastos fijos (COP u moneda base)
+    "fixed_expenses": [],  # [{label, amount}] detalle opcional
+    "savings_target_percent": None,
+    "investment_target_percent": None,
+    "cushion_percent": None,  # holgura / colchón del ingreso (no comprometida)
+    "emergency_fund_target_months": None,
+    "risk_profile": None,
+    "investment_horizon": None,
+    "fiscal_country": "CO",
+    "priorities": [],
+    "onboarding_completed": False,
+    "last_reviewed_at": None,
+}
+
+# Claves que el chat puede proponer para escribir en el perfil (tras confirmación).
+PROFILE_PATCH_KEYS = frozenset(
+    {
+        "monthly_income_fixed",
+        "monthly_income_variable_avg",
+        "monthly_fixed_expenses",
+        "fixed_expenses",
+        "savings_target_percent",
+        "investment_target_percent",
+        "cushion_percent",
+        "emergency_fund_target_months",
+        "risk_profile",
+        "investment_horizon",
+        "fiscal_country",
+        "priorities",
+    }
+)
+
+GOAL_STATUSES = frozenset({"active", "paused", "done", "cancelled"})
+GOAL_TYPES = frozenset(
+    {"emergency_fund", "savings", "investment", "debt", "custom"}
+)
+RISK_PROFILES = frozenset({"conservative", "moderate", "aggressive"})
+INVESTMENT_HORIZONS = frozenset({"short", "medium", "long"})
+
 DEFAULT_DATA = {
     "settings": {"currency": "COP"},
     "categories": deepcopy(DEFAULT_CATEGORIES),
@@ -32,6 +74,12 @@ DEFAULT_DATA = {
     "investments": [],
     "investment_assets": [],
     "notes": [],
+    "financial_profile": deepcopy(DEFAULT_FINANCIAL_PROFILE),
+    "goals": [],
+    "chat_threads": [],
+    "chat_messages": [],
+    "memory_facts": [],
+    "memory_summaries": [],
 }
 
 MOVEMENT_FILTERS = [
@@ -64,6 +112,34 @@ ACCOUNT_TYPES = {
     "crypto": "Cripto",
     "savings": "Ahorros",
     "other": "Otro",
+}
+
+# Aliases en español/colombiano → type canónico (chat → crear cuenta).
+ACCOUNT_TYPE_ALIASES = {
+    "efectivo": "cash",
+    "cash": "cash",
+    "banco": "bank",
+    "bank": "bank",
+    "tarjeta": "debit_card",
+    "tarjeta debito": "debit_card",
+    "tarjeta débito": "debit_card",
+    "debit_card": "debit_card",
+    "crédito": "credit_card",
+    "credito": "credit_card",
+    "tarjeta credito": "credit_card",
+    "tarjeta crédito": "credit_card",
+    "credit_card": "credit_card",
+    "billetera": "wallet",
+    "wallet": "wallet",
+    "nequi": "wallet",
+    "daviplata": "wallet",
+    "broker": "broker",
+    "cripto": "crypto",
+    "crypto": "crypto",
+    "ahorros": "savings",
+    "savings": "savings",
+    "otro": "other",
+    "other": "other",
 }
 
 
@@ -252,9 +328,33 @@ def load_data():
     if "incomes" not in data:
         data["incomes"] = []
         needs_save = True
+    if _migrate_assistant(data):
+        needs_save = True
     if needs_save:
         save_data(data)
     return data
+
+
+def _migrate_assistant(data):
+    """Asegura financial_profile + goals + chat/memoria (asistente)."""
+    changed = False
+    profile = data.get("financial_profile")
+    if not isinstance(profile, dict):
+        data["financial_profile"] = deepcopy(DEFAULT_FINANCIAL_PROFILE)
+        changed = True
+    else:
+        for key, default in DEFAULT_FINANCIAL_PROFILE.items():
+            if key not in profile:
+                profile[key] = deepcopy(default) if isinstance(default, list) else default
+                changed = True
+        if not isinstance(profile.get("fixed_expenses"), list):
+            profile["fixed_expenses"] = []
+            changed = True
+    for key in ("goals", "chat_threads", "chat_messages", "memory_facts", "memory_summaries"):
+        if not isinstance(data.get(key), list):
+            data[key] = []
+            changed = True
+    return changed
 
 
 def save_data(data):
@@ -427,13 +527,64 @@ def count_movements_for_account(account_id):
     return count
 
 
+def sanitize_account_draft(raw):
+    """Filtra un account_draft del chat a campos válidos para crear cuenta."""
+    if not isinstance(raw, dict):
+        return {}
+    name = str(raw.get("name") or "").strip()
+    if not name:
+        return {}
+    type_raw = str(raw.get("type") or "other").strip().lower()
+    account_type = ACCOUNT_TYPE_ALIASES.get(type_raw) or (
+        type_raw if type_raw in ACCOUNT_TYPES else "other"
+    )
+    currency = str(raw.get("currency") or "COP").strip().upper() or "COP"
+    if currency not in ("COP", "USD"):
+        currency = "COP"
+    initial = raw.get("initial_balance")
+    if initial in (None, ""):
+        initial_balance = 0.0
+    else:
+        try:
+            initial_balance = float(initial)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("initial_balance must be a number") from exc
+    emoji = str(raw.get("emoji") or "").strip() or "💰"
+    return {
+        "name": name[:80],
+        "type": account_type,
+        "currency": currency,
+        "initial_balance": initial_balance,
+        "emoji": emoji[:4],
+    }
+
+
+def find_account_by_name(name):
+    needle = (name or "").strip().lower()
+    if not needle:
+        return None
+    for account in get_accounts():
+        if account.get("name", "").strip().lower() == needle:
+            return deepcopy(account)
+    return None
+
+
 def add_account(account_input):
     data = load_data()
+    name = (account_input.get("name") or "").strip()
+    if not name:
+        raise ValueError("name is required")
+    if find_account_by_name(name):
+        raise ValueError(f'Ya existe una cuenta llamada "{name}"')
+    type_raw = str(account_input.get("type") or "other").strip().lower()
+    account_type = ACCOUNT_TYPE_ALIASES.get(type_raw) or (
+        type_raw if type_raw in ACCOUNT_TYPES else "other"
+    )
     initial = float(account_input.get("initial_balance") or 0)
     account = {
         "id": _next_id("account", data["accounts"]),
-        "name": account_input["name"].strip(),
-        "type": account_input.get("type", "other"),
+        "name": name,
+        "type": account_type,
         "currency": account_input.get("currency", "COP"),
         "initial_balance": initial,
         "current_balance": initial,
@@ -445,6 +596,126 @@ def add_account(account_input):
     return account
 
 
+def search_movements(query, kind=None, period="month", limit=12):
+    """Búsqueda local simple por texto en gastos/ingresos/inversiones/notas."""
+    q = (query or "").strip().lower()
+    if not q:
+        raise ValueError("query vacía")
+    if kind and kind not in ("expense", "income", "investment", "note"):
+        kind = None
+    if period not in ("month", "year", "all"):
+        period = "month"
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if period == "month":
+        prefix = now.strftime("%Y-%m")
+    elif period == "year":
+        prefix = now.strftime("%Y")
+    else:
+        prefix = ""
+
+    limit = max(1, min(int(limit or 12), 40))
+    data = load_data()
+    hits = []
+    totals = {}
+
+    def _match(*parts):
+        return q in " ".join(str(p or "") for p in parts).lower()
+
+    def _add_total(currency, amount):
+        cur = currency or "COP"
+        totals[cur] = totals.get(cur, 0.0) + float(amount or 0)
+
+    if kind in (None, "expense"):
+        for row in data.get("expenses") or []:
+            if prefix and not str(row.get("date") or "").startswith(prefix):
+                continue
+            if not _match(row.get("description"), row.get("category"), row.get("payment_method")):
+                continue
+            hits.append(
+                {
+                    "kind": "expense",
+                    "id": row.get("id"),
+                    "date": row.get("date"),
+                    "label": row.get("description") or row.get("category") or "Gasto",
+                    "amount": row.get("amount"),
+                    "currency": row.get("currency") or "COP",
+                    "category": row.get("category"),
+                }
+            )
+            _add_total(row.get("currency"), row.get("amount"))
+
+    if kind in (None, "income"):
+        for row in data.get("incomes") or []:
+            if prefix and not str(row.get("date") or "").startswith(prefix):
+                continue
+            if not _match(
+                row.get("description"), row.get("category"), row.get("income_source")
+            ):
+                continue
+            hits.append(
+                {
+                    "kind": "income",
+                    "id": row.get("id"),
+                    "date": row.get("date"),
+                    "label": row.get("description") or row.get("category") or "Ingreso",
+                    "amount": row.get("amount"),
+                    "currency": row.get("currency") or "COP",
+                    "category": row.get("category"),
+                }
+            )
+            _add_total(row.get("currency"), row.get("amount"))
+
+    if kind in (None, "investment"):
+        for row in data.get("investments") or []:
+            if prefix and not str(row.get("date") or "").startswith(prefix):
+                continue
+            if not _match(row.get("asset"), row.get("notes"), row.get("category"), row.get("description")):
+                continue
+            hits.append(
+                {
+                    "kind": "investment",
+                    "id": row.get("id"),
+                    "date": row.get("date"),
+                    "label": row.get("asset") or row.get("notes") or "Inversión",
+                    "amount": row.get("amount"),
+                    "currency": row.get("currency") or "USD",
+                    "category": row.get("category"),
+                }
+            )
+            _add_total(row.get("currency"), row.get("amount"))
+
+    if kind in (None, "note"):
+        for row in data.get("notes") or []:
+            if prefix and not str(row.get("date") or row.get("created_at") or "").startswith(prefix):
+                continue
+            tags = " ".join(row.get("tags") or [])
+            if not _match(row.get("text"), tags):
+                continue
+            hits.append(
+                {
+                    "kind": "note",
+                    "id": row.get("id"),
+                    "date": row.get("date") or (row.get("created_at") or "")[:10],
+                    "label": (row.get("text") or "Nota")[:80],
+                    "amount": None,
+                    "currency": None,
+                    "category": None,
+                }
+            )
+
+    hits.sort(key=lambda h: h.get("date") or "", reverse=True)
+    trimmed = hits[:limit]
+    return {
+        "query": q,
+        "kind": kind,
+        "period": period,
+        "count": len(hits),
+        "shown": len(trimmed),
+        "totals": {k: round(v, 2) for k, v in totals.items()},
+        "hits": deepcopy(trimmed),
+    }
+
+
 RESET_DATA = {
     "settings": {"currency": "COP"},
     "categories": deepcopy(DEFAULT_CATEGORIES),
@@ -454,6 +725,12 @@ RESET_DATA = {
     "investments": [],
     "investment_assets": [],
     "notes": [],
+    "financial_profile": deepcopy(DEFAULT_FINANCIAL_PROFILE),
+    "goals": [],
+    "chat_threads": [],
+    "chat_messages": [],
+    "memory_facts": [],
+    "memory_summaries": [],
 }
 
 
@@ -1132,4 +1409,430 @@ def get_finance_payload():
         "investment_assets": data.get("investment_assets", []),
         "notes": data["notes"],
         "charts": get_chart_data(),
+        "financial_profile": get_financial_profile(),
+        "goals": get_goals(),
+        "assistant_kpis": _assistant_kpis_safe(),
     }
+
+
+def _assistant_kpis_safe():
+    """KPIs Fase 2; nunca tumba /api/finance si falla un cálculo."""
+    try:
+        from services import assistant_service
+
+        return assistant_service.build_kpis()
+    except Exception:
+        return None
+
+
+def _optional_float(value):
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+def _optional_percent(value):
+    if value is None or value == "":
+        return None
+    n = float(value)
+    if n < 0 or n > 100:
+        raise ValueError("El porcentaje debe estar entre 0 y 100")
+    return n
+
+
+def get_financial_profile():
+    return deepcopy(load_data()["financial_profile"])
+
+
+def _normalize_fixed_expenses(raw):
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("fixed_expenses debe ser una lista")
+    out = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        label = (item.get("label") or item.get("name") or "").strip()
+        amount = _optional_float(item.get("amount"))
+        if not label or amount is None:
+            continue
+        out.append({"label": label[:80], "amount": amount})
+    return out[:40]
+
+
+def sanitize_profile_patch(raw):
+    """Filtra un profile_patch del LLM a claves permitidas + valores tipados."""
+    if not isinstance(raw, dict):
+        return {}
+    patch = {}
+    for key in PROFILE_PATCH_KEYS:
+        if key not in raw:
+            continue
+        patch[key] = raw[key]
+    # Validar vía update en copia seca: aplicar lógica sin guardar
+    if not patch:
+        return {}
+    # Normalizar en un dict resultado
+    result = {}
+    if "monthly_income_fixed" in patch:
+        result["monthly_income_fixed"] = _optional_float(patch["monthly_income_fixed"])
+    if "monthly_income_variable_avg" in patch:
+        result["monthly_income_variable_avg"] = _optional_float(
+            patch["monthly_income_variable_avg"]
+        )
+    if "monthly_fixed_expenses" in patch:
+        result["monthly_fixed_expenses"] = _optional_float(patch["monthly_fixed_expenses"])
+    if "fixed_expenses" in patch:
+        result["fixed_expenses"] = _normalize_fixed_expenses(patch["fixed_expenses"])
+        if "monthly_fixed_expenses" not in result and result["fixed_expenses"]:
+            result["monthly_fixed_expenses"] = round(
+                sum(float(x["amount"]) for x in result["fixed_expenses"]), 2
+            )
+    if "savings_target_percent" in patch:
+        result["savings_target_percent"] = _optional_percent(patch["savings_target_percent"])
+    if "investment_target_percent" in patch:
+        result["investment_target_percent"] = _optional_percent(
+            patch["investment_target_percent"]
+        )
+    if "cushion_percent" in patch:
+        result["cushion_percent"] = _optional_percent(patch["cushion_percent"])
+    if "emergency_fund_target_months" in patch:
+        result["emergency_fund_target_months"] = _optional_float(
+            patch["emergency_fund_target_months"]
+        )
+    if "risk_profile" in patch:
+        raw_r = patch["risk_profile"]
+        if raw_r in (None, ""):
+            result["risk_profile"] = None
+        elif raw_r in RISK_PROFILES:
+            result["risk_profile"] = raw_r
+        else:
+            raise ValueError("risk_profile inválido")
+    if "investment_horizon" in patch:
+        raw_h = patch["investment_horizon"]
+        if raw_h in (None, ""):
+            result["investment_horizon"] = None
+        elif raw_h in INVESTMENT_HORIZONS:
+            result["investment_horizon"] = raw_h
+        else:
+            raise ValueError("investment_horizon inválido")
+    if "fiscal_country" in patch:
+        country = (patch["fiscal_country"] or "").strip().upper() or None
+        result["fiscal_country"] = country
+    if "priorities" in patch:
+        raw_p = patch["priorities"]
+        if raw_p is None:
+            pass  # null del LLM = no tocar
+        elif isinstance(raw_p, list):
+            result["priorities"] = [str(p).strip() for p in raw_p if str(p).strip()]
+        elif isinstance(raw_p, str):
+            result["priorities"] = [p.strip() for p in raw_p.split(",") if p.strip()]
+        else:
+            raise ValueError("priorities debe ser lista o texto")
+    # Chat: null del modelo = "sin cambio", no borrar el perfil.
+    return {k: v for k, v in result.items() if v is not None}
+
+
+def update_financial_profile(updates):
+    """Patch parcial del perfil. Ignora claves desconocidas."""
+    data = load_data()
+    profile = data["financial_profile"]
+    if "monthly_income_fixed" in updates:
+        profile["monthly_income_fixed"] = _optional_float(updates["monthly_income_fixed"])
+    if "monthly_income_variable_avg" in updates:
+        profile["monthly_income_variable_avg"] = _optional_float(
+            updates["monthly_income_variable_avg"]
+        )
+    if "monthly_fixed_expenses" in updates:
+        profile["monthly_fixed_expenses"] = _optional_float(updates["monthly_fixed_expenses"])
+    if "fixed_expenses" in updates:
+        profile["fixed_expenses"] = _normalize_fixed_expenses(updates["fixed_expenses"])
+        if profile["monthly_fixed_expenses"] is None and profile["fixed_expenses"]:
+            profile["monthly_fixed_expenses"] = round(
+                sum(float(x.get("amount") or 0) for x in profile["fixed_expenses"]), 2
+            )
+    if "savings_target_percent" in updates:
+        profile["savings_target_percent"] = _optional_percent(updates["savings_target_percent"])
+    if "investment_target_percent" in updates:
+        profile["investment_target_percent"] = _optional_percent(
+            updates["investment_target_percent"]
+        )
+    if "cushion_percent" in updates:
+        profile["cushion_percent"] = _optional_percent(updates["cushion_percent"])
+    if "emergency_fund_target_months" in updates:
+        profile["emergency_fund_target_months"] = _optional_float(
+            updates["emergency_fund_target_months"]
+        )
+    if "risk_profile" in updates:
+        raw = updates["risk_profile"]
+        if raw in (None, ""):
+            profile["risk_profile"] = None
+        elif raw in RISK_PROFILES:
+            profile["risk_profile"] = raw
+        else:
+            raise ValueError("risk_profile inválido")
+    if "investment_horizon" in updates:
+        raw = updates["investment_horizon"]
+        if raw in (None, ""):
+            profile["investment_horizon"] = None
+        elif raw in INVESTMENT_HORIZONS:
+            profile["investment_horizon"] = raw
+        else:
+            raise ValueError("investment_horizon inválido")
+    if "fiscal_country" in updates:
+        country = (updates["fiscal_country"] or "").strip().upper() or None
+        profile["fiscal_country"] = country
+    if "priorities" in updates:
+        raw = updates["priorities"]
+        if raw is None:
+            profile["priorities"] = []
+        elif isinstance(raw, list):
+            profile["priorities"] = [str(p).strip() for p in raw if str(p).strip()]
+        elif isinstance(raw, str):
+            profile["priorities"] = [p.strip() for p in raw.split(",") if p.strip()]
+        else:
+            raise ValueError("priorities debe ser lista o texto")
+    if "onboarding_completed" in updates:
+        profile["onboarding_completed"] = bool(updates["onboarding_completed"])
+    profile["last_reviewed_at"] = _now_iso()
+    save_data(data)
+    return deepcopy(profile)
+
+
+def get_goals():
+    goals = load_data().get("goals") or []
+    return sorted(deepcopy(goals), key=lambda g: (g.get("priority", 99), g.get("created_at") or ""))
+
+
+def add_goal(goal_input):
+    title = (goal_input.get("title") or "").strip()
+    if not title:
+        raise ValueError("El título es obligatorio")
+    gtype = (goal_input.get("type") or "custom").strip()
+    if gtype not in GOAL_TYPES:
+        raise ValueError("type de meta inválido")
+    status = (goal_input.get("status") or "active").strip()
+    if status not in GOAL_STATUSES:
+        raise ValueError("status de meta inválido")
+    data = load_data()
+    now = _now_iso()
+    goal = {
+        "id": _next_id("goal", data["goals"]),
+        "type": gtype,
+        "title": title,
+        "target_amount": _optional_float(goal_input.get("target_amount")),
+        "target_date": (goal_input.get("target_date") or "").strip() or None,
+        "monthly_target": _optional_float(goal_input.get("monthly_target")),
+        "status": status,
+        "priority": int(goal_input.get("priority") or 1),
+        "notes": (goal_input.get("notes") or "").strip() or None,
+        "created_at": now,
+        "updated_at": now,
+    }
+    data["goals"].append(goal)
+    save_data(data)
+    return deepcopy(goal)
+
+
+def update_goal(goal_id, updates):
+    data = load_data()
+    for goal in data["goals"]:
+        if goal["id"] != goal_id:
+            continue
+        if "title" in updates and updates["title"] is not None:
+            title = str(updates["title"]).strip()
+            if not title:
+                raise ValueError("El título es obligatorio")
+            goal["title"] = title
+        if "type" in updates and updates["type"] is not None:
+            gtype = str(updates["type"]).strip()
+            if gtype not in GOAL_TYPES:
+                raise ValueError("type de meta inválido")
+            goal["type"] = gtype
+        if "status" in updates and updates["status"] is not None:
+            status = str(updates["status"]).strip()
+            if status not in GOAL_STATUSES:
+                raise ValueError("status de meta inválido")
+            goal["status"] = status
+        if "target_amount" in updates:
+            goal["target_amount"] = _optional_float(updates["target_amount"])
+        if "target_date" in updates:
+            raw = updates["target_date"]
+            goal["target_date"] = (str(raw).strip() if raw else "") or None
+        if "monthly_target" in updates:
+            goal["monthly_target"] = _optional_float(updates["monthly_target"])
+        if "priority" in updates and updates["priority"] is not None:
+            goal["priority"] = int(updates["priority"])
+        if "notes" in updates:
+            raw = updates["notes"]
+            goal["notes"] = (str(raw).strip() if raw else "") or None
+        goal["updated_at"] = _now_iso()
+        save_data(data)
+        return deepcopy(goal)
+    return None
+
+
+def delete_goal(goal_id):
+    data = load_data()
+    before = len(data["goals"])
+    data["goals"] = [g for g in data["goals"] if g["id"] != goal_id]
+    if len(data["goals"]) == before:
+        return False
+    save_data(data)
+    return True
+
+
+def list_chat_threads():
+    threads = load_data().get("chat_threads") or []
+    return sorted(deepcopy(threads), key=lambda t: t.get("updated_at") or "", reverse=True)
+
+
+def get_or_create_main_thread():
+    """Un thread principal por usuario local (fluidez: no obliga a elegir hilos)."""
+    data = load_data()
+    threads = data.setdefault("chat_threads", [])
+    for t in threads:
+        if t.get("kind") == "main":
+            return deepcopy(t)
+    now = _now_iso()
+    thread = {
+        "id": _next_id("thread", threads),
+        "title": "Conversación",
+        "kind": "main",
+        "created_at": now,
+        "updated_at": now,
+    }
+    threads.append(thread)
+    save_data(data)
+    return deepcopy(thread)
+
+
+def list_chat_messages(thread_id, limit=40, include_compacted=False):
+    msgs = [
+        m
+        for m in (load_data().get("chat_messages") or [])
+        if m.get("thread_id") == thread_id
+    ]
+    if not include_compacted:
+        msgs = [m for m in msgs if not (m.get("meta") or {}).get("compacted")]
+    msgs.sort(key=lambda m: m.get("created_at") or "")
+    if limit and len(msgs) > limit:
+        msgs = msgs[-limit:]
+    return deepcopy(msgs)
+
+
+def mark_chat_messages_compacted(thread_id, message_ids):
+    """Marca mensajes viejos como compactados (salen del contexto y del UI)."""
+    ids = {str(x) for x in (message_ids or []) if x}
+    if not ids:
+        return 0
+    data = load_data()
+    n = 0
+    for m in data.get("chat_messages") or []:
+        if m.get("thread_id") != thread_id or m.get("id") not in ids:
+            continue
+        meta = m.setdefault("meta", {})
+        if meta.get("compacted"):
+            continue
+        meta["compacted"] = True
+        n += 1
+    if n:
+        save_data(data)
+    return n
+
+
+def append_chat_message(thread_id, role, content, meta=None):
+    content = (content or "").strip()
+    if not content:
+        raise ValueError("Mensaje vacío")
+    if role not in ("user", "assistant", "system"):
+        raise ValueError("role inválido")
+    data = load_data()
+    threads = data.get("chat_threads") or []
+    thread = next((t for t in threads if t["id"] == thread_id), None)
+    if not thread:
+        raise ValueError("Thread no encontrado")
+    now = _now_iso()
+    msg = {
+        "id": _next_id("msg", data.setdefault("chat_messages", [])),
+        "thread_id": thread_id,
+        "role": role,
+        "content": content,
+        "meta": meta or {},
+        "created_at": now,
+    }
+    data["chat_messages"].append(msg)
+    thread["updated_at"] = now
+    save_data(data)
+    return deepcopy(msg)
+
+
+def list_memory_facts(limit=12):
+    facts = [f for f in (load_data().get("memory_facts") or []) if f.get("active", True)]
+    facts.sort(key=lambda f: f.get("created_at") or "", reverse=True)
+    return deepcopy(facts[:limit])
+
+
+def get_memory_summary():
+    rows = load_data().get("memory_summaries") or []
+    if not rows:
+        return None
+    rows = sorted(rows, key=lambda r: r.get("updated_at") or "", reverse=True)
+    return deepcopy(rows[0].get("summary"))
+
+
+def upsert_memory_facts(updates):
+    """Aplica memory_updates del LLM: lista de {fact, category?}."""
+    if not updates:
+        return
+    data = load_data()
+    facts = data.setdefault("memory_facts", [])
+    now = _now_iso()
+    for raw in updates:
+        if not isinstance(raw, dict):
+            continue
+        text = (raw.get("fact") or raw.get("text") or "").strip()
+        if not text:
+            continue
+        facts.append(
+            {
+                "id": _next_id("fact", facts),
+                "fact": text[:400],
+                "category": (raw.get("category") or "general").strip() or "general",
+                "source": "chat",
+                "active": True,
+                "created_at": now,
+            }
+        )
+    # ponytail: techo 80 hechos activos; archiva viejos
+    actives = [f for f in facts if f.get("active", True)]
+    if len(actives) > 80:
+        actives.sort(key=lambda f: f.get("created_at") or "")
+        for old in actives[:-80]:
+            old["active"] = False
+    save_data(data)
+
+
+def touch_memory_summary(summary_text, max_len=1200):
+    text = (summary_text or "").strip()
+    if not text:
+        return
+    max_len = max(200, int(max_len or 1200))
+    clipped = text[:max_len]
+    data = load_data()
+    rows = data.setdefault("memory_summaries", [])
+    now = _now_iso()
+    if rows:
+        rows[0]["summary"] = clipped
+        rows[0]["updated_at"] = now
+    else:
+        rows.append(
+            {
+                "id": "summary_001",
+                "scope": "global",
+                "summary": clipped,
+                "updated_at": now,
+            }
+        )
+    save_data(data)

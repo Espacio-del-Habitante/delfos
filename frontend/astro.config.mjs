@@ -17,5 +17,16 @@ export default defineConfig({
         '@features': path.resolve(__dirname, './src/features'),
       },
     },
+    // Tunnel / móvil: el browser llama /api en el mismo origen (Astro);
+    // Vite reenvía a Flask. Evita PUBLIC_API_BASE_URL=http://localhost:5000
+    // (en el celular "localhost" no es tu PC).
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:5000',
+          changeOrigin: true,
+        },
+      },
+    },
   },
 });
