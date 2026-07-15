@@ -7,7 +7,7 @@
 Registra por **texto, voz, CSV o foto**, visualiza al instante y deja que la IA haga el trabajo aburrido.
 **Local-first**: tus datos viven en archivos tuyos, la IA es opcional.
 
-`Flask` · `Astro + Svelte` · `Ollama / Gemini / OpenAI-compatible` · `Local-first` · `Windows .exe`
+`Flask` · `Astro + Svelte` · `Ollama / Gemini / OpenAI-compatible` · `Local-first` · `Windows .exe` · `Electron (PoC Linux/Mac)`
 
 </div>
 
@@ -205,6 +205,9 @@ delfos/
 │       ├── pages/           # index · inversiones · configuracion (.astro)
 │       ├── features/        # dashboard · inversiones · settings
 │       └── common/          # atoms/molecules/organisms · lib/api.ts · stores · styles
+├── desktop/                 # Shell desktop Electron (PoC)
+│   ├── main.js              # Arranca Flask local + crea ventana nativa
+│   └── package.json         # Scripts y dependencias de Electron
 ├── docs/                    # Fuente de verdad (visión + arquitectura)
 ├── .cursor/                 # Reglas y skills para trabajar con agentes
 ├── agentic-framework/       # Método de trabajo agéntico (portable)
@@ -267,6 +270,21 @@ powershell -ExecutionPolicy Bypass -File .\build_exe.ps1
 - Datos persistentes en `%LOCALAPPDATA%\Delfos\data` (sobreviven a cierres y reinstalaciones).
 - Para IA sin instalar Ollama, configura un proveedor en la nube (Gemini / OpenRouter) desde **Configuración**. El registro manual funciona sin IA.
 - El `.exe` es específico de Windows; para Mac/Linux hay que compilar en cada SO.
+
+### Opción D — App de escritorio con Electron (PoC Linux/Mac)
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run build
+cd backend && uv sync && cd ..
+npm --prefix desktop install
+npm --prefix desktop run dev
+```
+
+- Electron arranca Flask como proceso hijo local y abre la app en una ventana nativa.
+- Los datos se guardan en la carpeta `userData` del sistema operativo (`.../Delfos/data`).
+- Variables opcionales: `DELFOS_BACKEND_CMD`, `DELFOS_BACKEND_TIMEOUT_MS`, `DELFOS_RENDERER_URL`.
+- Más detalles: `desktop/README.md`.
 
 ---
 
