@@ -271,7 +271,7 @@ powershell -ExecutionPolicy Bypass -File .\build_exe.ps1
 - Para IA sin instalar Ollama, configura un proveedor en la nube (Gemini / OpenRouter) desde **Configuración**. El registro manual funciona sin IA.
 - El `.exe` es específico de Windows; para Mac/Linux hay que compilar en cada SO.
 
-### Opción D — App de escritorio con Electron (PoC Linux/Mac)
+### Opción D — App de escritorio con Electron (Linux/Mac)
 
 ```bash
 npm --prefix frontend install
@@ -283,6 +283,7 @@ npm --prefix desktop run dev
 
 - Electron arranca Flask como proceso hijo local y abre la app en una ventana nativa.
 - Los datos se guardan en la carpeta `userData` del sistema operativo (`.../Delfos/data`).
+- Empaquetado: `npm --prefix desktop run dist:linux` (AppImage) o `dist:mac` (DMG, desde macOS).
 - Variables opcionales: `DELFOS_BACKEND_CMD`, `DELFOS_BACKEND_TIMEOUT_MS`, `DELFOS_RENDERER_URL`.
 - Más detalles: `desktop/README.md`.
 

@@ -34,6 +34,25 @@ PoC de escritorio para ejecutar Delfos como una sola app local:
    npm --prefix desktop run dev
    ```
 
+## Empaquetado (fase 2)
+
+Genera instalables con backend embebido (binario PyInstaller + shell Electron):
+
+```bash
+npm --prefix desktop run dist:linux
+```
+
+Para macOS (ejecutando desde macOS):
+
+```bash
+npm --prefix desktop run dist:mac
+```
+
+El pipeline hace:
+1. Build de frontend (`frontend/dist`)
+2. Build del backend onefile (`backend/dist/delfos-backend`)
+3. Empaquetado con `electron-builder` en `desktop/dist/`
+
 ## Variables opcionales
 
 - `DELFOS_BACKEND_CMD`: comando para arrancar Flask (default: `uv run python app.py`)
@@ -44,3 +63,4 @@ PoC de escritorio para ejecutar Delfos como una sola app local:
 
 - Este módulo no cambia la arquitectura existente de Delfos; solo la envuelve.
 - El backend sigue siendo la API Flask oficial y mantiene capas `app.py -> services -> integrations`.
+- En app empaquetada, Electron arranca `backend/delfos-backend` desde `resources/`.

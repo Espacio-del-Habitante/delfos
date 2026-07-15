@@ -7,9 +7,48 @@
   "scripts": {
     "dev": "electron .",
     "start": "electron .",
-    "build:frontend": "npm --prefix ../frontend run build"
+    "build:frontend": "npm --prefix ../frontend run build",
+    "build:backend:binary": "node ./scripts/build-backend.mjs",
+    "pack": "npm run build:frontend && npm run build:backend:binary && electron-builder --dir",
+    "dist": "npm run build:frontend && npm run build:backend:binary && electron-builder",
+    "dist:linux": "npm run build:frontend && npm run build:backend:binary && electron-builder --linux AppImage",
+    "dist:mac": "npm run build:frontend && npm run build:backend:binary && electron-builder --mac dmg"
+  },
+  "build": {
+    "appId": "com.delfos.desktop",
+    "productName": "Delfos",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/",
+        "to": "backend",
+        "filter": [
+          "delfos-backend",
+          "delfos-backend.exe"
+        ]
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.finance"
+    }
   },
   "devDependencies": {
-    "electron": "^43.1.1"
+    "electron": "^43.1.1",
+    "electron-builder": "^26.0.12"
   }
 }

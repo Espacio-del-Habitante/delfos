@@ -1,6 +1,7 @@
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 import io
+import os
 
 import config
 from integrations import registry, settings as ai_settings
@@ -482,7 +483,9 @@ def _serve_packaged():
     from waitress import serve
 
     url = f"http://localhost:{config.FLASK_PORT}"
-    threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+    open_browser = os.getenv("DELFOS_OPEN_BROWSER", "true").lower() in ("1", "true", "yes")
+    if open_browser:
+        threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     print(f"Delfos corriendo en {url} (cierra esta ventana para detenerlo)")
     serve(app, host="127.0.0.1", port=config.FLASK_PORT)
 

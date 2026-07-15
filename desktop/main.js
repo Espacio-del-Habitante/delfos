@@ -65,6 +65,10 @@ async function waitForBackend(url, timeoutMs) {
 }
 
 function ensureFrontendBuild() {
+  if (app.isPackaged) {
+    return;
+  }
+
   if (RENDERER_URL_OVERRIDE) {
     return;
   }
@@ -90,14 +94,34 @@ function startBackend(port) {
     FLASK_PORT: String(port),
     FLASK_DEBUG: "false",
     DELFOS_DATA_DIR: dataDir,
+    DELFOS_OPEN_BROWSER: "false",
+  };
+  const spawnOptions = {
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+    shell: false,
   };
 
-  backendProcess = spawn(BACKEND_CMD, {
-    cwd: BACKEND_DIR,
-    env,
-    shell: true,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  if (app.isPackaged) {
+    const backendBinary = path.join(
+      process.resourcesPath,
+      "backend",
+      process.platform === "win32" ? "delfos-backend.exe" : "delfos-backend",
+    );
+    if (!fs.existsSync(backendBinary)) {
+      throw new Error(`No se encontró backend empaquetado en: ${backendBinary}`);
+    }
+    backendProcess = spawn(backendBinary, [], {
+      ...spawnOptions,
+      cwd: path.dirname(backendBinary),
+    });
+  } else {
+    backendProcess = spawn(BACKEND_CMD, {
+      ...spawnOptions,
+      cwd: BACKEND_DIR,
+      shell: true,
+    });
+  }
 
   backendProcess.stdout.on("data", (chunk) => {
     process.stdout.write(`[flask] ${chunk}`);
