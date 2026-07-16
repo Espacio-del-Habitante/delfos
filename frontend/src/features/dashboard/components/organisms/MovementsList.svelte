@@ -26,7 +26,7 @@
     filters.dateTo !== '';
 </script>
 
-<section class="full-width-section section" id="movimientos" aria-label="Movimientos recientes">
+<section class="full-width-section section movements-section" id="movimientos" aria-label="Movimientos recientes">
   <h2 class="card-title">Movimientos recientes</h2>
 
   <SearchFilterBar
@@ -98,3 +98,21 @@
     </div>
   {/if}
 </section>
+
+<style>
+  /* Cohesive rhythm for header → filtros → lista/empty state (antes dependía de
+     margins sueltos de .card-title y .filter-bar que no calzaban entre sí). */
+  .movements-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .movements-section :global(.card-title) {
+    margin-bottom: 0;
+  }
+
+  .movements-section :global(.filter-bar) {
+    margin-bottom: 0;
+  }
+</style>

@@ -2,6 +2,7 @@
   import HeaderIsland from '@common/molecules/HeaderIsland.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import OnboardingWizard from '@features/asistente/components/organisms/OnboardingWizard.svelte';
   import {
     createAssistantGoal,
@@ -124,7 +125,10 @@
   <HeaderIsland summary={$finance?.summary ?? null} />
 
   <section class="hero section">
-    <h1>Perfil financiero</h1>
+    <div class="hero-titlebar">
+      <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
+      <h1>Perfil financiero</h1>
+    </div>
     <p>Contexto, colchón y metas que usa el asistente. Sin cuenta ni login.</p>
   </section>
 

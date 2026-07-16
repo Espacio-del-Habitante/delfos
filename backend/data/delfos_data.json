@@ -88,20 +88,80 @@
       "kind": "note"
     }
   ],
-  "accounts": [],
+  "accounts": [
+    {
+      "id": "account_001",
+      "name": "Nequi",
+      "type": "bank",
+      "currency": "COP",
+      "initial_balance": 5000000.0,
+      "current_balance": 4820000.0,
+      "emoji": "👨‍🏫",
+      "created_at": "2026-07-16T00:55:18"
+    },
+    {
+      "id": "account_002",
+      "name": "LITTIO",
+      "type": "bank",
+      "currency": "USD",
+      "initial_balance": 200.0,
+      "current_balance": 198.0,
+      "emoji": "💵",
+      "created_at": "2026-07-16T00:55:59"
+    }
+  ],
   "expenses": [
     {
       "id": "expense_001",
-      "date": "2026-07-15",
-      "account_id": null,
+      "date": "2026-07-16",
+      "account_id": "account_001",
       "amount": 30000.0,
       "currency": "COP",
       "category": "Comida",
-      "category_emoji": "",
-      "description": "Gasto ocasional de comida",
+      "category_emoji": "🍽️",
+      "description": "Comida",
       "payment_method": "",
       "source": "ai",
-      "created_at": "2026-07-15T03:42:23"
+      "created_at": "2026-07-16T00:53:48"
+    },
+    {
+      "id": "expense_002",
+      "date": "2026-07-16",
+      "account_id": "account_001",
+      "amount": 100000.0,
+      "currency": "COP",
+      "category": "Mercado",
+      "category_emoji": "🛒",
+      "description": "Dulces",
+      "payment_method": "",
+      "source": "ai",
+      "created_at": "2026-07-16T00:53:48"
+    },
+    {
+      "id": "expense_003",
+      "date": "2026-07-16",
+      "account_id": "account_001",
+      "amount": 50000.0,
+      "currency": "COP",
+      "category": "Transporte",
+      "category_emoji": "🚗",
+      "description": "Moto",
+      "payment_method": "",
+      "source": "ai",
+      "created_at": "2026-07-16T00:53:48"
+    },
+    {
+      "id": "expense_004",
+      "date": "2026-07-16",
+      "account_id": "account_002",
+      "amount": 2.0,
+      "currency": "USD",
+      "category": "Comida",
+      "category_emoji": "🍽️",
+      "description": "Una hambuerguesa",
+      "payment_method": "",
+      "source": "manual",
+      "created_at": "2026-07-16T00:56:28"
     }
   ],
   "incomes": [],
@@ -3499,7 +3559,7 @@
       "title": "Conversación",
       "kind": "main",
       "created_at": "2026-07-15T03:11:14",
-      "updated_at": "2026-07-15T19:19:25"
+      "updated_at": "2026-07-16T01:12:27"
     }
   ],
   "chat_messages": [
@@ -3982,6 +4042,171 @@
         }
       },
       "created_at": "2026-07-15T19:19:25"
+    },
+    {
+      "id": "msg_035",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Cual es mi porcentaje de rentabilidad de mis inversiones",
+      "meta": {},
+      "created_at": "2026-07-16T01:02:41"
+    },
+    {
+      "id": "msg_036",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Cual es mi porcentaje de rentabilidad de mis inversiones",
+      "meta": {},
+      "created_at": "2026-07-16T01:07:38"
+    },
+    {
+      "id": "msg_037",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Cuales son mis gastos en este mes",
+      "meta": {},
+      "created_at": "2026-07-16T01:08:02"
+    },
+    {
+      "id": "msg_038",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Ahora mismo no puedo hablar con el modelo de IA. Proveedor respondio HTTP 429: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"cognitivecomputations/dolphin-mistral-24b-venice-edition:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\",\"provider_name\":\"Venice\",\"is_byok\":false,\"retry_after_seconds\":18,\"retry_after_seconds_raw\":17.149,\"previous_errors\":[{\"code\":429,\"message\":\"Provider returned error\",\"provider_name\":\"Google AI Studio\",\"raw\":\"google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\"},{\"code\":429,\"message\":\"Provider returned error\",\"provider_name\":\"Google AI Studio\",\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\"},{\"code\":429,\"message\":\"Provider returned error\",\"provider_name\":\"Darkbloom\",\"raw\":\"google/gemma-4-26b-a4b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\"}]}},\"user_id\":\"user_3Fm1KV63ZwsvBEgVnmDbiTEapiG\"} Revisa Configuración → Inteligencia artificial.",
+      "meta": {
+        "error": true
+      },
+      "created_at": "2026-07-16T01:08:04"
+    },
+    {
+      "id": "msg_039",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Para estimar el rendimiento de tus inversiones necesito saber de qué período quieres el cálculo y qué activos específicos tienes. También dime si te interesa el rendimiento mensual, anual o alguna comparación con un benchmark. ¿Qué rango y activos te gustaría evaluar?",
+      "meta": {
+        "follow_ups": [
+          "Revisa el rendimiento mensual",
+          "Revisa rendimiento anual",
+          "Compara con un índice de referencia"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "movement_draft": null,
+        "account_draft": null,
+        "lookup": null
+      },
+      "created_at": "2026-07-16T01:08:19"
+    },
+    {
+      "id": "msg_040",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Revisa el rendimiento mensual",
+      "meta": {},
+      "created_at": "2026-07-16T01:10:36"
+    },
+    {
+      "id": "msg_041",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Para revisar tu rendimiento mensual de inversiones, necesito saber en qué activos específicos te refieres (por ejemplo, ACWI, otro ticker) y si quieres compararlo con algún benchmark. ¿Qué rango de tiempo y activos te interesa analizar?\n\nNo encontré movimientos sobre \"rendimiento mensual inversiones\" este mes.",
+      "meta": {
+        "follow_ups": [
+          "¿Quieres enfocarte en rentabilidad mensual, anual o_su comparemiento con un índice?",
+          "¿Qué activos posees desde el último mes?",
+          "¿Prefieres ver la evolución graphic o porcentajes?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "movement_draft": null,
+        "account_draft": null,
+        "lookup": {
+          "query": "rendimiento mensual inversiones",
+          "kind": "investment",
+          "period": "month",
+          "count": 0,
+          "shown": 0,
+          "totals": {},
+          "hits": []
+        }
+      },
+      "created_at": "2026-07-16T01:11:07"
+    },
+    {
+      "id": "msg_042",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Quiero saber cuales fueron mis gastos de hoy",
+      "meta": {},
+      "created_at": "2026-07-16T01:11:55"
+    },
+    {
+      "id": "msg_043",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Listo, déjame revisar qué movimientos has hecho hoy para ver en qué se te ha ido la plata.",
+      "meta": {
+        "follow_ups": [
+          "¿Cuánto gasté en total este mes?",
+          "¿Cómo voy con mi meta de la maestría?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "movement_draft": null,
+        "account_draft": null,
+        "lookup": null
+      },
+      "created_at": "2026-07-16T01:12:03"
+    },
+    {
+      "id": "msg_044",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "/buscar comid",
+      "meta": {
+        "command": "lookup"
+      },
+      "created_at": "2026-07-16T01:12:27"
+    },
+    {
+      "id": "msg_045",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Encontré 2 movimiento(s) sobre \"comid\" este mes:\n- Gasto: Comida · 30000.0 COP (2026-07-16)\n- Gasto: Una hambuerguesa · 2.0 USD (2026-07-16)\nTotal aproximado: 30000.0 COP, 2.0 USD.",
+      "meta": {
+        "command": "lookup",
+        "lookup": {
+          "query": "comid",
+          "kind": null,
+          "period": "month",
+          "count": 2,
+          "shown": 2,
+          "totals": {
+            "COP": 30000.0,
+            "USD": 2.0
+          },
+          "hits": [
+            {
+              "kind": "expense",
+              "id": "expense_001",
+              "date": "2026-07-16",
+              "label": "Comida",
+              "amount": 30000.0,
+              "currency": "COP",
+              "category": "Comida"
+            },
+            {
+              "kind": "expense",
+              "id": "expense_004",
+              "date": "2026-07-16",
+              "label": "Una hambuerguesa",
+              "amount": 2.0,
+              "currency": "USD",
+              "category": "Comida"
+            }
+          ]
+        }
+      },
+      "created_at": "2026-07-16T01:12:27"
     }
   ],
   "memory_facts": [

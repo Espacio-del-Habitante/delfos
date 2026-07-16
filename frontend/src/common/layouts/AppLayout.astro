@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import Toast from '@common/molecules/Toast.svelte';
+import ElectronTitlebar from '@common/molecules/ElectronTitlebar.svelte';
 
 interface Props {
   title?: string;
@@ -20,6 +21,7 @@ const { title = 'Delfos' } = Astro.props;
     <title>{title}</title>
   </head>
   <body>
+    <ElectronTitlebar client:load />
     <slot />
     <Toast client:load />
   </body>

@@ -22,7 +22,7 @@
   --font-emoji: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol", emoji;
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --glass-pill-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.94) 0%, rgba(15, 23, 42, 0.86) 100%);
+  --glass-pill-bg: rgba(15, 23, 42, 0.92);
   --glass-pill-border: rgba(255, 255, 255, 0.1);
   --glass-pill-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
   --glass-pill-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -66,10 +66,7 @@ body {
   min-height: 100vh;
   font-family: var(--font);
   color: var(--text-strong);
-  background:
-    radial-gradient(circle at top left, rgba(96, 165, 250, 0.18), transparent 32%),
-    radial-gradient(circle at top right, rgba(139, 92, 246, 0.14), transparent 28%),
-    var(--bg);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   /* Guard: a stray wide child must not expand the layout viewport and shove
      content left on mobile. `clip` (not `hidden`) avoids making body a
@@ -644,12 +641,12 @@ button {
   border-radius: var(--radius-lg);
   padding: 28px;
   color: white;
-  background: linear-gradient(135deg, #74b9ff 0%, #5f7cfa 48%, #4f46e5 100%);
+  background: var(--primary);
   box-shadow: var(--shadow-hero);
 }
 
 .hero-card--empty {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 48%, #475569 100%);
+  background: #64748b;
   box-shadow: 0 24px 48px rgba(71, 85, 105, 0.18);
 }
 
@@ -737,7 +734,7 @@ button {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 @media (min-width: 861px) {
@@ -885,13 +882,16 @@ button {
   flex: 1;
   min-width: 140px;
   color: white;
-  background: linear-gradient(135deg, #5f7cfa 0%, #4f46e5 100%);
+  background: var(--primary);
   box-shadow: 0 12px 28px rgba(79, 70, 229, 0.28);
 }
 
-.primary-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 32px rgba(79, 70, 229, 0.32);
+@media (hover: hover) and (pointer: fine) {
+  .primary-button:hover {
+    transform: translateY(-1px);
+    background: #4338ca;
+    box-shadow: 0 16px 32px rgba(79, 70, 229, 0.32);
+  }
 }
 
 .primary-button:active {
@@ -955,14 +955,17 @@ button {
   font-size: 0.95rem;
   font-weight: 600;
   color: white;
-  background: linear-gradient(135deg, var(--purple) 0%, var(--primary) 100%);
-  box-shadow: 0 16px 36px rgba(139, 92, 246, 0.3);
-  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
+  background: var(--primary);
+  box-shadow: 0 16px 36px rgba(79, 70, 229, 0.3);
+  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease), background 180ms var(--ease);
 }
 
-.voice-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 42px rgba(139, 92, 246, 0.35);
+@media (hover: hover) and (pointer: fine) {
+  .voice-button:hover {
+    transform: translateY(-2px);
+    background: #4338ca;
+    box-shadow: 0 20px 42px rgba(79, 70, 229, 0.35);
+  }
 }
 
 .voice-button:active {
@@ -992,8 +995,8 @@ button {
 }
 
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 16px 36px rgba(139, 92, 246, 0.3); }
-  50% { box-shadow: 0 16px 48px rgba(139, 92, 246, 0.55), 0 0 0 8px rgba(139, 92, 246, 0.12); }
+  0%, 100% { box-shadow: 0 16px 36px rgba(79, 70, 229, 0.3); }
+  50% { box-shadow: 0 16px 48px rgba(79, 70, 229, 0.55), 0 0 0 8px rgba(79, 70, 229, 0.12); }
 }
 
 /* Preview */
@@ -1643,12 +1646,35 @@ button {
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.6);
   border: 1px dashed rgba(15, 23, 42, 0.1);
+  animation: empty-state-in 260ms var(--ease-out) both;
 }
 
 .empty-state__icon {
   font-size: 2rem;
   margin-bottom: 12px;
   opacity: 0.5;
+  animation: empty-state-icon-in 320ms var(--ease-out) both;
+}
+
+@keyframes empty-state-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes empty-state-icon-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-state,
+  .empty-state__icon {
+    animation: none;
+  }
 }
 
 .empty-state__title {

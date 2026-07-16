@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import HeaderIsland from '@common/molecules/HeaderIsland.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
+  import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import {
     ApiError,
     applyAssistantAccountSuggestion,
@@ -347,9 +348,12 @@
   <HeaderIsland summary={$finance?.summary ?? null} />
 
   <header class="chat-head">
-    <div>
-      <h1>Delfos</h1>
-      <p>Tu copiloto — habla con naturalidad</p>
+    <div class="hero-titlebar">
+      <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
+      <div>
+        <h1>Delfos</h1>
+        <p>Tu copiloto — habla con naturalidad</p>
+      </div>
     </div>
     <a class="chat-head__link" href="/perfil">Perfil</a>
   </header>

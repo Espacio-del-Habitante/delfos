@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, Menu, dialog } = require("electron");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const net = require("node:net");
@@ -158,6 +158,7 @@ function createMainWindow(url) {
     minWidth: 1024,
     minHeight: 680,
     show: false,
+    frame: false,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -177,6 +178,7 @@ function createMainWindow(url) {
 }
 
 async function bootstrap() {
+  Menu.setApplicationMenu(null);
   ensureFrontendBuild();
 
   const backendPort = await getFreePort();
