@@ -1506,6 +1506,12 @@ class AssistantProfileTestCase(unittest.TestCase):
         kpis = pack["kpis"]
         self.assertIsNotNone(kpis["savings_actual_percent"])
         self.assertEqual(kpis["cushion_percent"], 10.0)
+        portfolio = kpis["portfolio"]
+        self.assertEqual(portfolio["basis"], "cost")
+        self.assertIn("position_count", portfolio)
+        self.assertIn("cash_available_usd", portfolio)
+        self.assertIn("top_asset", portfolio)
+        self.assertIn("top_weight_percent", portfolio)
 
         finance = self.client.get("/api/finance").get_json()
         self.assertIsNotNone(finance.get("assistant_kpis"))
@@ -1894,6 +1900,151 @@ class AssistantProfileTestCase(unittest.TestCase):
         self.assertEqual(applied.status_code, 200)
         accounts = applied.get_json()["accounts"]
         self.assertTrue(any(a["name"] == "Nequi Chat" for a in accounts))
+
+    def test_finance_query_resolver_portfolio_metrics(self):
+        from services import assistant_service
+
+        finance_store.bulk_add_investments(
+            [
+                {
+                    "operation_type": "deposit",
+                    "date": "2024-01-01",
+                    "asset": "USD",
+                    "amount_usd": 5000.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-02",
+                    "asset": "VOO",
+                    "quantity": 2.0,
+                    "amount_usd": 800.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-03",
+                    "asset": "AAPL",
+                    "quantity": 10.0,
+                    "amount_usd": 1500.0,
+                },
+            ]
+        )
+        # VOO: 2 * 500 = 1000 MV, cost 800 → pnl 200, return 25%
+        # AAPL: 10 * 200 = 2000 MV, cost 1500 → pnl 500, return ~33.3%
+        mock_quotes = {"VOO": 500.0, "AAPL": 200.0}
+        with patch(
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots(mock_quotes),
+        ):
+            largest = assistant_service.resolve_finance_query(
+                "portfolio", "largest_position"
+            )
+            gain = assistant_service.resolve_finance_query("portfolio", "highest_gain")
+            ret = assistant_service.resolve_finance_query("portfolio", "highest_return")
+            detail = assistant_service.resolve_finance_query(
+                "portfolio", "asset_detail", "VOO"
+            )
+            summary = assistant_service.resolve_finance_query("portfolio", "summary")
+            missing = assistant_service.resolve_finance_query(
+                "portfolio", "asset_detail", "XYZ"
+            )
+
+        self.assertEqual(largest["position"]["asset"], "AAPL")
+        self.assertAlmostEqual(largest["position"]["market_value_usd"], 2000.0)
+        self.assertEqual(gain["position"]["asset"], "AAPL")
+        self.assertEqual(ret["position"]["asset"], "AAPL")
+        self.assertTrue(detail["found"])
+        self.assertEqual(detail["position"]["asset"], "VOO")
+        self.assertAlmostEqual(detail["position"]["market_value_usd"], 1000.0)
+        self.assertFalse(missing["found"])
+        self.assertEqual(summary["position_count"], 2)
+        self.assertAlmostEqual(summary["total_assets_value_usd"], 3000.0)
+
+        factual = assistant_service.format_finance_query_reply(largest)
+        self.assertIn("AAPL", factual)
+        self.assertIn("2000", factual)
+
+    def test_chat_finance_query_appends_factual(self):
+        finance_store.bulk_add_investments(
+            [
+                {
+                    "operation_type": "deposit",
+                    "date": "2024-01-01",
+                    "asset": "USD",
+                    "amount_usd": 2000.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-02",
+                    "asset": "VOO",
+                    "quantity": 2.0,
+                    "amount_usd": 800.0,
+                },
+            ]
+        )
+
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Revisé tu portafolio.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {},
+                        "finance_query": {
+                            "domain": "portfolio",
+                            "metric": "largest_position",
+                            "asset": None,
+                        },
+                    }
+                )
+
+        with (
+            patch("integrations.registry.get_active_integration", return_value=_Fake()),
+            patch(
+                "services.portfolio_service.quote_service.get_quote_snapshots",
+                return_value=_mock_quote_snapshots({"VOO": 500.0}),
+            ),
+        ):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "¿Cuál es mi activo más grande?"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIsNotNone(body.get("finance_query"))
+        self.assertEqual(body["finance_query"]["metric"], "largest_position")
+        self.assertEqual(body["finance_query"]["position"]["asset"], "VOO")
+        content = body["assistant_message"]["content"]
+        self.assertIn("Revisé tu portafolio", content)
+        self.assertIn("VOO", content)
+        self.assertIn("1000", content)
+
+    def test_context_pack_portfolio_kpi_with_positions(self):
+        finance_store.bulk_add_investments(
+            [
+                {
+                    "operation_type": "deposit",
+                    "date": "2024-01-01",
+                    "asset": "USD",
+                    "amount_usd": 1000.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-02",
+                    "asset": "VOO",
+                    "quantity": 1.0,
+                    "amount_usd": 400.0,
+                },
+            ]
+        )
+        res = self.client.get("/api/assistant/context")
+        self.assertEqual(res.status_code, 200)
+        portfolio = res.get_json()["kpis"]["portfolio"]
+        self.assertEqual(portfolio["basis"], "cost")
+        self.assertEqual(portfolio["position_count"], 1)
+        self.assertEqual(portfolio["top_asset"], "VOO")
+        self.assertAlmostEqual(portfolio["cash_available_usd"], 600.0)
 
 
 if __name__ == "__main__":

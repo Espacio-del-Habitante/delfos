@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from integrations import registry
 from integrations.base import IntegrationError
-from services import ai_service, finance_store
+from services import ai_service, finance_store, portfolio_service
 from services.portfolio_accounting import aggregate_portfolio
 
 # Cuentas que cuentan como liquidez para el colchón / emergencia.
@@ -59,8 +59,9 @@ def _liquid_balance_cop(accounts):
 
 
 def _portfolio_concentration(investments):
-    """Concentración por costo base (sin quotes: rápido y determinista)."""
+    """Concentración por costo base + cash (sin quotes: rápido y determinista)."""
     agg = aggregate_portfolio(investments or [])
+    cash = round(float(agg.get("cash") or 0), 2)
     open_pos = [
         (asset, state)
         for asset, state in agg["positions_state"].items()
@@ -73,6 +74,7 @@ def _portfolio_concentration(investments):
             "top_weight_percent": None,
             "position_count": 0,
             "basis": "cost",
+            "cash_available_usd": cash,
         }
     top_asset, top_state = max(open_pos, key=lambda item: float(item[1]["cost"] or 0))
     weight = round(100.0 * float(top_state["cost"] or 0) / total_cost, 1)
@@ -81,6 +83,7 @@ def _portfolio_concentration(investments):
         "top_weight_percent": weight,
         "position_count": len(open_pos),
         "basis": "cost",
+        "cash_available_usd": cash,
     }
 
 
@@ -289,6 +292,169 @@ def format_lookup_reply(result: dict) -> str:
     return "\n".join(lines)
 
 
+_PORTFOLIO_METRICS = frozenset(
+    {"summary", "largest_position", "highest_gain", "highest_return", "asset_detail"}
+)
+_SLIM_POS_KEYS = (
+    "asset",
+    "quantity",
+    "cost_basis_usd",
+    "market_price_usd",
+    "market_value_usd",
+    "unrealized_pnl_usd",
+    "total_pnl_usd",
+    "total_return_percent",
+    "quote_confidence",
+)
+
+
+def _slim_position(pos: dict) -> dict:
+    return {k: pos.get(k) for k in _SLIM_POS_KEYS}
+
+
+def _position_market_or_cost(pos: dict) -> float:
+    mv = pos.get("market_value_usd")
+    if mv is not None:
+        return float(mv)
+    return float(pos.get("cost_basis_usd") or 0)
+
+
+def resolve_finance_query(
+    domain: str, metric: str, asset: str | None = None
+) -> dict | None:
+    """Resuelve una consulta financiera bajo demanda (MVP: solo portfolio)."""
+    if (domain or "").strip().lower() != "portfolio":
+        return None
+    metric = (metric or "").strip().lower()
+    if metric not in _PORTFOLIO_METRICS:
+        return None
+
+    payload = portfolio_service.get_portfolio_payload()
+    positions = payload.get("positions") or []
+    base = {
+        "domain": "portfolio",
+        "metric": metric,
+        "quotes_partial": bool(payload.get("quotes_partial")),
+        "quotes_as_of": payload.get("quotes_as_of"),
+    }
+
+    if metric == "summary":
+        return {
+            **base,
+            "cash_available_usd": payload.get("cash_available_usd"),
+            "total_assets_value_usd": payload.get("total_assets_value_usd"),
+            "total_portfolio_value_usd": payload.get("total_portfolio_value_usd"),
+            "total_pnl_usd": payload.get("total_pnl_usd"),
+            "total_unrealized_pnl_usd": payload.get("total_unrealized_pnl_usd"),
+            "total_realized_pnl_usd": payload.get("total_realized_pnl_usd"),
+            "total_return_percent": payload.get("total_return_percent"),
+            "net_contributions_usd": payload.get("net_contributions_usd"),
+            "has_positions": bool(payload.get("has_positions")),
+            "position_count": len(positions),
+        }
+
+    if metric == "asset_detail":
+        ticker = (asset or "").strip().upper()
+        if not ticker:
+            return None
+        match = next(
+            (p for p in positions if str(p.get("asset") or "").upper() == ticker),
+            None,
+        )
+        if not match:
+            return {**base, "asset": ticker, "found": False, "position": None}
+        return {
+            **base,
+            "asset": ticker,
+            "found": True,
+            "position": _slim_position(match),
+        }
+
+    if not positions:
+        return {**base, "position": None, "empty": True}
+
+    if metric == "largest_position":
+        best = max(positions, key=_position_market_or_cost)
+    elif metric == "highest_gain":
+        best = max(positions, key=lambda p: float(p.get("total_pnl_usd") or 0))
+    else:  # highest_return
+        best = max(
+            positions,
+            key=lambda p: (
+                p.get("total_return_percent") is not None,
+                float(p.get("total_return_percent") or float("-inf")),
+            ),
+        )
+    return {**base, "position": _slim_position(best)}
+
+
+def _finance_query_from_parsed(parsed: dict) -> dict | None:
+    raw = parsed.get("finance_query")
+    if not isinstance(raw, dict):
+        return None
+    domain = str(raw.get("domain") or "").strip()
+    metric = str(raw.get("metric") or "").strip()
+    if not domain or not metric:
+        return None
+    asset = raw.get("asset")
+    asset_s = str(asset).strip() if asset not in (None, "") else None
+    return resolve_finance_query(domain, metric, asset_s)
+
+
+def format_finance_query_reply(result: dict) -> str:
+    metric = result.get("metric")
+    partial = " (cotizaciones parciales)" if result.get("quotes_partial") else ""
+
+    if metric == "summary":
+        lines = [
+            f"Resumen del portafolio{partial}:",
+            f"- Valor total: {result.get('total_portfolio_value_usd')} USD "
+            f"(activos {result.get('total_assets_value_usd')} + "
+            f"cash {result.get('cash_available_usd')})",
+            f"- P&L total: {result.get('total_pnl_usd')} USD",
+        ]
+        ret = result.get("total_return_percent")
+        if ret is not None:
+            lines.append(f"- Rendimiento: {ret}%")
+        lines.append(f"- Posiciones abiertas: {result.get('position_count') or 0}")
+        return "\n".join(lines)
+
+    if result.get("empty"):
+        return "No tienes posiciones abiertas en el portafolio."
+
+    if metric == "asset_detail" and not result.get("found"):
+        return f'No encontré una posición abierta en "{result.get("asset")}".'
+
+    pos = result.get("position") or {}
+    asset = pos.get("asset") or result.get("asset") or "?"
+    labels = {
+        "largest_position": "Posición más grande",
+        "highest_gain": "Mayor ganancia ($)",
+        "highest_return": "Mejor rendimiento (%)",
+        "asset_detail": f"Detalle de {asset}",
+    }
+    title = labels.get(metric, f"Portafolio · {asset}")
+    lines = [f"{title}{partial}:"]
+    lines.append(
+        f"- {asset}: qty {pos.get('quantity')} · "
+        f"valor {pos.get('market_value_usd')} USD "
+        f"(costo {pos.get('cost_basis_usd')})"
+    )
+    pnl = pos.get("total_pnl_usd")
+    ret = pos.get("total_return_percent")
+    if pnl is not None or ret is not None:
+        bits = []
+        if pnl is not None:
+            bits.append(f"P&L {pnl} USD")
+        if ret is not None:
+            bits.append(f"retorno {ret}%")
+        lines.append(f"- {' · '.join(bits)}")
+    conf = pos.get("quote_confidence")
+    if conf:
+        lines.append(f"- Confianza de cotización: {conf}")
+    return "\n".join(lines)
+
+
 def build_chat_prompt(user_message: str, pack: dict) -> str:
     profile = pack.get("profile") or {}
     kpis = pack.get("kpis") or {}
@@ -371,6 +537,16 @@ Buscar / consultar registros:
   llena "lookup" {{q, kind, period}} y NO inventes montos en reply.
 - kind: expense|income|investment|note o null. period: month|year|all.
 - El backend completa los números reales; reply puede ser corto ("Revisé tus movimientos").
+
+Consultas de portafolio (P&L, rankings, detalle de ticker):
+- Si pregunta por el portafolio ("¿activo más grande?", "mayor ganancia", "cómo va VOO?",
+  "rendimiento del portafolio", "mejor retorno"), llena "finance_query" y NO inventes P&L.
+- domain: solo "portfolio" por ahora.
+- metric: summary | largest_position | highest_gain | highest_return | asset_detail.
+- asset: ticker obligatorio solo para asset_detail (ej. "VOO"); null en el resto.
+- El backend calcula con cotizaciones; reply puede ser corto ("Revisé tu portafolio").
+- kpis.portfolio del CONTEXT PACK es un snapshot barato (cash/concentración por costo);
+  para números de mercado usa finance_query.
 
 Contexto evolutivo:
 - Si el usuario revela datos estables (quiero ahorrar 30%, mis fijos son arriendo X e
@@ -462,6 +638,11 @@ Devuelve SOLO JSON válido (sin markdown fuera del JSON):
     "q": null,
     "kind": null,
     "period": "month"
+  }},
+  "finance_query": {{
+    "domain": null,
+    "metric": null,
+    "asset": null
   }}
 }}
 
@@ -481,8 +662,10 @@ Reglas del JSON:
   llena expenses/incomes/investments/notes (uno por ítem). needs_clarification solo si falta dato.
 - account_draft: {{}} si no pide crear cuenta; si sí, name obligatorio.
 - lookup: {{}} si no busca historial; si sí, q obligatorio. No inventes cifras de lookup.
-- No mezcles intenciones: o registras, o buscas, o creas cuenta (prioridad: registro >
-  búsqueda > cuenta si el mensaje es ambiguo pero claro en una).
+- finance_query: {{}} si no consulta portafolio; si sí, domain+metric obligatorios.
+  No inventes P&L ni precios: el backend completa el bloque factual.
+- No mezcles intenciones: o registras, o buscas/consultas, o creas cuenta (prioridad:
+  registro > finance_query/lookup > cuenta si el mensaje es ambiguo pero claro en una).
 """.strip()
 
 
@@ -768,6 +951,7 @@ def chat(message: str, thread_id: str | None = None) -> dict:
     movement_draft = None
     account_draft = None
     lookup = None
+    finance_query = None
     if not off_topic:
         try:
             profile_suggestion = finance_store.sanitize_profile_patch(
@@ -780,9 +964,13 @@ def chat(message: str, thread_id: str | None = None) -> dict:
         except (TypeError, ValueError):
             movement_draft = None
         account_draft = _account_draft_from_parsed(parsed)
-        # Registro gana sobre búsqueda si hay draft con ítems
+        # Registro gana sobre búsqueda/consulta si hay draft con ítems
         has_mov_items = bool(movement_draft and movement_draft.get("items"))
         if not has_mov_items:
+            finance_query = _finance_query_from_parsed(parsed)
+            if finance_query:
+                factual = format_finance_query_reply(finance_query)
+                reply = f"{reply}\n\n{factual}" if reply else factual
             lookup = _lookup_from_parsed(parsed)
             if lookup:
                 factual = format_lookup_reply(lookup)
@@ -799,6 +987,7 @@ def chat(message: str, thread_id: str | None = None) -> dict:
             "movement_draft": movement_draft,
             "account_draft": account_draft,
             "lookup": lookup,
+            "finance_query": finance_query,
         },
     )
 
@@ -811,6 +1000,7 @@ def chat(message: str, thread_id: str | None = None) -> dict:
         "movement_draft": movement_draft,
         "account_draft": account_draft,
         "lookup": lookup,
+        "finance_query": finance_query,
         "messages": finance_store.list_chat_messages(tid, limit=40),
         "ai_available": True,
         "profile": finance_store.get_financial_profile(),
