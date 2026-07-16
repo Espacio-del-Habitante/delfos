@@ -3499,7 +3499,7 @@
       "title": "Conversación",
       "kind": "main",
       "created_at": "2026-07-15T03:11:14",
-      "updated_at": "2026-07-15T03:53:06"
+      "updated_at": "2026-07-15T19:19:25"
     }
   ],
   "chat_messages": [
@@ -3583,7 +3583,9 @@
       "thread_id": "thread_001",
       "role": "user",
       "content": "Pero la maestría tiene prioridad no?",
-      "meta": {},
+      "meta": {
+        "compacted": true
+      },
       "created_at": "2026-07-15T03:14:55"
     },
     {
@@ -3596,7 +3598,8 @@
           "¿Te gustaría asignar la mitad al fondo de emergencia y la otra mitad a la maestría?",
           "¿Prefieres cubrir al menos un mes de emergencias antes de acelerar la maestría?",
           "¿Quieres revisar cómo se distribuye tu ingreso mensual?"
-        ]
+        ],
+        "compacted": true
       },
       "created_at": "2026-07-15T03:15:26"
     },
@@ -3605,7 +3608,9 @@
       "thread_id": "thread_001",
       "role": "user",
       "content": "Normalmente guardo 3 millones de pesos para la maestría casi el 50% de mi salario",
-      "meta": {},
+      "meta": {
+        "compacted": true
+      },
       "created_at": "2026-07-15T03:28:12"
     },
     {
@@ -3621,7 +3626,8 @@
         "off_topic": false,
         "profile_suggestion": {
           "savings_target_percent": 50.0
-        }
+        },
+        "compacted": true
       },
       "created_at": "2026-07-15T03:28:41"
     },
@@ -3630,7 +3636,9 @@
       "thread_id": "thread_001",
       "role": "user",
       "content": "¿Quieres que calcule cuánto necesitas mensualmente para el fondo de emergencia?",
-      "meta": {},
+      "meta": {
+        "compacted": true
+      },
       "created_at": "2026-07-15T03:30:10"
     },
     {
@@ -3645,7 +3653,8 @@
           "¿Cómo vas con mis metas?"
         ],
         "off_topic": false,
-        "profile_suggestion": {}
+        "profile_suggestion": {},
+        "compacted": true
       },
       "created_at": "2026-07-15T03:30:23"
     },
@@ -3679,7 +3688,9 @@
       "thread_id": "thread_001",
       "role": "user",
       "content": "Si te doy un gasto podrías crear el registro",
-      "meta": {},
+      "meta": {
+        "compacted": true
+      },
       "created_at": "2026-07-15T03:33:50"
     },
     {
@@ -3694,7 +3705,8 @@
           "Puedes declararlo con el nombre y monto."
         ],
         "off_topic": false,
-        "profile_suggestion": {}
+        "profile_suggestion": {},
+        "compacted": true
       },
       "created_at": "2026-07-15T03:34:03"
     },
@@ -3703,7 +3715,9 @@
       "thread_id": "thread_001",
       "role": "user",
       "content": "Me gasté 30 mil en comida",
-      "meta": {},
+      "meta": {
+        "compacted": true
+      },
       "created_at": "2026-07-15T03:34:30"
     },
     {
@@ -3718,7 +3732,8 @@
           "¿Tienes otros gastos regulares que quieras contabilizar?"
         ],
         "off_topic": false,
-        "profile_suggestion": {}
+        "profile_suggestion": {},
+        "compacted": true
       },
       "created_at": "2026-07-15T03:34:35"
     },
@@ -3727,7 +3742,9 @@
       "thread_id": "thread_001",
       "role": "user",
       "content": "Pero ese gasto fue ocasional no fijo, como lo registraste",
-      "meta": {},
+      "meta": {
+        "compacted": true
+      },
       "created_at": "2026-07-15T03:35:20"
     },
     {
@@ -3740,7 +3757,8 @@
           "¿Te gustaría registrar tu arriendo y otros gastos fijos?"
         ],
         "off_topic": false,
-        "profile_suggestion": {}
+        "profile_suggestion": {},
+        "compacted": true
       },
       "created_at": "2026-07-15T03:35:45"
     },
@@ -3749,7 +3767,9 @@
       "thread_id": "thread_001",
       "role": "user",
       "content": "Puedes registrar un gasto ocasional de comida por 30 mil pesos",
-      "meta": {},
+      "meta": {
+        "compacted": true
+      },
       "created_at": "2026-07-15T03:41:48"
     },
     {
@@ -3811,7 +3831,8 @@
           "reflection": "",
           "ai_available": true,
           "needs_clarification": null
-        }
+        },
+        "compacted": true
       },
       "created_at": "2026-07-15T03:42:17"
     },
@@ -3820,7 +3841,9 @@
       "thread_id": "thread_001",
       "role": "user",
       "content": "Me gasté 30 mil en comida, 50 mil en gasolina",
-      "meta": {},
+      "meta": {
+        "compacted": true
+      },
       "created_at": "2026-07-15T03:52:01"
     },
     {
@@ -3829,7 +3852,8 @@
       "role": "assistant",
       "content": "Te escuché, pero no pude interpretar bien la respuesta del modelo. ¿Lo intentamos de nuevo con otras palabras?",
       "meta": {
-        "parse_error": true
+        "parse_error": true,
+        "compacted": true
       },
       "created_at": "2026-07-15T03:52:35"
     },
@@ -3850,6 +3874,114 @@
         "error": true
       },
       "created_at": "2026-07-15T03:53:06"
+    },
+    {
+      "id": "msg_027",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Ya estás disponible de nuevo?",
+      "meta": {},
+      "created_at": "2026-07-15T17:56:01"
+    },
+    {
+      "id": "msg_028",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "¡Todo listo! Ya estoy de vuelta al 100%. ¿En qué nos quedamos? ¿Querías registrar algo más o revisamos cómo va tu ahorro para la maestría?",
+      "meta": {
+        "follow_ups": [
+          "Registrar un gasto",
+          "Ver mis ahorros",
+          "Crear una nueva cuenta"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "movement_draft": null,
+        "account_draft": null,
+        "lookup": null
+      },
+      "created_at": "2026-07-15T17:56:20"
+    },
+    {
+      "id": "msg_029",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Ver mis ahorros",
+      "meta": {},
+      "created_at": "2026-07-15T17:56:30"
+    },
+    {
+      "id": "msg_030",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "currently, you're saving 99.5% of your income, which is way above your 50% target for the master's degree. However, your emergency fund is still at 0 months (need 6). Want to adjust your savings target or check emergency fund options?",
+      "meta": {
+        "follow_ups": [
+          "¿Quieres reducir tu meta de ahorro para liquidar el fondo de emergencia primero?",
+          "¿Prefieres aumentar el porcentaje de ahorro para acelerar la maestría?",
+          "¿Target de 6 meses para emergencias es realista con tus gastos actuales?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "movement_draft": null,
+        "account_draft": null,
+        "lookup": null
+      },
+      "created_at": "2026-07-15T17:56:45"
+    },
+    {
+      "id": "msg_031",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "/sumarize",
+      "meta": {
+        "command": "summarize"
+      },
+      "created_at": "2026-07-15T19:14:07"
+    },
+    {
+      "id": "msg_032",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Historial financiero condensado con éxito. He actualizado tus metas de ahorro y los gastos ocasionales registrados.",
+      "meta": {
+        "command": "summarize",
+        "compacted_count": 16,
+        "follow_ups": [
+          "¿Cómo voy de ahorro este mes?",
+          "¿Cómo está mi emergencia?"
+        ]
+      },
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "msg_033",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "/buscar ACWI",
+      "meta": {
+        "command": "lookup"
+      },
+      "created_at": "2026-07-15T19:19:24"
+    },
+    {
+      "id": "msg_034",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "No encontré movimientos sobre \"acwi\" este mes.",
+      "meta": {
+        "command": "lookup",
+        "lookup": {
+          "query": "acwi",
+          "kind": null,
+          "period": "month",
+          "count": 0,
+          "shown": 0,
+          "totals": {},
+          "hits": []
+        }
+      },
+      "created_at": "2026-07-15T19:19:25"
     }
   ],
   "memory_facts": [
@@ -3932,14 +4064,70 @@
       "source": "chat",
       "active": true,
       "created_at": "2026-07-15T03:42:17"
+    },
+    {
+      "id": "fact_011",
+      "fact": "ahorro_efectivo: 99.5%",
+      "category": "goal",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T17:56:45"
+    },
+    {
+      "id": "fact_012",
+      "fact": "fondo_emerger_cero_meses",
+      "category": "constraint",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T17:56:45"
+    },
+    {
+      "id": "fact_013",
+      "fact": "Destina 3.000.000 COP (50% de su salario) para la meta de la maestría.",
+      "category": "habit",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "fact_014",
+      "fact": "Prioridad de ahorro dividida equitativamente (50/50) entre fondo de emergencia y maestría.",
+      "category": "goal",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "fact_015",
+      "fact": "Distingue entre gastos fijos para el cálculo del fondo y gastos ocasionales/variables.",
+      "category": "preference",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "fact_016",
+      "fact": "Gasto registrado: 30.000 COP en comida (ocasional).",
+      "category": "general",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "fact_017",
+      "fact": "Gasto registrado: 50.000 COP en gasolina (ocasional).",
+      "category": "general",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
     }
   ],
   "memory_summaries": [
     {
       "id": "summary_001",
       "scope": "global",
-      "summary": "Este mes el usuario ha superado su objetivo de ahorro mensual (100% reales vs 30% previsto), duplicando la meta, mientras su fondo de emergencia sigue en 0 de los 6 meses requeridos. Su ingreso fijo es de 6 000 000 COP y asigna el 50% de sus recursos al ahorro para la maestría. Se recomienda destinar parte de ese ingreso para cubrir al menos 1‑2 meses de gastos esenciales y así comenzar a construir el fondo de emergencia.",
-      "updated_at": "2026-07-15T03:33:31"
+      "summary": "El usuario mantiene un nivel de ahorro del 99.5% (meta 50%). Existen dos prioridades financieras: la maestría y la construcción de un fondo de emergencia de 6 meses (actualmente en 0/6). El usuario tiene el hábito de destinar 3.000.000 COP (aprox. 50% de su salario) para la maestría. Se ha acordado una estrategia de distribución 50/50 entre el fondo de emergencia y la maestría. Se han registrado gastos ocasionales/variables: 30.000 COP en comida y 50.000 COP en gasolina. El usuario distingue entre gastos fijos y ocasionales para la planificación del fondo de emergencia.",
+      "updated_at": "2026-07-15T19:14:18"
     }
   ]
 }

@@ -20,7 +20,7 @@
     deleteInvestment,
     deleteNote,
   } from '@common/lib/api';
-  import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
+  import { applyFinancePayload, finance, financeStatus, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
   import type {
     Account,
@@ -58,7 +58,6 @@
   function onPreviewConfirmed() {
     analysisPreview = null;
     draftText = '';
-    refreshFinanceData();
   }
 
   function findRecord(type: string, id: string) {
@@ -115,6 +114,15 @@
 
 <div class="app-shell">
   <HeaderIsland summary={$finance?.summary ?? null} />
+
+  {#if $financeStatus === 'loading' && !$finance}
+    <p class="finance-loading" role="status">Cargando finanzas…</p>
+  {:else if $financeStatus === 'error' && !$finance}
+    <p class="finance-loading finance-loading--error" role="alert">
+      No se pudieron cargar los datos.
+      <button type="button" class="linkish" on:click={() => refreshFinanceData()}>Reintentar</button>
+    </p>
+  {/if}
 
   {#if $finance && $finance.financial_profile && !$finance.financial_profile.onboarding_completed}
     <aside class="onboarding-banner" aria-label="Alta de perfil">
@@ -200,6 +208,28 @@
 />
 
 <style>
+  .finance-loading {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+  }
+
+  .finance-loading--error {
+    color: var(--danger, #b42318);
+  }
+
+  .finance-loading .linkish {
+    margin-left: 0.35rem;
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+  }
+
   .onboarding-banner {
     display: flex;
     flex-wrap: wrap;

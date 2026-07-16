@@ -1,11 +1,13 @@
-"""Ollama vision OCR for investment ledger screenshots."""
+"""OCR de capturas de broker via el proveedor de IA activo (visión)."""
 
 import base64
 import json
 import re
 from typing import Any
 
+import config
 from integrations import registry
+from integrations import settings as ai_settings
 from integrations.base import IntegrationError
 from services.investment_ledger import (
     normalize_ocr_row_fields,
@@ -76,7 +78,43 @@ def normalize_ocr_row(row: dict[str, Any]) -> dict[str, Any]:
     return refined
 
 
+def _local_vision_unavailable() -> dict[str, Any] | None:
+    """Si el proveedor efectivo es local y falta el modelo de visión, bloquear OCR."""
+    if ai_settings.effective_provider() != "local":
+        return None
+    try:
+        status = registry.get_active_integration().health()
+    except IntegrationError as exc:
+        vision_model = config.OLLAMA_VISION_MODEL
+        return {
+            "error": str(exc),
+            "hint": exc.hint or f"Ejecuta: ollama pull {vision_model}",
+            "vision_model": vision_model,
+            "vision_model_found": False,
+            "rows": [],
+            "warnings": [],
+            "count": 0,
+            "ai_available": False,
+        }
+    if status.get("vision_model_found"):
+        return None
+    vision_model = status.get("vision_model") or config.OLLAMA_VISION_MODEL
+    return {
+        "error": f"Modelo de visión '{vision_model}' no encontrado en Ollama",
+        "hint": f"Ejecuta: ollama pull {vision_model}",
+        "vision_model": vision_model,
+        "vision_model_found": False,
+        "rows": [],
+        "warnings": [],
+        "count": 0,
+        "ai_available": False,
+    }
+
+
 def ocr_image(image_bytes: bytes, content_type: str = "image/png") -> dict[str, Any]:
+    gate = _local_vision_unavailable()
+    if gate:
+        return gate
     if content_type not in ALLOWED_MIME:
         return {
             "error": f"Tipo de imagen no soportado: {content_type}",

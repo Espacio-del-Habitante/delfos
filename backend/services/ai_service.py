@@ -3,7 +3,6 @@ import re
 
 from integrations import registry
 from integrations.base import IntegrationError
-from integrations.ollama import OllamaIntegration
 from services.finance_store import get_accounts, get_categories, match_account_hint
 
 
@@ -274,28 +273,27 @@ def analysis_to_preview(analysis, accounts=None):
 
 
 def _fallback_note_preview(text):
+    note = {
+        "kind": "note",
+        "title": "Nota",
+        "amount": None,
+        "currency": None,
+        "category": "Sin clasificar",
+        "category_emoji": "📝",
+        "description": text,
+        "text": text,
+        "tags": ["sin-clasificar"],
+        "account_id": None,
+        "account_name_hint": "",
+        "suggested_new_category": None,
+        "accept_category_suggestion": False,
+        "needs_review": False,
+    }
     return {
         "expenses": [],
         "investments": [],
-        "notes": [
-            {
-                "kind": "note",
-                "title": "Nota",
-                "amount": None,
-                "currency": None,
-                "category": "Sin clasificar",
-                "category_emoji": "📝",
-                "description": text,
-                "text": text,
-                "tags": ["sin-clasificar"],
-                "account_id": None,
-                "account_name_hint": "",
-                "suggested_new_category": None,
-                "accept_category_suggestion": False,
-                "needs_review": False,
-            }
-        ],
-        "items": [],
+        "notes": [note],
+        "items": [note],
         "counts": {"expenses": 0, "investments": 0, "notes": 1, "total": 1},
         "reflection": "No pude clasificar el texto. Puedes guardarlo como nota.",
         "ai_available": False,
@@ -304,14 +302,10 @@ def _fallback_note_preview(text):
     }
 
 
-def check_ollama_connection():
-    """Compat: health del adapter Ollama (usado por /api/ollama/health y el gate de OCR local)."""
-    return OllamaIntegration().health()
-
-
 def analyze_text(text):
     accounts = get_accounts()
     prompt = build_finance_prompt(text, accounts)
+    integration = None
 
     try:
         integration = registry.get_active_integration()
@@ -323,10 +317,12 @@ def analyze_text(text):
             preview["can_save_as_note"] = True
         return preview
     except IntegrationError as exc:
-        try:
-            status = integration.health()
-        except Exception:  # noqa: BLE001 - health no debe romper el fallback
-            status = {}
+        status = {}
+        if integration is not None:
+            try:
+                status = integration.health()
+            except Exception:  # noqa: BLE001 - health no debe romper el fallback
+                status = {}
         hint = exc.hint or status.get("hint") or "Revisa la configuración de IA en Configuración."
         message = str(exc) or status.get("error", "Conexión fallida")
         fallback = _fallback_note_preview(text)

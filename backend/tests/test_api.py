@@ -201,20 +201,99 @@ class ApiTestCase(unittest.TestCase):
         ).get_json()["expense"]
         self.assertEqual(exp["account_id"], acc["id"])
 
+        after_expense = next(
+            a for a in self.client.get("/api/finance").get_json()["accounts"] if a["id"] == acc["id"]
+        )
+        self.assertEqual(after_expense["current_balance"], 40000.0)
+
         patch = self.client.patch(
             f"/api/accounts/{acc['id']}",
-            json={"name": "Nequi 2", "current_balance": 40000},
+            json={"name": "Nequi 2"},
         )
         self.assertEqual(patch.status_code, 200)
         updated = patch.get_json()["account"]
         self.assertEqual(updated["name"], "Nequi 2")
-        self.assertEqual(updated["current_balance"], 40000)
+        self.assertEqual(updated["current_balance"], 40000.0)
 
         delete = self.client.delete(f"/api/accounts/{acc['id']}")
         self.assertEqual(delete.status_code, 200)
         stored = json.loads(self.data_path.read_text(encoding="utf-8"))
         self.assertEqual(stored["accounts"], [])
         self.assertIsNone(stored["expenses"][0]["account_id"])
+
+    def test_expense_update_and_delete_adjusts_balance(self):
+        acc = self.client.post(
+            "/api/accounts",
+            json={"name": "Nequi", "type": "wallet", "currency": "COP", "initial_balance": 50000},
+        ).get_json()["account"]
+
+        exp = self.client.post(
+            "/api/expenses",
+            json={
+                "account_id": acc["id"],
+                "amount": 10000,
+                "currency": "COP",
+                "description": "Cafe",
+            },
+        ).get_json()["expense"]
+
+        def balance():
+            return next(
+                a for a in self.client.get("/api/finance").get_json()["accounts"] if a["id"] == acc["id"]
+            )["current_balance"]
+
+        self.assertEqual(balance(), 40000.0)
+
+        patch = self.client.patch(
+            f"/api/expenses/{exp['id']}",
+            json={"description": "Cafe editado", "amount": 6000},
+        )
+        self.assertEqual(patch.status_code, 200)
+        self.assertEqual(patch.get_json()["expense"]["description"], "Cafe editado")
+        self.assertEqual(balance(), 44000.0)
+
+        delete = self.client.delete(f"/api/expenses/{exp['id']}")
+        self.assertEqual(delete.status_code, 200)
+        self.assertEqual(delete.get_json()["summary"]["total_movements"], 0)
+        self.assertEqual(balance(), 50000.0)
+
+    def test_income_update_and_delete_adjusts_balance(self):
+        acc = self.client.post(
+            "/api/accounts",
+            json={"name": "Bancolombia", "type": "bank", "currency": "COP", "initial_balance": 100000},
+        ).get_json()["account"]
+
+        inc = self.client.post(
+            "/api/incomes",
+            json={
+                "account_id": acc["id"],
+                "amount": 50000,
+                "currency": "COP",
+                "description": "Salario",
+                "category": "Salario",
+            },
+        ).get_json()["income"]
+
+        def balance():
+            return next(
+                a for a in self.client.get("/api/finance").get_json()["accounts"] if a["id"] == acc["id"]
+            )["current_balance"]
+
+        self.assertEqual(balance(), 150000.0)
+
+        patch = self.client.patch(
+            f"/api/incomes/{inc['id']}",
+            json={"description": "Salario editado", "amount": 40000, "income_source": "Empresa"},
+        )
+        self.assertEqual(patch.status_code, 200)
+        updated = patch.get_json()["income"]
+        self.assertEqual(updated["description"], "Salario editado")
+        self.assertEqual(updated["income_source"], "Empresa")
+        self.assertEqual(balance(), 140000.0)
+
+        delete = self.client.delete(f"/api/incomes/{inc['id']}")
+        self.assertEqual(delete.status_code, 200)
+        self.assertEqual(balance(), 100000.0)
 
     def test_expense_update_and_delete(self):
         exp = self.client.post(
@@ -450,18 +529,12 @@ class ApiTestCase(unittest.TestCase):
         from unittest.mock import patch
 
         mock_result = vision_service.mock_ocr_preview()
-        ollama_ok = {
-            "ok": True,
-            "vision_model": "llava",
-            "vision_model_found": True,
-        }
-        with patch("app.ai_service.check_ollama_connection", return_value=ollama_ok):
-            with patch("app.vision_service.analyze_investment_image", return_value=mock_result):
-                res = self.client.post(
-                    "/api/investments/ocr",
-                    data={"image": (io.BytesIO(b"fake"), "shot.png")},
-                    content_type="multipart/form-data",
-                )
+        with patch("app.vision_service.analyze_investment_image", return_value=mock_result):
+            res = self.client.post(
+                "/api/investments/ocr",
+                data={"image": (io.BytesIO(b"fake"), "shot.png")},
+                content_type="multipart/form-data",
+            )
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(len(data["rows"]), 1)
@@ -469,15 +542,17 @@ class ApiTestCase(unittest.TestCase):
         self.assertTrue(data["ai_available"])
 
     def test_investments_ocr_503_when_vision_model_missing(self):
-        from unittest.mock import patch
+        from unittest.mock import MagicMock, patch
 
-        with patch("app.ai_settings.effective_provider", return_value="local"), patch(
-            "app.ai_service.check_ollama_connection",
-            return_value={
-                "ok": True,
-                "vision_model": "llava",
-                "vision_model_found": False,
-            },
+        fake = MagicMock()
+        fake.health.return_value = {
+            "ok": True,
+            "vision_model": "llava",
+            "vision_model_found": False,
+        }
+        with patch("services.vision_service.ai_settings.effective_provider", return_value="local"), patch(
+            "services.vision_service.registry.get_active_integration",
+            return_value=fake,
         ):
             res = self.client.post(
                 "/api/investments/ocr",
@@ -1074,7 +1149,7 @@ class AiSettingsTestCase(unittest.TestCase):
                 return payload
 
             def health(self):
-                return {"ok": True}
+                return {"ok": True, "vision_model_found": True}
 
         with patch("services.vision_service.registry.get_active_integration", return_value=FakeVision()):
             result = vision_service.ocr_image(b"fakeimage", "image/png")
@@ -1088,7 +1163,7 @@ class AiSettingsTestCase(unittest.TestCase):
                 raise IntegrationError("no vision", hint="configura el modelo")
 
             def health(self):
-                return {"ok": False}
+                return {"ok": True, "vision_model_found": True}
 
         with patch("services.vision_service.registry.get_active_integration", return_value=FailingVision()):
             result = vision_service.ocr_image(b"fakeimage", "image/png")

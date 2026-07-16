@@ -385,34 +385,11 @@ def investments_ocr():
     if not request.files.get("image"):
         return jsonify({"error": "Imagen requerida (campo image)"}), 400
 
-    # El gate de modelo de visión solo aplica al proveedor local (Ollama).
-    # En la nube (Gemini/compatible) confiamos en el adapter y su manejo de errores.
-    if ai_settings.effective_provider() == "local":
-        ollama_status = ai_service.check_ollama_connection()
-        if not ollama_status.get("vision_model_found"):
-            vision_model = config.OLLAMA_VISION_MODEL
-            return (
-                jsonify(
-                    {
-                        "error": f"Modelo de visión '{vision_model}' no encontrado en Ollama",
-                        "hint": f"Ejecuta: ollama pull {vision_model}",
-                        "vision_model": vision_model,
-                        "vision_model_found": False,
-                        "rows": [],
-                        "warnings": [],
-                        "count": 0,
-                        "ai_available": False,
-                    }
-                ),
-                503,
-            )
-
     uploaded = request.files["image"]
     image_bytes = uploaded.read()
     content_type = (uploaded.content_type or "image/png").split(";")[0].strip().lower()
     result = vision_service.analyze_investment_image(image_bytes, content_type)
     status = 200 if result.get("ai_available", True) else 503
-    print("result", result)
     return jsonify(result), status
 
 
@@ -438,7 +415,9 @@ def save_note():
 
 @app.route("/api/ollama/health")
 def ollama_health():
-    status = ai_service.check_ollama_connection()
+    from integrations.ollama import OllamaIntegration
+
+    status = OllamaIntegration().health()
     code = 200 if status.get("ok") else 503
     return jsonify(status), code
 
