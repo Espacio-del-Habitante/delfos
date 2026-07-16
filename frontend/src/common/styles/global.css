@@ -1809,8 +1809,8 @@ button {
 .bottom-nav__item {
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 50px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   color: var(--text-muted);
   text-decoration: none;
@@ -2959,6 +2959,13 @@ select[data-native-select-hidden] {
   margin: 0;
 }
 
+.ledger-section__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .ledger-export-bar {
   display: flex;
   flex-direction: column;
@@ -3362,6 +3369,23 @@ select[data-native-select-hidden] {
 
 .ledger-table__actions-col {
   width: 1%;
+}
+
+.ledger-table__select-col {
+  width: 1%;
+  text-align: center;
+  padding-right: 0;
+}
+
+.ledger-table__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent, #4f46e5);
+}
+
+.ledger-table tbody tr.is-selected {
+  background: rgba(79, 70, 229, 0.06);
 }
 
 .ledger-table__actions {
@@ -3810,6 +3834,31 @@ select[data-native-select-hidden] {
   line-height: 1.35;
 }
 
+.investments-hero__stat-hint--warning {
+  color: #b45309;
+}
+
+.investments-hero__stat-sub {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.investments-hero__warnings {
+  margin: 0.5rem 0 0;
+  padding: 0.65rem 1rem;
+  list-style: none;
+  border-radius: var(--radius-md);
+  background: rgba(180, 83, 9, 0.08);
+  border: 1px solid rgba(180, 83, 9, 0.2);
+}
+
+.investments-hero__warning {
+  font-size: 0.8rem;
+  color: #b45309;
+  line-height: 1.4;
+}
+
 .investments-hero__stat-badge {
   display: inline-block;
   align-self: flex-start;
@@ -3828,6 +3877,73 @@ select[data-native-select-hidden] {
 
 .pnl--negative {
   color: #dc2626;
+}
+
+.investments-audit {
+  margin-top: 14px;
+  padding: 0.95rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-soft);
+}
+
+.investments-audit__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
+.investments-audit__hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.investments-audit__empty {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.investments-audit__table-wrap {
+  overflow-x: auto;
+}
+
+.investments-audit__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+
+.investments-audit__table th,
+.investments-audit__table td {
+  padding: 0.45rem 0.35rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  font-size: 0.8rem;
+  text-align: left;
+  color: var(--text);
+}
+
+.investments-audit__table th {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.investments-audit__asset {
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.investments-audit__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Action bar (investments page) */
@@ -4805,3 +4921,23 @@ select[data-native-select-hidden] {
   }
 }
 
+/* Badges de confianza de cotización */
+.quote--ok {
+  background: rgba(52, 199, 89, 0.16);
+  color: #1a7f37;
+}
+
+.quote--fallback {
+  background: rgba(255, 149, 0, 0.16);
+  color: #b45309;
+}
+
+.quote--warning {
+  background: rgba(255, 59, 48, 0.14);
+  color: #c0392b;
+}
+
+.quote--missing {
+  background: rgba(120, 120, 128, 0.2);
+  color: var(--text-muted);
+}

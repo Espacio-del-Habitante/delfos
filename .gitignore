@@ -6,6 +6,7 @@ __pycache__/
 delfos.db
 .DS_Store
 backend/data/ai_settings.json
+backend/data/quote_settings.json
 
 # PyInstaller / build artifacts
 build/

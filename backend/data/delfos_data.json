@@ -52,6 +52,24 @@
       "kind": "expense"
     },
     {
+      "id": "cat_salario",
+      "name": "Salario",
+      "emoji": "💼",
+      "kind": "income"
+    },
+    {
+      "id": "cat_freelance",
+      "name": "Freelance",
+      "emoji": "💻",
+      "kind": "income"
+    },
+    {
+      "id": "cat_otros_ingreso",
+      "name": "Otros",
+      "emoji": "💰",
+      "kind": "income"
+    },
+    {
       "id": "cat_inversion",
       "name": "Inversión",
       "emoji": "📈",
@@ -68,151 +86,32 @@
       "name": "Nota",
       "emoji": "📝",
       "kind": "note"
-    },
-    {
-      "id": "cat_001",
-      "name": "Salidas",
-      "emoji": "☕",
-      "kind": "expense"
-    },
-    {
-      "id": "cat_002",
-      "name": "Ropa",
-      "emoji": "🏷️",
-      "kind": "expense"
-    },
-    {
-      "id": "cat_003",
-      "name": "Cafecito",
-      "emoji": "☕",
-      "kind": "expense"
     }
   ],
-  "accounts": [
-    {
-      "id": "account_001",
-      "name": "Nequi",
-      "type": "bank",
-      "currency": "COP",
-      "initial_balance": 362748.0,
-      "current_balance": -277252.0,
-      "emoji": "💵",
-      "created_at": "2026-06-25T02:42:05"
-    }
-  ],
+  "accounts": [],
   "expenses": [
     {
       "id": "expense_001",
-      "date": "2026-06-25",
-      "account_id": "account_001",
-      "amount": 168000.0,
-      "currency": "COP",
-      "category": "Salidas",
-      "category_emoji": "☕",
-      "description": "Salidas pareja",
-      "payment_method": "Tarjeta",
-      "source": "manual",
-      "created_at": "2026-06-25T03:05:35"
-    },
-    {
-      "id": "expense_002",
-      "date": "2026-06-25",
+      "date": "2026-07-15",
       "account_id": null,
       "amount": 30000.0,
       "currency": "COP",
-      "category": "Salidas",
+      "category": "Comida",
       "category_emoji": "",
-      "description": "Salidas",
+      "description": "Gasto ocasional de comida",
       "payment_method": "",
       "source": "ai",
-      "created_at": "2026-06-25T03:10:53"
-    },
-    {
-      "id": "expense_003",
-      "date": "2026-06-25",
-      "account_id": null,
-      "amount": 20000.0,
-      "currency": "COP",
-      "category": "Comida",
-      "category_emoji": "🌿",
-      "description": "Comida",
-      "payment_method": "",
-      "source": "ai",
-      "created_at": "2026-06-25T03:10:53"
-    },
-    {
-      "id": "expense_004",
-      "date": "2026-06-25",
-      "account_id": "account_001",
-      "amount": 200000.0,
-      "currency": "COP",
-      "category": "Ropa",
-      "category_emoji": "👕",
-      "description": "Ropa",
-      "payment_method": "",
-      "source": "ai",
-      "created_at": "2026-06-25T03:10:53"
-    },
-    {
-      "id": "expense_005",
-      "date": "2026-06-25",
-      "account_id": "account_001",
-      "amount": 450000.0,
-      "currency": "COP",
-      "category": "Servicios",
-      "category_emoji": "🔧",
-      "description": "Arreglo de moto",
-      "payment_method": "",
-      "source": "ai",
-      "created_at": "2026-06-25T03:10:53"
-    },
-    {
-      "id": "expense_006",
-      "date": "2026-06-28",
-      "account_id": "account_001",
-      "amount": 2000.0,
-      "currency": "COP",
-      "category": "Ropa",
-      "category_emoji": "🏷️",
-      "description": "Solo compre una camiseta",
-      "payment_method": "",
-      "source": "manual",
-      "created_at": "2026-06-28T17:55:59"
-    },
-    {
-      "id": "expense_007",
-      "date": "2026-06-28",
-      "account_id": null,
-      "amount": 20000.0,
-      "currency": "COP",
-      "category": "Comida",
-      "category_emoji": "🍽️",
-      "description": "comida",
-      "payment_method": "",
-      "source": "ai",
-      "created_at": "2026-06-28T19:54:58"
-    },
-    {
-      "id": "expense_008",
-      "date": "2026-06-28",
-      "account_id": "account_001",
-      "amount": 20000.0,
-      "currency": "COP",
-      "category": "Cafecito",
-      "category_emoji": "☕",
-      "description": "Comida",
-      "payment_method": "",
-      "source": "ai",
-      "created_at": "2026-06-28T20:02:16"
+      "created_at": "2026-07-15T03:42:23"
     }
   ],
+  "incomes": [],
   "investments": [
     {
       "id": "investment_001",
       "date": "2024-11-14",
       "account_id": null,
       "asset": "",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 22.36,
       "currency": "USD",
       "action": "deposit",
@@ -229,38 +128,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_002",
       "date": "2024-11-14",
       "account_id": null,
-      "asset": "ACWI",
-      "asset_type": "ETF",
-      "amount": 22.15,
-      "currency": "USD",
-      "action": "buy",
-      "operation_type": "buy",
-      "quantity": 0.18274,
-      "amount_usd": 22.0,
-      "amount_cop": null,
-      "unit_price": 120.38,
-      "closing_cost": 0.15,
-      "pnl_usd": null,
-      "total": 22.15,
-      "source_image": null,
-      "category": "Inversión",
-      "category_emoji": "📈",
-      "notes": "",
-      "source": "import",
-      "created_at": "2026-06-25T02:52:10"
-    },
-    {
-      "id": "investment_003",
-      "date": "2024-11-14",
-      "account_id": null,
       "asset": "",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 24.5,
       "currency": "USD",
       "action": "deposit",
@@ -277,14 +152,38 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
+    },
+    {
+      "id": "investment_003",
+      "date": "2024-11-14",
+      "account_id": null,
+      "asset": "ACWI",
+      "asset_type": "etf",
+      "amount": 22.15,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.18274,
+      "amount_usd": 22.0,
+      "amount_cop": null,
+      "unit_price": 120.38,
+      "closing_cost": 0.15,
+      "pnl_usd": null,
+      "total": 22.15,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_004",
       "date": "2024-11-14",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 24.24,
       "currency": "USD",
       "action": "buy",
@@ -301,14 +200,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_005",
       "date": "2024-11-21",
       "account_id": null,
       "asset": "",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 45.42,
       "currency": "USD",
       "action": "deposit",
@@ -325,14 +224,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_006",
       "date": "2024-11-21",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 25.15,
       "currency": "USD",
       "action": "buy",
@@ -349,14 +248,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_007",
       "date": "2024-11-21",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 20.74,
       "currency": "USD",
       "action": "buy",
@@ -373,14 +272,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_008",
       "date": "2024-12-13",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 48.22,
       "currency": "USD",
       "action": "sell",
@@ -397,14 +296,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_009",
       "date": "2024-12-18",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 47.98,
       "currency": "USD",
       "action": "buy",
@@ -421,14 +320,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_010",
       "date": "2024-12-20",
       "account_id": null,
       "asset": "",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 45.0,
       "currency": "USD",
       "action": "deposit",
@@ -445,14 +344,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_011",
       "date": "2024-12-20",
       "account_id": null,
       "asset": "NU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 45.15,
       "currency": "USD",
       "action": "buy",
@@ -469,14 +368,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_012",
       "date": "2024-12-23",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": -0.13,
       "currency": "USD",
       "action": "dividend",
@@ -493,14 +392,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_013",
       "date": "2024-12-23",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 0.42,
       "currency": "USD",
       "action": "dividend",
@@ -517,14 +416,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_014",
       "date": "2025-01-21",
       "account_id": null,
       "asset": "",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -541,14 +440,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_015",
       "date": "2025-01-22",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 5.05,
       "currency": "USD",
       "action": "buy",
@@ -565,14 +464,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_016",
       "date": "2025-01-23",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 30.15,
       "currency": "USD",
       "action": "buy",
@@ -589,14 +488,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_017",
       "date": "2025-01-23",
       "account_id": null,
       "asset": "VOO",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -613,15 +512,15 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_018",
       "date": "2025-01-30",
       "account_id": null,
       "asset": "VOO",
-      "asset_type": "ETF",
-      "amount": 14.74,
+      "asset_type": "etf",
+      "amount": 14.73,
       "currency": "USD",
       "action": "sell",
       "operation_type": "sell",
@@ -629,22 +528,22 @@
       "amount_usd": 14.9,
       "amount_cop": null,
       "unit_price": 554.79,
-      "closing_cost": 0.16,
+      "closing_cost": 0.17,
       "pnl_usd": null,
-      "total": 14.74,
+      "total": 14.73,
       "source_image": null,
       "category": "Inversión",
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_019",
       "date": "2025-01-31",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 14.15,
       "currency": "USD",
       "action": "buy",
@@ -661,38 +560,38 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_020",
       "date": "2025-02-20",
       "account_id": null,
       "asset": "NU",
-      "asset_type": "ETF",
-      "amount": 44.99,
+      "asset_type": "etf",
+      "amount": 44.98,
       "currency": "USD",
       "action": "sell",
       "operation_type": "sell",
       "quantity": 3.37,
-      "amount_usd": null,
+      "amount_usd": 45.1,
       "amount_cop": null,
       "unit_price": 13.38,
-      "closing_cost": 0.01,
+      "closing_cost": 0.12,
       "pnl_usd": null,
-      "total": 44.99,
+      "total": 44.98,
       "source_image": null,
       "category": "Inversión",
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_021",
       "date": "2025-02-21",
       "account_id": null,
       "asset": "",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -709,14 +608,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_022",
       "date": "2025-02-21",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 19.15,
       "currency": "USD",
       "action": "buy",
@@ -733,14 +632,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_023",
       "date": "2025-02-21",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 24.15,
       "currency": "USD",
       "action": "buy",
@@ -757,14 +656,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_024",
       "date": "2025-02-21",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 38.15,
       "currency": "USD",
       "action": "buy",
@@ -781,15 +680,15 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_025",
       "date": "2025-02-21",
       "account_id": null,
       "asset": "ETHUSD",
-      "asset_type": "ETF",
-      "amount": 10.8,
+      "asset_type": "crypto",
+      "amount": 10.08,
       "currency": "USD",
       "action": "buy",
       "operation_type": "buy",
@@ -799,20 +698,20 @@
       "unit_price": 2824.16,
       "closing_cost": 0.1,
       "pnl_usd": null,
-      "total": 10.8,
+      "total": 10.08,
       "source_image": null,
       "category": "Inversión",
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_026",
       "date": "2025-03-24",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -829,14 +728,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_027",
       "date": "2025-03-26",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 0.08,
       "currency": "USD",
       "action": "dividend",
@@ -853,14 +752,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_028",
       "date": "2025-03-29",
       "account_id": null,
       "asset": "ETHUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 8.08,
       "currency": "USD",
       "action": "buy",
@@ -877,14 +776,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_029",
       "date": "2025-03-29",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 6.06,
       "currency": "USD",
       "action": "buy",
@@ -901,14 +800,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_030",
       "date": "2025-04-03",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 8.15,
       "currency": "USD",
       "action": "buy",
@@ -925,14 +824,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_031",
       "date": "2025-04-07",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 14.15,
       "currency": "USD",
       "action": "buy",
@@ -949,14 +848,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_032",
       "date": "2025-04-07",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 12.15,
       "currency": "USD",
       "action": "buy",
@@ -973,14 +872,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_033",
       "date": "2025-04-07",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -997,14 +896,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_034",
       "date": "2025-04-22",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -1021,14 +920,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_035",
       "date": "2025-04-23",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 12.15,
       "currency": "USD",
       "action": "buy",
@@ -1045,14 +944,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_036",
       "date": "2025-04-23",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 10.15,
       "currency": "USD",
       "action": "buy",
@@ -1069,14 +968,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_037",
       "date": "2025-04-23",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1093,14 +992,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_038",
       "date": "2025-04-23",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1117,14 +1016,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_039",
       "date": "2025-04-23",
       "account_id": null,
       "asset": "NU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1141,14 +1040,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_040",
       "date": "2025-05-07",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 8.0,
       "currency": "USD",
       "action": "buy",
@@ -1165,14 +1064,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_041",
       "date": "2025-05-22",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -1189,14 +1088,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_042",
       "date": "2025-05-23",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 12.65,
       "currency": "USD",
       "action": "buy",
@@ -1213,14 +1112,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_043",
       "date": "2025-05-23",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 7.65,
       "currency": "USD",
       "action": "buy",
@@ -1237,14 +1136,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_044",
       "date": "2025-05-23",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1261,14 +1160,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_045",
       "date": "2025-05-23",
       "account_id": null,
       "asset": "NU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1285,14 +1184,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_046",
       "date": "2025-05-23",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1309,14 +1208,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_047",
       "date": "2025-06-23",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 0.57,
       "currency": "USD",
       "action": "dividend",
@@ -1333,14 +1232,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_048",
       "date": "2025-06-23",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 0.36,
       "currency": "USD",
       "action": "dividend",
@@ -1357,14 +1256,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_049",
       "date": "2025-06-25",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 0.31,
       "currency": "USD",
       "action": "dividend",
@@ -1381,14 +1280,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_050",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -1405,14 +1304,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_051",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 12.62,
       "currency": "USD",
       "action": "buy",
@@ -1429,14 +1328,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_052",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "ETHUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 10.1,
       "currency": "USD",
       "action": "buy",
@@ -1453,14 +1352,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:10"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_053",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1477,14 +1376,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_054",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 7.65,
       "currency": "USD",
       "action": "buy",
@@ -1501,14 +1400,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_055",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1525,14 +1424,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_056",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1549,14 +1448,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_057",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1573,14 +1472,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_058",
       "date": "2025-06-26",
       "account_id": null,
       "asset": "NU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1597,14 +1496,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_059",
       "date": "2025-07-23",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -1621,14 +1520,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_060",
       "date": "2025-07-23",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 10.1,
       "currency": "USD",
       "action": "buy",
@@ -1645,14 +1544,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_061",
       "date": "2025-07-23",
       "account_id": null,
       "asset": "ETHUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 5.05,
       "currency": "USD",
       "action": "buy",
@@ -1669,14 +1568,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_062",
       "date": "2025-07-23",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 10.15,
       "currency": "USD",
       "action": "buy",
@@ -1693,14 +1592,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_063",
       "date": "2025-07-23",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -1717,38 +1616,62 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_064",
-      "date": "2025-08-01",
+      "date": "2025-07-23",
       "account_id": null,
-      "asset": "ETHUSD",
-      "asset_type": "ETF",
-      "amount": 14.28,
+      "asset": "NVDA",
+      "asset_type": "etf",
+      "amount": 12.15,
       "currency": "USD",
       "action": "buy",
       "operation_type": "buy",
-      "quantity": 0.00399,
-      "amount_usd": 14.42,
+      "quantity": 0.07026,
+      "amount_usd": 12.0,
       "amount_cop": null,
-      "unit_price": 3614.03,
-      "closing_cost": 0.14,
+      "unit_price": 170.78,
+      "closing_cost": 0.15,
       "pnl_usd": null,
-      "total": 14.28,
+      "total": 12.15,
       "source_image": null,
       "category": "Inversión",
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
       "id": "investment_065",
+      "date": "2025-07-23",
+      "account_id": null,
+      "asset": "NU",
+      "asset_type": "etf",
+      "amount": 5.15,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.38476,
+      "amount_usd": 5.0,
+      "amount_cop": null,
+      "unit_price": 12.99,
+      "closing_cost": 0.15,
+      "pnl_usd": null,
+      "total": 5.15,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:46"
+    },
+    {
+      "id": "investment_066",
       "date": "2025-08-01",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 21.97,
       "currency": "USD",
       "action": "buy",
@@ -1765,15 +1688,15 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
-      "id": "investment_066",
+      "id": "investment_067",
       "date": "2025-08-01",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
-      "amount": 15.05,
+      "asset_type": "etf",
+      "amount": 15.04,
       "currency": "USD",
       "action": "sell",
       "operation_type": "sell",
@@ -1781,22 +1704,94 @@
       "amount_usd": 15.21,
       "amount_cop": null,
       "unit_price": 173.77,
-      "closing_cost": 0.16,
+      "closing_cost": 0.17,
       "pnl_usd": null,
-      "total": 15.05,
+      "total": 15.04,
       "source_image": null,
       "category": "Inversión",
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
-      "id": "investment_067",
+      "id": "investment_068",
+      "date": "2025-08-01",
+      "account_id": null,
+      "asset": "ETHUSD",
+      "asset_type": "crypto",
+      "amount": 1.43,
+      "currency": "USD",
+      "action": "sell",
+      "operation_type": "sell",
+      "quantity": 0.0004,
+      "amount_usd": 1.44,
+      "amount_cop": null,
+      "unit_price": 3600.0,
+      "closing_cost": 0.01,
+      "pnl_usd": null,
+      "total": 1.43,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:46"
+    },
+    {
+      "id": "investment_069",
+      "date": "2025-08-01",
+      "account_id": null,
+      "asset": "ETHUSD",
+      "asset_type": "crypto",
+      "amount": 14.28,
+      "currency": "USD",
+      "action": "sell",
+      "operation_type": "sell",
+      "quantity": 0.00399,
+      "amount_usd": 14.42,
+      "amount_cop": null,
+      "unit_price": 3614.03,
+      "closing_cost": 0.14,
+      "pnl_usd": null,
+      "total": 14.28,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:46"
+    },
+    {
+      "id": "investment_070",
+      "date": "2025-08-21",
+      "account_id": null,
+      "asset": "",
+      "asset_type": "etf",
+      "amount": 50.0,
+      "currency": "USD",
+      "action": "deposit",
+      "operation_type": "deposit",
+      "quantity": null,
+      "amount_usd": 50.0,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": null,
+      "pnl_usd": null,
+      "total": 50.0,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:46"
+    },
+    {
+      "id": "investment_071",
       "date": "2025-08-21",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 10.15,
       "currency": "USD",
       "action": "buy",
@@ -1813,14 +1808,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
-      "id": "investment_068",
+      "id": "investment_072",
       "date": "2025-08-21",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 12.15,
       "currency": "USD",
       "action": "buy",
@@ -1837,14 +1832,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:46"
     },
     {
-      "id": "investment_069",
+      "id": "investment_073",
       "date": "2025-08-21",
       "account_id": null,
       "asset": "NU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 8.15,
       "currency": "USD",
       "action": "buy",
@@ -1861,14 +1856,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_070",
+      "id": "investment_074",
       "date": "2025-08-21",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 12.15,
       "currency": "USD",
       "action": "buy",
@@ -1885,14 +1880,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_071",
+      "id": "investment_075",
       "date": "2025-08-21",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -1909,14 +1904,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_072",
+      "id": "investment_076",
       "date": "2025-08-21",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 8.08,
       "currency": "USD",
       "action": "buy",
@@ -1933,14 +1928,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_073",
+      "id": "investment_077",
       "date": "2025-08-21",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 7.07,
       "currency": "USD",
       "action": "buy",
@@ -1957,38 +1952,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_074",
-      "date": "2025-08-21",
-      "account_id": null,
-      "asset": "EEM",
-      "asset_type": "ETF",
-      "amount": 10.15,
-      "currency": "USD",
-      "action": "buy",
-      "operation_type": "buy",
-      "quantity": 0.2014,
-      "amount_usd": 10.0,
-      "amount_cop": null,
-      "unit_price": 49.65,
-      "closing_cost": 0.15,
-      "pnl_usd": null,
-      "total": 10.15,
-      "source_image": null,
-      "category": "Inversión",
-      "category_emoji": "📈",
-      "notes": "",
-      "source": "import",
-      "created_at": "2026-06-25T02:52:11"
-    },
-    {
-      "id": "investment_075",
+      "id": "investment_078",
       "date": "2025-09-24",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -2005,14 +1976,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_076",
+      "id": "investment_079",
       "date": "2025-09-24",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 0.33,
       "currency": "USD",
       "action": "dividend",
@@ -2029,14 +2000,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_077",
+      "id": "investment_080",
       "date": "2025-09-29",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 10.1,
       "currency": "USD",
       "action": "buy",
@@ -2053,14 +2024,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_078",
+      "id": "investment_081",
       "date": "2025-09-29",
       "account_id": null,
       "asset": "ETHUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 8.08,
       "currency": "USD",
       "action": "buy",
@@ -2077,14 +2048,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_079",
+      "id": "investment_082",
       "date": "2025-09-29",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -2101,14 +2072,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_080",
+      "id": "investment_083",
       "date": "2025-09-29",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 5.15,
       "currency": "USD",
       "action": "buy",
@@ -2125,14 +2096,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_081",
+      "id": "investment_084",
       "date": "2025-09-29",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 6.15,
       "currency": "USD",
       "action": "buy",
@@ -2149,14 +2120,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_082",
+      "id": "investment_085",
       "date": "2025-09-29",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 7.15,
       "currency": "USD",
       "action": "buy",
@@ -2173,14 +2144,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_083",
+      "id": "investment_086",
       "date": "2025-09-29",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 7.15,
       "currency": "USD",
       "action": "buy",
@@ -2197,14 +2168,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_084",
+      "id": "investment_087",
       "date": "2025-10-23",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 50.0,
       "currency": "USD",
       "action": "deposit",
@@ -2221,14 +2192,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_085",
+      "id": "investment_088",
       "date": "2025-10-23",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 10.15,
       "currency": "USD",
       "action": "buy",
@@ -2245,14 +2216,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_086",
+      "id": "investment_089",
       "date": "2025-10-23",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -2269,14 +2240,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_087",
+      "id": "investment_090",
       "date": "2025-10-23",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -2293,14 +2264,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_088",
+      "id": "investment_091",
       "date": "2025-10-23",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 8.06,
       "currency": "USD",
       "action": "buy",
@@ -2317,14 +2288,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_089",
+      "id": "investment_092",
       "date": "2025-10-23",
       "account_id": null,
       "asset": "ETHUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 5.05,
       "currency": "USD",
       "action": "buy",
@@ -2341,14 +2312,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_090",
+      "id": "investment_093",
       "date": "2025-11-22",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 100.0,
       "currency": "USD",
       "action": "deposit",
@@ -2365,14 +2336,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_091",
+      "id": "investment_094",
       "date": "2025-11-22",
       "account_id": null,
       "asset": "ETHUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -2389,14 +2360,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_092",
+      "id": "investment_095",
       "date": "2025-11-22",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 25.25,
       "currency": "USD",
       "action": "buy",
@@ -2413,14 +2384,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_093",
+      "id": "investment_096",
       "date": "2025-11-26",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 28.15,
       "currency": "USD",
       "action": "buy",
@@ -2437,14 +2408,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_094",
+      "id": "investment_097",
       "date": "2025-11-26",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 20.15,
       "currency": "USD",
       "action": "buy",
@@ -2461,14 +2432,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_095",
+      "id": "investment_098",
       "date": "2025-11-26",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 11.3,
       "currency": "USD",
       "action": "buy",
@@ -2485,14 +2456,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_096",
+      "id": "investment_099",
       "date": "2025-12-19",
       "account_id": null,
       "asset": "",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 100.0,
       "currency": "USD",
       "action": "deposit",
@@ -2509,14 +2480,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_097",
+      "id": "investment_100",
       "date": "2025-12-22",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 1.06,
       "currency": "USD",
       "action": "dividend",
@@ -2533,14 +2504,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_098",
+      "id": "investment_101",
       "date": "2025-12-22",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 1.09,
       "currency": "USD",
       "action": "dividend",
@@ -2557,14 +2528,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_099",
+      "id": "investment_102",
       "date": "2025-12-24",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 1.59,
       "currency": "USD",
       "action": "dividend",
@@ -2581,14 +2552,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_100",
+      "id": "investment_103",
       "date": "2026-01-02",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 25.15,
       "currency": "USD",
       "action": "buy",
@@ -2605,14 +2576,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_101",
+      "id": "investment_104",
       "date": "2026-01-02",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 20.15,
       "currency": "USD",
       "action": "buy",
@@ -2629,14 +2600,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_102",
+      "id": "investment_105",
       "date": "2026-01-02",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 10.15,
       "currency": "USD",
       "action": "buy",
@@ -2653,14 +2624,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_103",
+      "id": "investment_106",
       "date": "2026-01-02",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 20.15,
       "currency": "USD",
       "action": "buy",
@@ -2677,14 +2648,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_104",
+      "id": "investment_107",
       "date": "2026-01-02",
       "account_id": null,
       "asset": "GLD",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 10.15,
       "currency": "USD",
       "action": "buy",
@@ -2701,14 +2672,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_105",
+      "id": "investment_108",
       "date": "2026-01-21",
       "account_id": null,
       "asset": "",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 100.0,
       "currency": "USD",
       "action": "deposit",
@@ -2725,14 +2696,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_106",
+      "id": "investment_109",
       "date": "2026-01-21",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 25.15,
       "currency": "USD",
       "action": "buy",
@@ -2749,14 +2720,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_107",
+      "id": "investment_110",
       "date": "2026-01-21",
       "account_id": null,
       "asset": "EEM",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -2773,14 +2744,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_108",
+      "id": "investment_111",
       "date": "2026-01-21",
       "account_id": null,
       "asset": "VEU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -2797,14 +2768,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_109",
+      "id": "investment_112",
       "date": "2026-01-21",
       "account_id": null,
       "asset": "NU",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 10.15,
       "currency": "USD",
       "action": "buy",
@@ -2821,14 +2792,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_110",
+      "id": "investment_113",
       "date": "2026-01-21",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -2845,14 +2816,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_111",
+      "id": "investment_114",
       "date": "2026-02-09",
       "account_id": null,
       "asset": "BTCUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 30.3,
       "currency": "USD",
       "action": "buy",
@@ -2869,14 +2840,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_112",
+      "id": "investment_115",
       "date": "2026-03-09",
       "account_id": null,
       "asset": "USD",
-      "asset_type": "ETF",
+      "asset_type": "cash",
       "amount": 75.0,
       "currency": "USD",
       "action": "deposit",
@@ -2893,14 +2864,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_113",
+      "id": "investment_116",
       "date": "2026-03-09",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 20.15,
       "currency": "USD",
       "action": "buy",
@@ -2917,14 +2888,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_114",
+      "id": "investment_117",
       "date": "2026-03-09",
       "account_id": null,
       "asset": "NVDA",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 15.15,
       "currency": "USD",
       "action": "buy",
@@ -2941,14 +2912,38 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_116",
+      "id": "investment_118",
+      "date": "2026-03-16",
+      "account_id": null,
+      "asset": "BTCUSD",
+      "asset_type": "crypto",
+      "amount": 25.25,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.00034097,
+      "amount_usd": 25.0,
+      "amount_cop": null,
+      "unit_price": 73320.0,
+      "closing_cost": 0.25,
+      "pnl_usd": null,
+      "total": 25.25,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:47"
+    },
+    {
+      "id": "investment_119",
       "date": "2026-03-16",
       "account_id": null,
       "asset": "ETHUSD",
-      "asset_type": "ETF",
+      "asset_type": "crypto",
       "amount": 10.1,
       "currency": "USD",
       "action": "buy",
@@ -2965,14 +2960,14 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_117",
+      "id": "investment_120",
       "date": "2026-03-16",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 11.29,
       "currency": "USD",
       "action": "buy",
@@ -2989,19 +2984,307 @@
       "category_emoji": "📈",
       "notes": "",
       "source": "import",
-      "created_at": "2026-06-25T02:52:11"
+      "created_at": "2026-07-13T17:54:47"
     },
     {
-      "id": "investment_118",
+      "id": "investment_121",
+      "date": "2026-03-25",
+      "account_id": null,
+      "asset": "VEU",
+      "asset_type": "etf",
+      "amount": 0.18,
+      "currency": "USD",
+      "action": "dividend",
+      "operation_type": "dividend",
+      "quantity": null,
+      "amount_usd": 0.26,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": 0.08,
+      "pnl_usd": null,
+      "total": 0.18,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:47"
+    },
+    {
+      "id": "investment_122",
+      "date": "2026-04-02",
+      "account_id": null,
+      "asset": "NVDA",
+      "asset_type": "etf",
+      "amount": 0.01,
+      "currency": "USD",
+      "action": "dividend",
+      "operation_type": "dividend",
+      "quantity": null,
+      "amount_usd": 0.01,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": 0.0,
+      "pnl_usd": null,
+      "total": 0.01,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:47"
+    },
+    {
+      "id": "investment_123",
+      "date": "2026-04-28",
+      "account_id": null,
+      "asset": "",
+      "asset_type": "etf",
+      "amount": 104.9,
+      "currency": "USD",
+      "action": "deposit",
+      "operation_type": "deposit",
+      "quantity": null,
+      "amount_usd": 104.9,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": null,
+      "pnl_usd": null,
+      "total": 104.9,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:47"
+    },
+    {
+      "id": "investment_124",
+      "date": "2026-04-28",
+      "account_id": null,
+      "asset": "ACWI",
+      "asset_type": "etf",
+      "amount": 60.15,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.40186,
+      "amount_usd": 60.0,
+      "amount_cop": null,
+      "unit_price": 149.3,
+      "closing_cost": 0.15,
+      "pnl_usd": null,
+      "total": 60.15,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:47"
+    },
+    {
+      "id": "investment_125",
+      "date": "2026-04-28",
+      "account_id": null,
+      "asset": "NVDA",
+      "asset_type": "etf",
+      "amount": 19.69,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.09296,
+      "amount_usd": 19.54,
+      "amount_cop": null,
+      "unit_price": 210.19,
+      "closing_cost": 0.15,
+      "pnl_usd": null,
+      "total": 19.69,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:47"
+    },
+    {
+      "id": "investment_126",
+      "date": "2026-04-28",
+      "account_id": null,
+      "asset": "BTCUSD",
+      "asset_type": "crypto",
+      "amount": 25.25,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.00032934,
+      "amount_usd": 25.0,
+      "amount_cop": null,
+      "unit_price": 75909.39,
+      "closing_cost": 0.25,
+      "pnl_usd": null,
+      "total": 25.25,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:47"
+    },
+    {
+      "id": "investment_127",
+      "date": "2026-05-27",
+      "account_id": null,
+      "asset": "",
+      "asset_type": "etf",
+      "amount": 100.0,
+      "currency": "USD",
+      "action": "deposit",
+      "operation_type": "deposit",
+      "quantity": null,
+      "amount_usd": 100.0,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": null,
+      "pnl_usd": null,
+      "total": 100.0,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_128",
+      "date": "2026-06-01",
+      "account_id": null,
+      "asset": "ACWI",
+      "asset_type": "etf",
+      "amount": 60.15,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.37824,
+      "amount_usd": 60.0,
+      "amount_cop": null,
+      "unit_price": 158.62,
+      "closing_cost": 0.15,
+      "pnl_usd": null,
+      "total": 60.15,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_129",
+      "date": "2026-06-01",
+      "account_id": null,
+      "asset": "BTCUSD",
+      "asset_type": "crypto",
+      "amount": 25.25,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.00035278,
+      "amount_usd": 25.0,
+      "amount_cop": null,
+      "unit_price": 70865.69,
+      "closing_cost": 0.25,
+      "pnl_usd": null,
+      "total": 25.25,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_130",
+      "date": "2026-06-01",
+      "account_id": null,
+      "asset": "NVDA",
+      "asset_type": "etf",
+      "amount": 15.0,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.06688,
+      "amount_usd": 14.85,
+      "amount_cop": null,
+      "unit_price": 222.02,
+      "closing_cost": 0.15,
+      "pnl_usd": null,
+      "total": 15.0,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_131",
+      "date": "2026-06-20",
+      "account_id": null,
+      "asset": "",
+      "asset_type": "etf",
+      "amount": 100.0,
+      "currency": "USD",
+      "action": "deposit",
+      "operation_type": "deposit",
+      "quantity": null,
+      "amount_usd": 100.0,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": null,
+      "pnl_usd": null,
+      "total": 100.0,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_132",
+      "date": "2026-06-20",
+      "account_id": null,
+      "asset": "",
+      "asset_type": "etf",
+      "amount": 200.0,
+      "currency": "USD",
+      "action": "deposit",
+      "operation_type": "deposit",
+      "quantity": null,
+      "amount_usd": 200.0,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": null,
+      "pnl_usd": null,
+      "total": 200.0,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_133",
       "date": "2026-06-22",
       "account_id": null,
       "asset": "ACWI",
-      "asset_type": "ETF",
+      "asset_type": "etf",
       "amount": 240.15,
       "currency": "USD",
       "action": "buy",
       "operation_type": "buy",
-      "quantity": 1.52039,
+      "quantity": 1.52,
       "amount_usd": 240.0,
       "amount_cop": null,
       "unit_price": 157.85,
@@ -3012,12 +3295,130 @@
       "category": "Inversión",
       "category_emoji": "📈",
       "notes": "",
-      "source": "ocr",
-      "created_at": "2026-06-28T18:19:58"
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_134",
+      "date": "2026-06-22",
+      "account_id": null,
+      "asset": "EEM",
+      "asset_type": "etf",
+      "amount": 62.15,
+      "currency": "USD",
+      "action": "buy",
+      "operation_type": "buy",
+      "quantity": 0.87081,
+      "amount_usd": 62.0,
+      "amount_cop": null,
+      "unit_price": 71.19,
+      "closing_cost": 0.15,
+      "pnl_usd": null,
+      "total": 62.15,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_135",
+      "date": "2026-06-22",
+      "account_id": null,
+      "asset": "EEM",
+      "asset_type": "etf",
+      "amount": 0.61,
+      "currency": "USD",
+      "action": "dividend",
+      "operation_type": "dividend",
+      "quantity": null,
+      "amount_usd": 0.87,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": 0.26,
+      "pnl_usd": null,
+      "total": 0.61,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_136",
+      "date": "2026-06-22",
+      "account_id": null,
+      "asset": "ACWI",
+      "asset_type": "etf",
+      "amount": 1.82,
+      "currency": "USD",
+      "action": "dividend",
+      "operation_type": "dividend",
+      "quantity": null,
+      "amount_usd": 2.6,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": 0.78,
+      "pnl_usd": null,
+      "total": 1.82,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_137",
+      "date": "2026-06-24",
+      "account_id": null,
+      "asset": "VEU",
+      "asset_type": "etf",
+      "amount": 0.62,
+      "currency": "USD",
+      "action": "dividend",
+      "operation_type": "dividend",
+      "quantity": null,
+      "amount_usd": 0.89,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": 0.27,
+      "pnl_usd": null,
+      "total": 0.62,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
+    },
+    {
+      "id": "investment_138",
+      "date": "2026-06-29",
+      "account_id": null,
+      "asset": "NVDA",
+      "asset_type": "etf",
+      "amount": 0.15,
+      "currency": "USD",
+      "action": "dividend",
+      "operation_type": "dividend",
+      "quantity": null,
+      "amount_usd": 0.21,
+      "amount_cop": null,
+      "unit_price": null,
+      "closing_cost": 0.06,
+      "pnl_usd": null,
+      "total": 0.15,
+      "source_image": null,
+      "category": "Inversión",
+      "category_emoji": "📈",
+      "notes": "",
+      "source": "import",
+      "created_at": "2026-07-13T17:54:48"
     }
   ],
-  "notes": [],
-  "incomes": [],
   "investment_assets": [
     {
       "id": "iasset_001",
@@ -3058,6 +3459,675 @@
     {
       "id": "iasset_004",
       "symbol": "VOO"
+    }
+  ],
+  "notes": [],
+  "financial_profile": {
+    "monthly_income_fixed": 6000000.0,
+    "monthly_income_variable_avg": null,
+    "savings_target_percent": 50.0,
+    "investment_target_percent": 10.0,
+    "emergency_fund_target_months": 6.0,
+    "risk_profile": "moderate",
+    "investment_horizon": "medium",
+    "fiscal_country": "CO",
+    "priorities": [],
+    "onboarding_completed": true,
+    "last_reviewed_at": "2026-07-15T03:28:54",
+    "cushion_percent": 10.0,
+    "monthly_fixed_expenses": null,
+    "fixed_expenses": []
+  },
+  "goals": [
+    {
+      "id": "goal_001",
+      "type": "savings",
+      "title": "Maestría",
+      "target_amount": 21000000.0,
+      "target_date": null,
+      "monthly_target": null,
+      "status": "active",
+      "priority": 1,
+      "notes": null,
+      "created_at": "2026-07-15T02:24:05",
+      "updated_at": "2026-07-15T02:24:05"
+    }
+  ],
+  "chat_threads": [
+    {
+      "id": "thread_001",
+      "title": "Conversación",
+      "kind": "main",
+      "created_at": "2026-07-15T03:11:14",
+      "updated_at": "2026-07-15T19:19:25"
+    }
+  ],
+  "chat_messages": [
+    {
+      "id": "msg_001",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "¿Cómo me está yendo este mes?",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:11:20"
+    },
+    {
+      "id": "msg_002",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Este mes aún no se acaba, pero lo positivo es que ya superaste tu objetivo de ahorro mensual (100% vs 30%). Tu fondo de emergencia, sin embargo, está en 0 meses de los 6 necesarios. ¿Quieres ajustar algo en tus prioridades?",
+      "meta": {
+        "follow_ups": [
+          "¿Prefieres enfocarte más en el fondo de emergencia?",
+          "¿Quieres mantener el ritmo de ahorro actual?",
+          "¿Tienes planes para tu maestría pronto?"
+        ],
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:11:40"
+    },
+    {
+      "id": "msg_003",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "¿Cómo me está yendo este mes?",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:13:27"
+    },
+    {
+      "id": "msg_004",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Este mes todavía no se ha registrado ingreso ni gasto, por eso aparecen en cero. Sin embargo, según los indicadores que ya tienes, tu ahorro real está en 100 % (doble tu meta del 30 %). Tu fondo de emergencia sigue en 0 meses de los 6 que necesitas, y la suma de tus asignaciones está en 50 %. ¿Quieres cargar los movimientos de este mes o ajustar alguna prioridad?",
+      "meta": {
+        "follow_ups": [
+          "Registrar ingresos y gastos",
+          "Revisar plan de fondo de emergente",
+          "Ver detalle de asignaciones"
+        ],
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:13:42"
+    },
+    {
+      "id": "msg_005",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Que crees que debería hacer este mes con mi ingreso",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:14:16"
+    },
+    {
+      "id": "msg_006",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Este mes deberías priorizar completar tu fondo de emergencia, ya que está en 0 de 6 meses. Usa parte de tu ingreso fijo (6M COP) para cubrir al menos 1 o 2 meses de gastos esenciales en un ahorro separado. marking: ya estás superando tus objetivos de ahorro (30%), pero tu emergencia es urgente.",
+      "meta": {
+        "follow_ups": [
+          "¿Quieres mover algo de tus inversiones a emergencia?",
+          "¿Te interesa revisar tus asignaciones del 50% actual?",
+          "¿Quieres que calcule cuánto necesitas ahorrar mensualmente para el fondo de emergencia?"
+        ],
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:14:32"
+    },
+    {
+      "id": "msg_007",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Pero la maestría tiene prioridad no?",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:14:55"
+    },
+    {
+      "id": "msg_008",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "La maestría es una meta importante, pero el fondo de emergencia aún necesita 6 meses de aportes. Con un ahorro real del 100 % frente al 30 %, tienes margen para dividir tu ingreso: podrías poner alrededor del 50 % al fondo de emergencia y el resto al ahorro para la maestríaBoundary de esa manera mantienes ambas prioridades. ¿Te parece una buena aproximación?",
+      "meta": {
+        "follow_ups": [
+          "¿Te gustaría asignar la mitad al fondo de emergencia y la otra mitad a la maestría?",
+          "¿Prefieres cubrir al menos un mes de emergencias antes de acelerar la maestría?",
+          "¿Quieres revisar cómo se distribuye tu ingreso mensual?"
+        ],
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:15:26"
+    },
+    {
+      "id": "msg_009",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Normalmente guardo 3 millones de pesos para la maestría casi el 50% de mi salario",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:28:12"
+    },
+    {
+      "id": "msg_010",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "¡Gracias por compartir eso! Si ahorras el 50% para tu maestría (3M COP), tu otro 50% podría enfocarse en el fondo de emergencia, ya que aún falta completar 6 meses. ¿Te gustaría ajustar los porcentajes entre ambos o necesitas ayuda para distribuir el ingreso exactamente entre ambas prioridades?",
+      "meta": {
+        "follow_ups": [
+          "¿Quieres que calcule cuánto necesitas mensualmente para el fondo de emergencia?",
+          "¿Prefieres priorizar uno sobre el otro este mes?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {
+          "savings_target_percent": 50.0
+        },
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:28:41"
+    },
+    {
+      "id": "msg_011",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "¿Quieres que calcule cuánto necesitas mensualmente para el fondo de emergencia?",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:30:10"
+    },
+    {
+      "id": "msg_012",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "¡Esa sería una gran idea! Si me ayudas con el dato de cuánto sueles gastar mensualmente en tus cosas fijas (arriendo, servicios, etc.), yo calculo de una vez cuánto deberías separar cada mes para completar esos 6 meses de respaldo lo más rápido posible. ¿Te parece si empezamos por tus gastos fijos?",
+      "meta": {
+        "follow_ups": [
+          "Mis gastos fijos son...",
+          "Hablemos de la maestría",
+          "¿Cómo vas con mis metas?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:30:23"
+    },
+    {
+      "id": "msg_013",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "/sumarize",
+      "meta": {
+        "command": "summarize"
+      },
+      "created_at": "2026-07-15T03:33:20"
+    },
+    {
+      "id": "msg_014",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "He resumido tu situación financiera este mes.",
+      "meta": {
+        "command": "summarize",
+        "compacted_count": 6,
+        "follow_ups": [
+          "¿Cómo voy de ahorro este mes?",
+          "¿Cómo está mi emergencia?"
+        ]
+      },
+      "created_at": "2026-07-15T03:33:31"
+    },
+    {
+      "id": "msg_015",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Si te doy un gasto podrías crear el registro",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:33:50"
+    },
+    {
+      "id": "msg_016",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Claro, dime el nombre del gasto y la cantidad en pesos para agregarlo a tus registros.",
+      "meta": {
+        "follow_ups": [
+          "¿Cuánto cuesta cada gasto?",
+          "¿Cuál es el label del gasto?",
+          "Puedes declararlo con el nombre y monto."
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:34:03"
+    },
+    {
+      "id": "msg_017",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Me gasté 30 mil en comida",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:34:30"
+    },
+    {
+      "id": "msg_018",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Entendido, anoté que gastaste 30 000 COP en comida. ¿Quieres seguir registrando otros gastos fijos como arriendo, servicios o internet para tener una visión completa de tus gastos mensuales?",
+      "meta": {
+        "follow_ups": [
+          "¿Cuál es tu gasto mensual de arriendo?",
+          "¿Cuánto sueles pagar en servicios (agua, luz, gas)?",
+          "¿Tienes otros gastos regulares que quieras contabilizar?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:34:35"
+    },
+    {
+      "id": "msg_019",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Pero ese gasto fue ocasional no fijo, como lo registraste",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:35:20"
+    },
+    {
+      "id": "msg_020",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "¡Claro! El gasto de 30 000 COP que mencionaste lo anoté como gasto variable, ya que es ocasional y no se repite regularmente. Si quieres que agreguemos tu arriendo u otros comprom momento mensual a la sección de gastos fijos, solo dime los valores.",
+      "meta": {
+        "follow_ups": [
+          "¿Te gustaría registrar tu arriendo y otros gastos fijos?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:35:45"
+    },
+    {
+      "id": "msg_021",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Puedes registrar un gasto ocasional de comida por 30 mil pesos",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:41:48"
+    },
+    {
+      "id": "msg_022",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "¡Claro! El gasto de 30 mil COP en comida se registró como'occasional'. ¿Quieres agregarlo como categoría 'Comida', 'Alimentación' u otra etiqueta específica?",
+      "meta": {
+        "follow_ups": [
+          "¿Quieres que lo categorice como 'Comida' por defecto?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "movement_draft": {
+          "expenses": [
+            {
+              "kind": "expense",
+              "account_id": null,
+              "account_name_hint": "",
+              "suggested_new_category": null,
+              "accept_category_suggestion": false,
+              "needs_review": false,
+              "title": "Gasto",
+              "amount": 30000,
+              "currency": "COP",
+              "category": "Comida",
+              "category_emoji": "",
+              "description": "Gasto ocasional de comida",
+              "payment_method": ""
+            }
+          ],
+          "incomes": [],
+          "investments": [],
+          "notes": [],
+          "items": [
+            {
+              "kind": "expense",
+              "account_id": null,
+              "account_name_hint": "",
+              "suggested_new_category": null,
+              "accept_category_suggestion": false,
+              "needs_review": false,
+              "title": "Gasto",
+              "amount": 30000,
+              "currency": "COP",
+              "category": "Comida",
+              "category_emoji": "",
+              "description": "Gasto ocasional de comida",
+              "payment_method": ""
+            }
+          ],
+          "counts": {
+            "expenses": 1,
+            "incomes": 0,
+            "investments": 0,
+            "notes": 0,
+            "total": 1
+          },
+          "reflection": "",
+          "ai_available": true,
+          "needs_clarification": null
+        },
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:42:17"
+    },
+    {
+      "id": "msg_023",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Me gasté 30 mil en comida, 50 mil en gasolina",
+      "meta": {
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:52:01"
+    },
+    {
+      "id": "msg_024",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Te escuché, pero no pude interpretar bien la respuesta del modelo. ¿Lo intentamos de nuevo con otras palabras?",
+      "meta": {
+        "parse_error": true,
+        "compacted": true
+      },
+      "created_at": "2026-07-15T03:52:35"
+    },
+    {
+      "id": "msg_025",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Me gasté 30 mil en comida y 59 mil en gasolina",
+      "meta": {},
+      "created_at": "2026-07-15T03:53:04"
+    },
+    {
+      "id": "msg_026",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Ahora mismo no puedo hablar con el modelo de IA. Proveedor respondio HTTP 429: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"google/gemma-4-31b-it:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\",\"provider_name\":\"Google AI Studio\",\"is_byok\":false,\"previous_errors\":[{\"code\":429,\"message\":\"Provider returned error\",\"provider_name\":\"Venice\",\"raw\":\"qwen/qwen3-next-80b-a3b-instruct:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\"},{\"code\":429,\"message\":\"Provider returned error\",\"provider_name\":\"Venice\",\"raw\":\"cognitivecomputations/dolphin-mistral-24b-venice-edition:free is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\"}]}},\"user_id\":\"user_3Fm1KV63ZwsvBEgVnmDbiTEapiG\"} Revisa Configuración → Inteligencia artificial.",
+      "meta": {
+        "error": true
+      },
+      "created_at": "2026-07-15T03:53:06"
+    },
+    {
+      "id": "msg_027",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Ya estás disponible de nuevo?",
+      "meta": {},
+      "created_at": "2026-07-15T17:56:01"
+    },
+    {
+      "id": "msg_028",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "¡Todo listo! Ya estoy de vuelta al 100%. ¿En qué nos quedamos? ¿Querías registrar algo más o revisamos cómo va tu ahorro para la maestría?",
+      "meta": {
+        "follow_ups": [
+          "Registrar un gasto",
+          "Ver mis ahorros",
+          "Crear una nueva cuenta"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "movement_draft": null,
+        "account_draft": null,
+        "lookup": null
+      },
+      "created_at": "2026-07-15T17:56:20"
+    },
+    {
+      "id": "msg_029",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "Ver mis ahorros",
+      "meta": {},
+      "created_at": "2026-07-15T17:56:30"
+    },
+    {
+      "id": "msg_030",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "currently, you're saving 99.5% of your income, which is way above your 50% target for the master's degree. However, your emergency fund is still at 0 months (need 6). Want to adjust your savings target or check emergency fund options?",
+      "meta": {
+        "follow_ups": [
+          "¿Quieres reducir tu meta de ahorro para liquidar el fondo de emergencia primero?",
+          "¿Prefieres aumentar el porcentaje de ahorro para acelerar la maestría?",
+          "¿Target de 6 meses para emergencias es realista con tus gastos actuales?"
+        ],
+        "off_topic": false,
+        "profile_suggestion": {},
+        "movement_draft": null,
+        "account_draft": null,
+        "lookup": null
+      },
+      "created_at": "2026-07-15T17:56:45"
+    },
+    {
+      "id": "msg_031",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "/sumarize",
+      "meta": {
+        "command": "summarize"
+      },
+      "created_at": "2026-07-15T19:14:07"
+    },
+    {
+      "id": "msg_032",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "Historial financiero condensado con éxito. He actualizado tus metas de ahorro y los gastos ocasionales registrados.",
+      "meta": {
+        "command": "summarize",
+        "compacted_count": 16,
+        "follow_ups": [
+          "¿Cómo voy de ahorro este mes?",
+          "¿Cómo está mi emergencia?"
+        ]
+      },
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "msg_033",
+      "thread_id": "thread_001",
+      "role": "user",
+      "content": "/buscar ACWI",
+      "meta": {
+        "command": "lookup"
+      },
+      "created_at": "2026-07-15T19:19:24"
+    },
+    {
+      "id": "msg_034",
+      "thread_id": "thread_001",
+      "role": "assistant",
+      "content": "No encontré movimientos sobre \"acwi\" este mes.",
+      "meta": {
+        "command": "lookup",
+        "lookup": {
+          "query": "acwi",
+          "kind": null,
+          "period": "month",
+          "count": 0,
+          "shown": 0,
+          "totals": {},
+          "hits": []
+        }
+      },
+      "created_at": "2026-07-15T19:19:25"
+    }
+  ],
+  "memory_facts": [
+    {
+      "id": "fact_001",
+      "fact": "El usuario está enfocado en priorizar el fondo de emergencia",
+      "category": "goal",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:14:32"
+    },
+    {
+      "id": "fact_002",
+      "fact": "El usuario limita el 50% de su salario al ahorro para la maestría",
+      "category": "preference",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:28:41"
+    },
+    {
+      "id": "fact_003",
+      "fact": "Perfil actualizado desde el chat: savings_target_percent",
+      "category": "profile",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:28:54"
+    },
+    {
+      "id": "fact_004",
+      "fact": "Meta de ahorro mensual: 30% del ingreso; ahorro real alcanzado: 100% (doble la meta).",
+      "category": "goal",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:33:31"
+    },
+    {
+      "id": "fact_005",
+      "fact": "Fondo de emergencia actual: 0 meses cubiertos; objetivo: 6 meses.",
+      "category": "goal",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:33:31"
+    },
+    {
+      "id": "fact_006",
+      "fact": "Preferencia de asignación: 50% de los recursos dirigidos al ahorro para la maestría.",
+      "category": "preference",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:33:31"
+    },
+    {
+      "id": "fact_007",
+      "fact": "Ingreso fijo mensual: 6 000 000 COP.",
+      "category": "constraint",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:33:31"
+    },
+    {
+      "id": "fact_008",
+      "fact": "Recomendación: usar parte del ingreso para reservar 1‑2 meses de gastos esenciales en el fondo de emergencia.",
+      "category": "habit",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:33:31"
+    },
+    {
+      "id": "fact_009",
+      "fact": "Gasto de 30 000 COP en comida registrado como gasto variable.",
+      "category": "habit",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:34:35"
+    },
+    {
+      "id": "fact_010",
+      "fact": "Gasto ocasional de 30.000 COP en comida registrado",
+      "category": "habit",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T03:42:17"
+    },
+    {
+      "id": "fact_011",
+      "fact": "ahorro_efectivo: 99.5%",
+      "category": "goal",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T17:56:45"
+    },
+    {
+      "id": "fact_012",
+      "fact": "fondo_emerger_cero_meses",
+      "category": "constraint",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T17:56:45"
+    },
+    {
+      "id": "fact_013",
+      "fact": "Destina 3.000.000 COP (50% de su salario) para la meta de la maestría.",
+      "category": "habit",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "fact_014",
+      "fact": "Prioridad de ahorro dividida equitativamente (50/50) entre fondo de emergencia y maestría.",
+      "category": "goal",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "fact_015",
+      "fact": "Distingue entre gastos fijos para el cálculo del fondo y gastos ocasionales/variables.",
+      "category": "preference",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "fact_016",
+      "fact": "Gasto registrado: 30.000 COP en comida (ocasional).",
+      "category": "general",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    },
+    {
+      "id": "fact_017",
+      "fact": "Gasto registrado: 50.000 COP en gasolina (ocasional).",
+      "category": "general",
+      "source": "chat",
+      "active": true,
+      "created_at": "2026-07-15T19:14:18"
+    }
+  ],
+  "memory_summaries": [
+    {
+      "id": "summary_001",
+      "scope": "global",
+      "summary": "El usuario mantiene un nivel de ahorro del 99.5% (meta 50%). Existen dos prioridades financieras: la maestría y la construcción de un fondo de emergencia de 6 meses (actualmente en 0/6). El usuario tiene el hábito de destinar 3.000.000 COP (aprox. 50% de su salario) para la maestría. Se ha acordado una estrategia de distribución 50/50 entre el fondo de emergencia y la maestría. Se han registrado gastos ocasionales/variables: 30.000 COP en comida y 50.000 COP en gasolina. El usuario distingue entre gastos fijos y ocasionales para la planificación del fondo de emergencia.",
+      "updated_at": "2026-07-15T19:14:18"
     }
   ]
 }

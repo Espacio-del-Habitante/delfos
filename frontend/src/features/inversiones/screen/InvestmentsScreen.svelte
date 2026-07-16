@@ -117,7 +117,7 @@
 </script>
 
 <div class="app-shell">
-  <HeaderIsland summary={$finance?.summary ?? null} />
+  <HeaderIsland summary={$finance?.summary ?? null} insights={portfolioInsights} />
 
   <div class="investments-page-top">
     <section class="investments-hero section">
@@ -138,7 +138,7 @@
   </div>
 
   <div class="investments-layout">
-    <InvestmentCharts {investments} on:filterAsset={onChartFilter} />
+    <InvestmentCharts {investments} portfolioInsights={portfolioInsights} on:filterAsset={onChartFilter} />
 
     <InvestmentLedger
       {investments}

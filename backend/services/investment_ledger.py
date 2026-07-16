@@ -27,6 +27,7 @@ SHEET_NAME = "Inversiones - Tabla Central"
 
 OPERATION_TYPE_TO_LABEL = {
     "deposit": "Depósito",
+    "withdrawal": "Retiro",
     "buy": "Compra",
     "sell": "Venta",
     "dividend": "Dividendo",
@@ -36,12 +37,17 @@ LABEL_TO_OPERATION_TYPE = {
     "depósito": "deposit",
     "deposito": "deposit",
     "deposit": "deposit",
+    "retiro": "withdrawal",
+    "withdrawal": "withdrawal",
     "compra": "buy",
+    "compra mercado": "buy",
     "buy": "buy",
     "venta": "sell",
+    "venta mercado": "sell",
     "sell": "sell",
     "dividendo": "dividend",
     "dividend": "dividend",
+    "ajuste de efectivo": "deposit",
 }
 
 VALID_OPERATION_TYPES = frozenset(OPERATION_TYPE_TO_LABEL)
@@ -191,7 +197,21 @@ def normalize_operation_type(value: Any) -> str:
     if not value:
         return "buy"
     key = str(value).strip().lower()
-    return LABEL_TO_OPERATION_TYPE.get(key, key if key in VALID_OPERATION_TYPES else "buy")
+    if key in LABEL_TO_OPERATION_TYPE:
+        return LABEL_TO_OPERATION_TYPE[key]
+    if key in VALID_OPERATION_TYPES:
+        return key
+    if "venta" in key:
+        return "sell"
+    if "compra" in key:
+        return "buy"
+    if "dividendo" in key:
+        return "dividend"
+    if "depósito" in key or "deposito" in key:
+        return "deposit"
+    if "retiro" in key or "withdrawal" in key:
+        return "withdrawal"
+    return "buy"
 
 
 def operation_type_label(operation_type: str | None) -> str:
@@ -214,6 +234,25 @@ def _ledger_row_from_investment(inv: dict) -> list[Any]:
     ]
 
 
+def _normalize_signed_amounts(
+    operation_type: str,
+    total: float | None,
+    amount_usd: float | None,
+) -> tuple[float | None, float | None]:
+    """Brokers like Hapi export negative Total on buys (cash outflow). Store positive magnitudes."""
+    if operation_type == "buy":
+        if total is not None and total < 0:
+            total = abs(total)
+        if amount_usd is not None and amount_usd < 0:
+            amount_usd = abs(amount_usd)
+    elif operation_type == "sell":
+        if total is not None and total < 0:
+            total = abs(total)
+        if amount_usd is not None and amount_usd < 0:
+            amount_usd = abs(amount_usd)
+    return total, amount_usd
+
+
 def ledger_row_to_investment_input(row: dict[str, Any]) -> dict[str, Any]:
     operation_type = normalize_operation_type(
         row.get("operation_type") or row.get("Tipo de Operación") or row.get("tipo")
@@ -223,7 +262,12 @@ def ledger_row_to_investment_input(row: dict[str, Any]) -> dict[str, Any]:
     quantity = parse_number(row.get("quantity") or row.get("Cantidad") or row.get("cantidad"))
     amount_usd = parse_number(row.get("amount_usd") or row.get("Monto USD") or row.get("monto_usd"))
     amount_cop = parse_number(row.get("amount_cop") or row.get("Monto COP") or row.get("monto_cop"))
-    unit_price = parse_number(row.get("unit_price") or row.get("Precio Unitario") or row.get("precio_unitario"))
+    unit_price = parse_number(
+        row.get("unit_price")
+        or row.get("Precio Unitario")
+        or row.get("precio_unitario")
+        or row.get("Precio unitario")
+    )
     closing_cost = parse_number(
         row.get("closing_cost") or row.get("Costo de Cierre") or row.get("costo_cierre")
     )
@@ -232,12 +276,26 @@ def ledger_row_to_investment_input(row: dict[str, Any]) -> dict[str, Any]:
     )
     total = parse_number(row.get("total") or row.get("Total"))
 
+    if operation_type == "buy" and amount_usd is not None and total is None:
+        fee = closing_cost or 0.0
+        total = amount_usd + fee
+    elif operation_type == "sell" and amount_usd is not None and total is None:
+        fee = abs(closing_cost or 0.0)
+        total = amount_usd - fee
+
+    total, amount_usd = _normalize_signed_amounts(operation_type, total, amount_usd)
     amount = total or amount_usd or 0.0
+    if operation_type == "buy" and amount < 0:
+        amount = abs(amount)
+
+    from services.quote_symbol import infer_asset_type
+
     return {
         "operation_type": operation_type,
-        "action": operation_type if operation_type in ("buy", "sell") else "buy",
+        "action": operation_type,
         "date": date,
         "asset": asset,
+        "asset_type": infer_asset_type(asset, row.get("asset_type")),
         "quantity": quantity,
         "amount_usd": amount_usd,
         "amount_cop": amount_cop,
@@ -266,8 +324,8 @@ def refine_ocr_row(row: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     refined = dict(row)
     op = refined.get("operation_type") or "buy"
 
-    if op in ("buy", "deposit") and refined.get("pnl_usd") is not None:
-        warnings.append("P/G USD eliminado: no aplica a compras o depósitos")
+    if op in ("buy", "deposit", "withdrawal") and refined.get("pnl_usd") is not None:
+        warnings.append("P/G USD eliminado: no aplica a compras, depósitos o retiros")
         refined["pnl_usd"] = None
 
     quantity = refined.get("quantity")
@@ -316,6 +374,53 @@ def _sorted_investments(investments: list[dict] | None = None) -> list[dict]:
     return sorted(items, key=lambda inv: (inv.get("date") or "", inv.get("created_at") or ""))
 
 
+TEMPLATE_ROWS = [
+    {
+        "operation_type": "deposit",
+        "date": "2024-11-14",
+        "amount_usd": 100.0,
+        "amount_cop": 400000.0,
+        "total": 100.0,
+        "amount": 100.0,
+    },
+    {
+        "operation_type": "buy",
+        "date": "2024-11-15",
+        "asset": "ACWI",
+        "quantity": 0.5,
+        "amount_usd": 60.0,
+        "unit_price": 120.0,
+        "closing_cost": 0.15,
+        "total": 60.15,
+        "amount": 60.15,
+    },
+    {
+        "operation_type": "sell",
+        "date": "2025-01-10",
+        "asset": "ACWI",
+        "quantity": 0.1,
+        "amount_usd": 12.5,
+        "unit_price": 125.0,
+        "closing_cost": 0.1,
+        "pnl_usd": 0.5,
+        "total": 12.4,
+        "amount": 12.4,
+    },
+    {
+        "operation_type": "dividend",
+        "date": "2025-03-01",
+        "asset": "ACWI",
+        "amount_usd": 2.5,
+        "total": 2.5,
+        "amount": 2.5,
+    },
+]
+
+
+def export_template_csv() -> str:
+    return export_csv(TEMPLATE_ROWS)
+
+
 def export_csv(investments: list[dict] | None = None) -> str:
     buffer = io.StringIO()
     buffer.write("\ufeff")
@@ -355,6 +460,17 @@ def import_rows(csv_text: str) -> dict[str, Any]:
         if not investment_input.get("date"):
             warnings.append(f"Fila {i}: fecha inválida o vacía")
         rows.append(investment_input)
+
+    missing_qty = sum(
+        1
+        for r in rows
+        if r.get("operation_type") in ("buy", "sell") and not r.get("quantity")
+    )
+    if missing_qty:
+        warnings.append(
+            f"{missing_qty} operaciones de compra/venta sin Cantidad: "
+            "el portafolio no puede calcular posiciones abiertas ni valor en activos."
+        )
 
     return {"rows": rows, "count": len(rows), "warnings": warnings, "preview": rows}
 

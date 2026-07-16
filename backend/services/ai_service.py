@@ -3,7 +3,6 @@ import re
 
 from integrations import registry
 from integrations.base import IntegrationError
-from integrations.ollama import OllamaIntegration
 from services.finance_store import get_accounts, get_categories, match_account_hint
 
 
@@ -56,6 +55,18 @@ Formato:
       "suggested_new_category": null
     }}
   ],
+  "incomes": [
+    {{
+      "amount": 0,
+      "currency": "COP",
+      "category": "",
+      "category_emoji": "",
+      "description": "",
+      "income_source": "",
+      "account_name_hint": "",
+      "suggested_new_category": null
+    }}
+  ],
   "investments": [
     {{
       "asset": "",
@@ -82,6 +93,7 @@ Formato:
 
 Reglas importantes:
 - Si el usuario menciona varios gastos, crea varios objetos dentro de expenses.
+- Si menciona ingresos (salario, freelance, transferencia recibida), usa incomes.
 - Si el usuario menciona varias inversiones, crea varios objetos dentro de investments.
 - Si el usuario menciona varios recordatorios o reflexiones, crea varias notas si tiene sentido.
 - Cada monto debe quedar asociado con su descripción más cercana.
@@ -134,7 +146,7 @@ def _extract_json(raw):
 
 
 def _needs_review(kind, item):
-    if kind == "expense":
+    if kind in ("expense", "income"):
         return not item.get("amount")
     if kind == "investment":
         return not item.get("asset")
@@ -165,6 +177,18 @@ def _build_preview_item(kind, raw, accounts):
             "category_emoji": raw.get("category_emoji", ""),
             "description": raw.get("description", ""),
             "payment_method": raw.get("payment_method", ""),
+        }
+
+    if kind == "income":
+        return {
+            **base,
+            "title": "Ingreso",
+            "amount": raw.get("amount"),
+            "currency": raw.get("currency", "COP"),
+            "category": raw.get("category", "Otros"),
+            "category_emoji": raw.get("category_emoji", "💰"),
+            "description": raw.get("description", ""),
+            "income_source": raw.get("income_source") or raw.get("source") or "",
         }
 
     if kind == "investment":
@@ -199,6 +223,7 @@ def _build_preview_item(kind, raw, accounts):
 def analysis_to_preview(analysis, accounts=None):
     accounts = accounts if accounts is not None else get_accounts()
     expenses_raw = analysis.get("expenses") or []
+    incomes_raw = analysis.get("incomes") or []
     investments_raw = analysis.get("investments") or []
     notes_raw = analysis.get("notes") or []
 
@@ -207,6 +232,12 @@ def analysis_to_preview(analysis, accounts=None):
         if not exp.get("amount") and not exp.get("description"):
             continue
         expenses.append(_build_preview_item("expense", exp, accounts))
+
+    incomes = []
+    for inc in incomes_raw:
+        if not inc.get("amount") and not inc.get("description"):
+            continue
+        incomes.append(_build_preview_item("income", inc, accounts))
 
     investments = []
     for inv in investments_raw:
@@ -220,9 +251,10 @@ def analysis_to_preview(analysis, accounts=None):
             continue
         notes.append(_build_preview_item("note", note, accounts))
 
-    items = expenses + investments + notes
+    items = expenses + incomes + investments + notes
     counts = {
         "expenses": len(expenses),
+        "incomes": len(incomes),
         "investments": len(investments),
         "notes": len(notes),
         "total": len(items),
@@ -230,6 +262,7 @@ def analysis_to_preview(analysis, accounts=None):
 
     return {
         "expenses": expenses,
+        "incomes": incomes,
         "investments": investments,
         "notes": notes,
         "items": items,
@@ -240,28 +273,27 @@ def analysis_to_preview(analysis, accounts=None):
 
 
 def _fallback_note_preview(text):
+    note = {
+        "kind": "note",
+        "title": "Nota",
+        "amount": None,
+        "currency": None,
+        "category": "Sin clasificar",
+        "category_emoji": "📝",
+        "description": text,
+        "text": text,
+        "tags": ["sin-clasificar"],
+        "account_id": None,
+        "account_name_hint": "",
+        "suggested_new_category": None,
+        "accept_category_suggestion": False,
+        "needs_review": False,
+    }
     return {
         "expenses": [],
         "investments": [],
-        "notes": [
-            {
-                "kind": "note",
-                "title": "Nota",
-                "amount": None,
-                "currency": None,
-                "category": "Sin clasificar",
-                "category_emoji": "📝",
-                "description": text,
-                "text": text,
-                "tags": ["sin-clasificar"],
-                "account_id": None,
-                "account_name_hint": "",
-                "suggested_new_category": None,
-                "accept_category_suggestion": False,
-                "needs_review": False,
-            }
-        ],
-        "items": [],
+        "notes": [note],
+        "items": [note],
         "counts": {"expenses": 0, "investments": 0, "notes": 1, "total": 1},
         "reflection": "No pude clasificar el texto. Puedes guardarlo como nota.",
         "ai_available": False,
@@ -270,32 +302,27 @@ def _fallback_note_preview(text):
     }
 
 
-def check_ollama_connection():
-    """Compat: health del adapter Ollama (usado por /api/ollama/health y el gate de OCR local)."""
-    return OllamaIntegration().health()
-
-
 def analyze_text(text):
     accounts = get_accounts()
     prompt = build_finance_prompt(text, accounts)
+    integration = None
 
     try:
         integration = registry.get_active_integration()
         raw = integration.complete_json(prompt)
         analysis = _extract_json(raw)
         preview = analysis_to_preview(analysis, accounts)
-        preview["items"] = preview["expenses"] + preview["investments"] + preview["notes"]
-        preview["counts"]["total"] = len(preview["items"])
-        
         if not preview["items"]:
             preview["reflection"] = preview["reflection"] or "No detecté movimientos claros en el texto."
             preview["can_save_as_note"] = True
         return preview
     except IntegrationError as exc:
-        try:
-            status = integration.health()
-        except Exception:  # noqa: BLE001 - health no debe romper el fallback
-            status = {}
+        status = {}
+        if integration is not None:
+            try:
+                status = integration.health()
+            except Exception:  # noqa: BLE001 - health no debe romper el fallback
+                status = {}
         hint = exc.hint or status.get("hint") or "Revisa la configuración de IA en Configuración."
         message = str(exc) or status.get("error", "Conexión fallida")
         fallback = _fallback_note_preview(text)

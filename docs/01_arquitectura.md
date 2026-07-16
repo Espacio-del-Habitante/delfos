@@ -108,18 +108,29 @@ estado en una sola respuesta tras cada mutación.
 | GET | `/api/ai/health` | health del proveedor activo |
 | GET/POST | `/api/settings/ai` | leer / guardar config de IA |
 | POST | `/api/settings/ai/test` | probar conexión con config aún no guardada |
+| GET/POST | `/api/settings/quotes` | leer / guardar config de cotizaciones |
+| POST | `/api/settings/quotes/test` | probar conexión con proveedores de cotización |
+| GET/PATCH | `/api/assistant/profile` | leer / actualizar `financial_profile` |
+| GET/POST | `/api/assistant/goals` | listar / crear meta |
+| PATCH/DELETE | `/api/assistant/goals/<id>` | editar / borrar meta |
+| GET | `/api/assistant/context` | context pack (perfil + KPIs + metas; sin LLM) |
+| GET/POST | `/api/assistant/threads` | listar / asegurar thread principal |
+| GET | `/api/assistant/threads/<id>/messages` | historial del hilo |
+| POST | `/api/assistant/chat` | mensaje → pack → LLM → guarda turno |
 
 ### 3.2 Services — `backend/services/*` (lógica de negocio + persistencia JSON)
 
 | Servicio | Responsabilidad |
 |----------|-----------------|
-| `finance_store` | **Núcleo de datos.** Carga/guarda el JSON, migraciones suaves, CRUD de cuentas/gastos/ingresos/inversiones/notas/categorías, ajuste de saldos, resúmenes, charts, `get_finance_payload`, `confirm_analysis` |
+| `finance_store` | **Núcleo de datos.** Carga/guarda el JSON, migraciones suaves, CRUD de cuentas/gastos/ingresos/inversiones/notas/categorías, `financial_profile`/`goals` (asistente), ajuste de saldos, resúmenes, charts, `get_finance_payload`, `confirm_analysis` |
+| `assistant_service` | KPIs del copiloto + context pack (`build_kpis`, `build_context_pack`) sin LLM |
 | `ai_service` | Construye el prompt financiero, llama al proveedor activo (`registry`), parsea el JSON y arma la **vista previa** de análisis; fallback a nota si la IA falla |
 | `vision_service` | OCR de capturas de broker: valida la imagen, llama a `vision_json` del proveedor, normaliza/depura filas del ledger |
 | `investment_ledger` | Export CSV/XLSX, import CSV, parseo de fechas/números (heurística español/COP), mapeo fila↔inversión, refinado/anti-alucinación de filas OCR |
 | `bulk_import` | Import CSV genérico de gastos, ingresos, notas y cuentas (preview + confirm) |
 | `portfolio_service` | Agrega posiciones desde el ledger, calcula costo base, P&L realizado y no realizado |
-| `quote_service` | Cotizaciones en vivo vía `yfinance` con cache TTL en memoria (15 min) |
+| `quote_service` | Motor de cotizaciones en capas (Twelve Data → Alpha Vantage → yfinance → precio importado) con cache TTL 15 min y trazabilidad por activo |
+| `quote_settings` | Configuración de API keys de cotización + total de referencia del broker (secretos gitignored) |
 
 **Persistencia:** todo vive en JSON bajo `config.DATA_DIR`.
 - `delfos_data.json` — datos de finanzas (settings, categorías, cuentas, gastos, ingresos,
@@ -198,7 +209,9 @@ backend/
 │   ├── investment_ledger.py   # export/import + parseo + refinado OCR
 │   ├── bulk_import.py         # import CSV de gastos/ingresos/notas/cuentas
 │   ├── portfolio_service.py   # posiciones y P&L
-│   └── quote_service.py       # cotizaciones (yfinance) con cache TTL
+│   ├── quote_service.py       # motor de cotizaciones en capas + cache TTL
+│   ├── quote_settings.py      # config API keys cotizaciones
+│   └── quote_providers/       # twelve_data, alpha_vantage, yfinance
 ├── integrations/
 │   ├── base.py                # AIIntegration + IntegrationError
 │   ├── settings.py            # config + secretos (api_key)
@@ -217,6 +230,8 @@ frontend/src/
 ├── pages/
 │   ├── index.astro            # Dashboard
 │   ├── inversiones.astro      # Inversiones
+│   ├── perfil.astro           # Perfil financiero / onboarding (asistente Fase 1)
+│   ├── asistente.astro        # Chat conversacional (asistente Fase 3)
 │   └── configuracion.astro    # Configuración (IA, reset)
 ├── features/
 │   ├── dashboard/
@@ -227,6 +242,10 @@ frontend/src/
 │   │   ├── screen/InvestmentsScreen.svelte
 │   │   └── components/{molecules,organisms}/   # InvestmentLedger, OcrModal/Upload/Review,
 │   │                                            # CsvImportModal, ExportBar, Insights, Charts…
+│   ├── asistente/
+│   │   ├── screen/ProfileScreen.svelte
+│   │   ├── screen/ChatScreen.svelte
+│   │   └── components/organisms/OnboardingWizard.svelte
 │   └── settings/
 │       └── screen/SettingsScreen.svelte
 └── common/

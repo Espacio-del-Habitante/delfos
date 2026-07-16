@@ -34,6 +34,7 @@ export function accountTypeLabel(type: string): string {
 
 export const OPERATION_TYPE_LABELS: Record<string, string> = {
   deposit: 'Depósito',
+  withdrawal: 'Retiro',
   buy: 'Compra',
   sell: 'Venta',
   dividend: 'Dividendo',

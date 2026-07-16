@@ -10,9 +10,12 @@
     createCategory,
     deleteCategory,
     getAiSettings,
+    getQuoteSettings,
     resetData,
     saveAiSettings,
+    saveQuoteSettings,
     testAiConnection,
+    testQuoteSettings,
     updateCategory,
   } from '@common/lib/api';
   import { KIND_LABELS } from '@common/lib/categories';
@@ -25,6 +28,9 @@
     AiSettings,
     AiSettingsPatch,
     Category,
+    QuoteSettings,
+    QuoteSettingsPatch,
+    QuoteTestStatus,
     SelectOption,
   } from '@common/lib/types';
 
@@ -45,6 +51,19 @@
   let aiMaskedKey = '';
   let aiTestStatus: AiHealthStatus | null = null;
 
+  let quoteLoaded = false;
+  let quoteLoading = false;
+  let quoteSaving = false;
+  let quoteTesting = false;
+  let quoteTwelveKey = '';
+  let quoteAlphaKey = '';
+  let quoteHasTwelve = false;
+  let quoteHasAlpha = false;
+  let quoteMaskedTwelve = '';
+  let quoteMaskedAlpha = '';
+  let quoteBrokerRef = '';
+  let quoteTestStatus: QuoteTestStatus | null = null;
+
   $: providerOptions = aiProviders.map<SelectOption>((p) => ({ value: p.id, label: p.label }));
   $: providerMeta = aiProviders.find((p) => p.id === aiProvider) ?? null;
 
@@ -64,6 +83,7 @@
   onMount(() => {
     refreshFinanceData().catch(() => showToast('No se pudo cargar los datos', { type: 'error' }));
     void loadAiSettings();
+    void loadQuoteSettings();
   });
 
   function applyAiConfig(cfg: AiSettings) {
@@ -140,6 +160,68 @@
     }
   }
 
+  function applyQuoteConfig(cfg: QuoteSettings) {
+    quoteHasTwelve = cfg.has_twelve_data_key;
+    quoteHasAlpha = cfg.has_alpha_vantage_key;
+    quoteMaskedTwelve = cfg.masked_twelve_data_key;
+    quoteMaskedAlpha = cfg.masked_alpha_vantage_key;
+    quoteBrokerRef = cfg.broker_reference_total_usd != null ? String(cfg.broker_reference_total_usd) : '';
+    quoteTwelveKey = '';
+    quoteAlphaKey = '';
+  }
+
+  async function loadQuoteSettings() {
+    if (quoteLoading) return;
+    quoteLoading = true;
+    try {
+      const data = await getQuoteSettings();
+      applyQuoteConfig(data.config);
+      quoteLoaded = true;
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo cargar cotizaciones', { type: 'error' });
+    } finally {
+      quoteLoading = false;
+    }
+  }
+
+  function buildQuotePatch(): QuoteSettingsPatch {
+    const patch: QuoteSettingsPatch = {};
+    if (quoteTwelveKey.trim()) patch.twelve_data_api_key = quoteTwelveKey.trim();
+    if (quoteAlphaKey.trim()) patch.alpha_vantage_api_key = quoteAlphaKey.trim();
+    const ref = quoteBrokerRef.trim();
+    if (ref) {
+      patch.broker_reference_total_usd = parseFloat(ref);
+    } else {
+      patch.broker_reference_total_usd = null;
+    }
+    return patch;
+  }
+
+  async function saveQuotes() {
+    quoteSaving = true;
+    try {
+      const data = await saveQuoteSettings(buildQuotePatch());
+      applyQuoteConfig(data.config);
+      showToast('Configuración de cotizaciones guardada', { type: 'success' });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al guardar cotizaciones', { type: 'error' });
+    } finally {
+      quoteSaving = false;
+    }
+  }
+
+  async function testQuotes() {
+    quoteTesting = true;
+    quoteTestStatus = null;
+    try {
+      quoteTestStatus = await testQuoteSettings(buildQuotePatch());
+    } catch (err) {
+      quoteTestStatus = { ok: false, error: err instanceof Error ? err.message : 'Error al probar cotizaciones' };
+    } finally {
+      quoteTesting = false;
+    }
+  }
+
   async function addCategory(e: Event) {
     e.preventDefault();
     try {
@@ -207,6 +289,9 @@
     <p class="settings-hero__subtitle">
       Ajusta categorías, el motor de inteligencia artificial y administra tus datos. Las cuentas y
       movimientos se editan desde sus propias tarjetas.
+    </p>
+    <p class="settings-hero__subtitle">
+      <a href="/perfil">Perfil financiero</a> — ingresos, metas y preferencias del asistente.
     </p>
   </section>
 
@@ -350,6 +435,68 @@
         {#if aiTestStatus && !aiTestStatus.ok && aiTestStatus.hint}
           <p class="ai-status-hint">{aiTestStatus.hint}</p>
         {/if}
+      {/if}
+    </section>
+
+    <section class="settings-card" aria-label="Cotizaciones de mercado">
+      <header class="settings-card__head">
+        <h2 class="settings-card__title">Cotizaciones de mercado</h2>
+        <p class="settings-card__hint">
+          APIs opcionales para precios más precisos. Sin keys, Delfos usa yfinance automáticamente.
+        </p>
+      </header>
+
+      {#if quoteLoading && !quoteLoaded}
+        <p class="muted" style="font-size:0.85rem;margin:0;">Cargando configuración…</p>
+      {:else}
+        <div class="ai-field">
+          <span class="ai-field__label">Twelve Data API key</span>
+          <input
+            type="password"
+            class="form-control"
+            bind:value={quoteTwelveKey}
+            autocomplete="off"
+            placeholder={quoteHasTwelve ? `Guardada (${quoteMaskedTwelve}). Pegar nueva key para reemplazar` : 'Opcional'}
+          />
+        </div>
+
+        <div class="ai-field">
+          <span class="ai-field__label">Alpha Vantage API key</span>
+          <input
+            type="password"
+            class="form-control"
+            bind:value={quoteAlphaKey}
+            autocomplete="off"
+            placeholder={quoteHasAlpha ? `Guardada (${quoteMaskedAlpha}). Pegar nueva key para reemplazar` : 'Opcional'}
+          />
+        </div>
+
+        <div class="ai-field">
+          <span class="ai-field__label">Total de referencia del broker (USD)</span>
+          <input
+            type="text"
+            class="form-control"
+            bind:value={quoteBrokerRef}
+            inputmode="decimal"
+            placeholder="Opcional — para comparar con tu balance en Delfos"
+          />
+        </div>
+
+        <div class="ai-actions">
+          <button type="button" class="secondary-button" on:click={testQuotes} disabled={quoteTesting}>
+            {quoteTesting ? 'Probando…' : 'Probar conexión'}
+          </button>
+          <button type="button" class="secondary-button" on:click={saveQuotes} disabled={quoteSaving}>
+            {quoteSaving ? 'Guardando…' : 'Guardar'}
+          </button>
+          {#if quoteTestStatus}
+            <span class="ai-status-pill" class:is-ok={quoteTestStatus.ok} class:is-error={!quoteTestStatus.ok}>
+              {quoteTestStatus.ok
+                ? `OK · ${quoteTestStatus.provider ?? ''} ${quoteTestStatus.symbol ?? ''}`
+                : quoteTestStatus.error || 'Error de conexión'}
+            </span>
+          {/if}
+        </div>
       {/if}
     </section>
 

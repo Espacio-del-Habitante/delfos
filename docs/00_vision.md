@@ -191,7 +191,7 @@ de visión extrae filas del ledger que el usuario revisa antes de guardar.
 **Inversiones:**
 - Ledger de 10 columnas con export **CSV/XLSX** e import **CSV**.
 - **OCR** de capturas de broker por modelo de visión (`/api/investments/ocr` + `/ocr/confirm`).
-- Portafolio con posiciones, costo base, valor de mercado (yfinance) y P&L realizado/no realizado.
+- Portafolio con posiciones, costo base, valor de mercado (motor en capas: Twelve Data → Alpha Vantage → yfinance → precio importado) y P&L realizado/no realizado.
 
 **IA multi-proveedor:**
 - Proveedor **local** (Ollama) o **nube** (Gemini / compatible OpenAI: OpenRouter, Groq).
@@ -200,11 +200,24 @@ de visión extrae filas del ledger que el usuario revisa antes de guardar.
 **Distribución:**
 - **App de escritorio** `.exe` portátil (waitress), datos en `%LOCALAPPDATA%\Delfos\data`.
 
-### 6.3 Etapa 3 — Reportes y más IA (futuro)
+### 6.3 Etapa 3 — Asistente: perfil, chat, alertas y reportes (en evolución)
 
-- Más reportes y estadísticas (rangos, comparativos, presupuestos).
-- Mayor potenciación con IA (insights, resúmenes, categorización más fina).
-- UI para el endpoint de charts más allá de lo actual.
+Extensión del copiloto **sobre** el núcleo ya implementado (mismas capas, JSON local-first,
+IA opcional). Detalle accionable en `PLAN_IMPLEMENTACION_DELFOS_ASISTENTE_FINANCIERO.md`.
+
+- **Perfil financiero y metas (implementado — Fase 1):** onboarding guiado en `/perfil`;
+  ingreso, % ahorro/inversión/colchón, emergencia, riesgo, horizonte y `goals` en
+  `delfos_data.json` (sin usuarios ni auth). API `/api/assistant/profile` y `/api/assistant/goals`.
+- **KPIs / context pack (implementado — Fase 2):** ahorro vs meta, meses de emergencia,
+  concentración de portafolio; `GET /api/assistant/context` y cards en inicio/`/perfil`.
+- **Chat con memoria estructurada (implementado — Fase 3):** conversación libre en `/asistente`
+  anclada al context pack; memoria facts/summaries ligera; el chat no es la fuente de verdad.
+  Sin RAG/vector DB.
+- **Alertas por reglas (futuro):** disparadores deterministas (gasto vs meta, liquidez,
+  concentración); el LLM puede explicar, no inventar el trigger.
+- **Reportes anuales de apoyo (futuro):** resumen del año desde el ledger (dividendos, fees,
+  ventas, patrimonio a corte) y borradores para contador; wording de apoyo, no asesoría fiscal.
+- IA sigue siendo **opcional e intercambiable**; los datos siguen en archivos locales del usuario.
 
 ---
 
@@ -252,6 +265,8 @@ de visión extrae filas del ledger que el usuario revisa antes de guardar.
 - InvestmentAsset (activo/ticker conocido)
 - Note (nota)
 - Category (categoría con `kind`)
+- FinancialProfile (perfil del asistente: ingresos, % metas, riesgo, onboarding)
+- Goal (meta financiera persistida)
 
 **Derivados (no persistidos):**
 - Summary (resumen mensual y de saldos)

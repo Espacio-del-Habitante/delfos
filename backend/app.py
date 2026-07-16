@@ -6,10 +6,25 @@ import os
 import config
 from integrations import registry, settings as ai_settings
 from integrations.base import IntegrationError
-from services import ai_service, bulk_import, finance_store, investment_ledger, portfolio_service, vision_service
+from services import (
+    ai_service,
+    assistant_service,
+    bulk_import,
+    finance_store,
+    investment_ledger,
+    portfolio_service,
+    quote_service,
+    quote_settings,
+    vision_service,
+)
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:4321"])
+# Dev/tunnel: el Origin no es localhost:4321. En producción el front sale del
+# mismo :5000 (same-origin) y CORS casi no aplica.
+if config.FLASK_DEBUG:
+    CORS(app)
+else:
+    CORS(app, origins=["http://localhost:4321"])
 
 
 def finance_response(extra=None):
@@ -17,6 +32,16 @@ def finance_response(extra=None):
     if extra:
         payload.update(extra)
     return jsonify(payload)
+
+
+def _send_dist(relative):
+    """Sirve un archivo de frontend/dist. HTML sin caché (tunnel/móvil); assets hasheados ok."""
+    response = send_from_directory(config.FRONTEND_DIR, relative)
+    name = relative.replace("\\", "/").lower()
+    if name.endswith(".html") or name == "index.html" or "/index.html" in name:
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.route("/", defaults={"path": ""})
@@ -34,14 +59,14 @@ def serve_frontend(path):
 
     requested = config.FRONTEND_DIR / path
     if path and requested.is_file():
-        return send_from_directory(config.FRONTEND_DIR, path)
+        return _send_dist(path)
 
     # Páginas multipágina de Astro (p.ej. /inversiones -> inversiones/index.html).
     nested = config.FRONTEND_DIR / path / "index.html"
     if path and nested.is_file():
-        return send_from_directory(config.FRONTEND_DIR / path, "index.html")
+        return _send_dist(f"{path}/index.html")
 
-    return send_from_directory(config.FRONTEND_DIR, "index.html")
+    return _send_dist("index.html")
 
 
 @app.route("/api/finance")
@@ -61,15 +86,18 @@ def create_account():
     if not name:
         return jsonify({"error": "El nombre es obligatorio"}), 400
 
-    account = finance_store.add_account(
-        {
-            "name": name,
-            "type": body.get("type", "other"),
-            "currency": body.get("currency", "COP"),
-            "initial_balance": body.get("initial_balance", 0),
-            "emoji": body.get("emoji", "💰"),
-        }
-    )
+    try:
+        account = finance_store.add_account(
+            {
+                "name": name,
+                "type": body.get("type", "other"),
+                "currency": body.get("currency", "COP"),
+                "initial_balance": body.get("initial_balance", 0),
+                "emoji": body.get("emoji", "💰"),
+            }
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     return finance_response({"account": account})
 
 
@@ -255,6 +283,17 @@ def export_investments_csv():
     )
 
 
+@app.route("/api/investments/template.csv")
+def download_investments_template_csv():
+    content = investment_ledger.export_template_csv()
+    return send_file(
+        io.BytesIO(content.encode("utf-8")),
+        mimetype="text/csv; charset=utf-8",
+        as_attachment=True,
+        download_name="plantilla-inversiones.csv",
+    )
+
+
 @app.route("/api/investments/export.xlsx")
 def export_investments_xlsx():
     content = investment_ledger.export_xlsx()
@@ -347,34 +386,11 @@ def investments_ocr():
     if not request.files.get("image"):
         return jsonify({"error": "Imagen requerida (campo image)"}), 400
 
-    # El gate de modelo de visión solo aplica al proveedor local (Ollama).
-    # En la nube (Gemini/compatible) confiamos en el adapter y su manejo de errores.
-    if ai_settings.effective_provider() == "local":
-        ollama_status = ai_service.check_ollama_connection()
-        if not ollama_status.get("vision_model_found"):
-            vision_model = config.OLLAMA_VISION_MODEL
-            return (
-                jsonify(
-                    {
-                        "error": f"Modelo de visión '{vision_model}' no encontrado en Ollama",
-                        "hint": f"Ejecuta: ollama pull {vision_model}",
-                        "vision_model": vision_model,
-                        "vision_model_found": False,
-                        "rows": [],
-                        "warnings": [],
-                        "count": 0,
-                        "ai_available": False,
-                    }
-                ),
-                503,
-            )
-
     uploaded = request.files["image"]
     image_bytes = uploaded.read()
     content_type = (uploaded.content_type or "image/png").split(";")[0].strip().lower()
     result = vision_service.analyze_investment_image(image_bytes, content_type)
     status = 200 if result.get("ai_available", True) else 503
-    print("result", result)
     return jsonify(result), status
 
 
@@ -400,7 +416,9 @@ def save_note():
 
 @app.route("/api/ollama/health")
 def ollama_health():
-    status = ai_service.check_ollama_connection()
+    from integrations.ollama import OllamaIntegration
+
+    status = OllamaIntegration().health()
     code = 200 if status.get("ok") else 503
     return jsonify(status), code
 
@@ -443,6 +461,147 @@ def test_ai_settings():
         return jsonify({"ok": False, "error": str(exc), "hint": exc.hint}), 200
     code = 200 if status.get("ok") else 200
     return jsonify(status), code
+
+
+@app.route("/api/settings/quotes", methods=["GET"])
+def get_quote_settings():
+    return jsonify({"config": quote_settings.get_public_config()})
+
+
+@app.route("/api/settings/quotes", methods=["POST"])
+def save_quote_settings():
+    body = request.get_json(silent=True) or {}
+    public = quote_settings.save_config(body)
+    quote_service.clear_cache()
+    return jsonify({"config": public})
+
+
+@app.route("/api/settings/quotes/test", methods=["POST"])
+def test_quote_settings():
+    body = request.get_json(silent=True) or {}
+    merged = quote_settings.load_config()
+    for key in quote_settings.ALLOWED_KEYS:
+        if key in body and body[key] is not None:
+            merged[key] = body[key]
+    status = quote_service.test_provider_connection(merged)
+    return jsonify(status), 200
+
+
+@app.route("/api/assistant/profile", methods=["GET"])
+def assistant_get_profile():
+    return jsonify({"profile": finance_store.get_financial_profile()})
+
+
+@app.route("/api/assistant/profile", methods=["PATCH"])
+def assistant_patch_profile():
+    body = request.get_json(silent=True) or {}
+    try:
+        profile = finance_store.update_financial_profile(body)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"profile": profile})
+
+
+@app.route("/api/assistant/goals", methods=["GET"])
+def assistant_list_goals():
+    return jsonify({"goals": finance_store.get_goals()})
+
+
+@app.route("/api/assistant/goals", methods=["POST"])
+def assistant_create_goal():
+    body = request.get_json(silent=True) or {}
+    try:
+        goal = finance_store.add_goal(body)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"goal": goal, "goals": finance_store.get_goals()}), 201
+
+
+@app.route("/api/assistant/goals/<goal_id>", methods=["PATCH"])
+def assistant_patch_goal(goal_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        goal = finance_store.update_goal(goal_id, body)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    if not goal:
+        return jsonify({"error": "Goal not found"}), 404
+    return jsonify({"goal": goal, "goals": finance_store.get_goals()})
+
+
+@app.route("/api/assistant/goals/<goal_id>", methods=["DELETE"])
+def assistant_delete_goal(goal_id):
+    if not finance_store.delete_goal(goal_id):
+        return jsonify({"error": "Goal not found"}), 404
+    return jsonify({"goals": finance_store.get_goals()})
+
+
+@app.route("/api/assistant/context", methods=["GET"])
+def assistant_context():
+    thread_id = (request.args.get("thread_id") or "").strip() or None
+    return jsonify(assistant_service.build_context_pack(thread_id))
+
+
+@app.route("/api/assistant/threads", methods=["GET"])
+def assistant_list_threads():
+    thread = finance_store.get_or_create_main_thread()
+    return jsonify({"threads": finance_store.list_chat_threads(), "main": thread})
+
+
+@app.route("/api/assistant/threads", methods=["POST"])
+def assistant_ensure_thread():
+    """Idempotente: devuelve el thread principal (chat único fluido)."""
+    thread = finance_store.get_or_create_main_thread()
+    return jsonify({"thread": thread})
+
+
+@app.route("/api/assistant/threads/<thread_id>/messages", methods=["GET"])
+def assistant_thread_messages(thread_id):
+    msgs = finance_store.list_chat_messages(thread_id, limit=80)
+    return jsonify({"messages": msgs, "thread_id": thread_id})
+
+
+@app.route("/api/assistant/chat", methods=["POST"])
+def assistant_chat():
+    body = request.get_json(silent=True) or {}
+    text = (body.get("message") or body.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "Mensaje vacío"}), 400
+    thread_id = (body.get("thread_id") or "").strip() or None
+    try:
+        result = assistant_service.chat(text, thread_id=thread_id)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    # Siempre 200: el chat guarda el turno; ai_available indica si hubo LLM.
+    return jsonify(result), 200
+
+
+@app.route("/api/assistant/apply-profile", methods=["POST"])
+def assistant_apply_profile():
+    """Persiste un profile_suggestion del chat tras confirmación del usuario."""
+    body = request.get_json(silent=True) or {}
+    suggestion = body.get("suggestion")
+    if not isinstance(suggestion, dict) or not suggestion:
+        return jsonify({"error": "suggestion is required"}), 400
+    try:
+        result = assistant_service.apply_profile_suggestion(suggestion)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(result), 200
+
+
+@app.route("/api/assistant/apply-account", methods=["POST"])
+def assistant_apply_account():
+    """Crea una cuenta propuesta por el chat tras confirmación."""
+    body = request.get_json(silent=True) or {}
+    suggestion = body.get("suggestion") or body.get("account_draft")
+    if not isinstance(suggestion, dict) or not suggestion:
+        return jsonify({"error": "suggestion is required"}), 400
+    try:
+        result = assistant_service.apply_account_suggestion(suggestion)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return finance_response(result)
 
 
 @app.route("/api/analyze", methods=["POST"])

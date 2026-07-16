@@ -12,8 +12,34 @@ from integrations.base import IntegrationError
 from integrations.gemini import GeminiIntegration
 from integrations.ollama import OllamaIntegration
 from integrations.openai_compatible import OpenAICompatibleIntegration
-from services import ai_service, finance_store, vision_service
+from services import ai_service, finance_store, quote_service, quote_settings, vision_service
 from services.investment_ledger import parse_date, refine_ocr_row
+
+
+def _mock_quote_snapshots(prices: dict[str, float | None], alerts=None):
+    snapshots = {}
+    for sym, price in prices.items():
+        if price is None:
+            snapshots[sym] = quote_service.QuoteSnapshot(
+                symbol=sym,
+                price=None,
+                currency="USD",
+                timestamp=None,
+                provider=None,
+                confidence="missing",
+                asset_type="stock",
+            )
+        else:
+            snapshots[sym] = quote_service.QuoteSnapshot(
+                symbol=sym,
+                price=price,
+                currency="USD",
+                timestamp="2025-01-01T00:00:00+00:00",
+                provider="yfinance",
+                confidence="ok",
+                asset_type="stock",
+            )
+    return snapshots, alerts or []
 
 
 class ApiTestCase(unittest.TestCase):
@@ -175,20 +201,99 @@ class ApiTestCase(unittest.TestCase):
         ).get_json()["expense"]
         self.assertEqual(exp["account_id"], acc["id"])
 
+        after_expense = next(
+            a for a in self.client.get("/api/finance").get_json()["accounts"] if a["id"] == acc["id"]
+        )
+        self.assertEqual(after_expense["current_balance"], 40000.0)
+
         patch = self.client.patch(
             f"/api/accounts/{acc['id']}",
-            json={"name": "Nequi 2", "current_balance": 40000},
+            json={"name": "Nequi 2"},
         )
         self.assertEqual(patch.status_code, 200)
         updated = patch.get_json()["account"]
         self.assertEqual(updated["name"], "Nequi 2")
-        self.assertEqual(updated["current_balance"], 40000)
+        self.assertEqual(updated["current_balance"], 40000.0)
 
         delete = self.client.delete(f"/api/accounts/{acc['id']}")
         self.assertEqual(delete.status_code, 200)
         stored = json.loads(self.data_path.read_text(encoding="utf-8"))
         self.assertEqual(stored["accounts"], [])
         self.assertIsNone(stored["expenses"][0]["account_id"])
+
+    def test_expense_update_and_delete_adjusts_balance(self):
+        acc = self.client.post(
+            "/api/accounts",
+            json={"name": "Nequi", "type": "wallet", "currency": "COP", "initial_balance": 50000},
+        ).get_json()["account"]
+
+        exp = self.client.post(
+            "/api/expenses",
+            json={
+                "account_id": acc["id"],
+                "amount": 10000,
+                "currency": "COP",
+                "description": "Cafe",
+            },
+        ).get_json()["expense"]
+
+        def balance():
+            return next(
+                a for a in self.client.get("/api/finance").get_json()["accounts"] if a["id"] == acc["id"]
+            )["current_balance"]
+
+        self.assertEqual(balance(), 40000.0)
+
+        patch = self.client.patch(
+            f"/api/expenses/{exp['id']}",
+            json={"description": "Cafe editado", "amount": 6000},
+        )
+        self.assertEqual(patch.status_code, 200)
+        self.assertEqual(patch.get_json()["expense"]["description"], "Cafe editado")
+        self.assertEqual(balance(), 44000.0)
+
+        delete = self.client.delete(f"/api/expenses/{exp['id']}")
+        self.assertEqual(delete.status_code, 200)
+        self.assertEqual(delete.get_json()["summary"]["total_movements"], 0)
+        self.assertEqual(balance(), 50000.0)
+
+    def test_income_update_and_delete_adjusts_balance(self):
+        acc = self.client.post(
+            "/api/accounts",
+            json={"name": "Bancolombia", "type": "bank", "currency": "COP", "initial_balance": 100000},
+        ).get_json()["account"]
+
+        inc = self.client.post(
+            "/api/incomes",
+            json={
+                "account_id": acc["id"],
+                "amount": 50000,
+                "currency": "COP",
+                "description": "Salario",
+                "category": "Salario",
+            },
+        ).get_json()["income"]
+
+        def balance():
+            return next(
+                a for a in self.client.get("/api/finance").get_json()["accounts"] if a["id"] == acc["id"]
+            )["current_balance"]
+
+        self.assertEqual(balance(), 150000.0)
+
+        patch = self.client.patch(
+            f"/api/incomes/{inc['id']}",
+            json={"description": "Salario editado", "amount": 40000, "income_source": "Empresa"},
+        )
+        self.assertEqual(patch.status_code, 200)
+        updated = patch.get_json()["income"]
+        self.assertEqual(updated["description"], "Salario editado")
+        self.assertEqual(updated["income_source"], "Empresa")
+        self.assertEqual(balance(), 140000.0)
+
+        delete = self.client.delete(f"/api/incomes/{inc['id']}")
+        self.assertEqual(delete.status_code, 200)
+        self.assertEqual(balance(), 100000.0)
 
     def test_expense_update_and_delete(self):
         exp = self.client.post(
@@ -313,6 +418,22 @@ class ApiTestCase(unittest.TestCase):
         res = self.client.get("/")
         self.assertEqual(res.status_code, 200)
 
+    def test_investments_template_csv_has_header_and_examples(self):
+        res = self.client.get("/api/investments/template.csv")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/csv", res.content_type)
+        text = res.data.decode("utf-8-sig")
+        lines = text.strip().splitlines()
+        self.assertEqual(
+            lines[0],
+            "Tipo de Operación,Fecha,Activo,Cantidad,Monto USD,Monto COP,Precio Unitario,Costo de Cierre,Ganancia/Pérdida USD,Total",
+        )
+        self.assertGreaterEqual(len(lines), 5)
+        self.assertIn("Depósito", text)
+        self.assertIn("Compra", text)
+        self.assertIn("Venta", text)
+        self.assertIn("Dividendo", text)
+
     def test_export_csv_header_and_rows(self):
         finance_store.add_investment(
             {
@@ -408,18 +529,12 @@ class ApiTestCase(unittest.TestCase):
         from unittest.mock import patch
 
         mock_result = vision_service.mock_ocr_preview()
-        ollama_ok = {
-            "ok": True,
-            "vision_model": "llava",
-            "vision_model_found": True,
-        }
-        with patch("app.ai_service.check_ollama_connection", return_value=ollama_ok):
-            with patch("app.vision_service.analyze_investment_image", return_value=mock_result):
-                res = self.client.post(
-                    "/api/investments/ocr",
-                    data={"image": (io.BytesIO(b"fake"), "shot.png")},
-                    content_type="multipart/form-data",
-                )
+        with patch("app.vision_service.analyze_investment_image", return_value=mock_result):
+            res = self.client.post(
+                "/api/investments/ocr",
+                data={"image": (io.BytesIO(b"fake"), "shot.png")},
+                content_type="multipart/form-data",
+            )
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(len(data["rows"]), 1)
@@ -427,15 +542,17 @@ class ApiTestCase(unittest.TestCase):
         self.assertTrue(data["ai_available"])
 
     def test_investments_ocr_503_when_vision_model_missing(self):
-        from unittest.mock import patch
+        from unittest.mock import MagicMock, patch
 
-        with patch(
-            "app.ai_service.check_ollama_connection",
-            return_value={
-                "ok": True,
-                "vision_model": "llava",
-                "vision_model_found": False,
-            },
+        fake = MagicMock()
+        fake.health.return_value = {
+            "ok": True,
+            "vision_model": "llava",
+            "vision_model_found": False,
+        }
+        with patch("services.vision_service.ai_settings.effective_provider", return_value="local"), patch(
+            "services.vision_service.registry.get_active_integration",
+            return_value=fake,
         ):
             res = self.client.post(
                 "/api/investments/ocr",
@@ -536,13 +653,20 @@ class ApiTestCase(unittest.TestCase):
     def test_portfolio_empty(self):
         from unittest.mock import patch
 
-        with patch("services.portfolio_service.quote_service.get_quotes", return_value=({}, None, False)):
+        with patch(
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=({}, []),
+        ):
             res = self.client.get("/api/investments/portfolio")
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertEqual(data["positions"], [])
         self.assertIsNone(data["strongest_asset"])
         self.assertEqual(data["total_pnl_usd"], 0)
+        self.assertEqual(data["total_assets_value_usd"], 0)
+        self.assertEqual(data["cash_available_usd"], 0)
+        self.assertEqual(data["total_portfolio_value_usd"], 0)
+        self.assertIsNone(data["cash_warning"])
         self.assertFalse(data["has_positions"])
 
     def test_portfolio_dca_buy_and_sell(self):
@@ -576,8 +700,8 @@ class ApiTestCase(unittest.TestCase):
         )
         mock_quotes = {"VOO": 500.0}
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=(mock_quotes, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots(mock_quotes),
         ):
             res = self.client.get("/api/investments/portfolio")
         self.assertEqual(res.status_code, 200)
@@ -590,8 +714,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertAlmostEqual(pos["cost_basis_usd"], 637.5)
         self.assertAlmostEqual(pos["market_value_usd"], 750.0)
         self.assertAlmostEqual(pos["unrealized_pnl_usd"], 112.5)
-        self.assertAlmostEqual(data["total_realized_pnl_usd"], 25.0)
-        self.assertAlmostEqual(data["total_pnl_usd"], 137.5)
+        self.assertAlmostEqual(data["total_realized_pnl_usd"], 37.5)
+        self.assertAlmostEqual(data["total_pnl_usd"], 150.0)
         strongest = data["strongest_asset"]
         self.assertEqual(strongest["asset"], "VOO")
         self.assertAlmostEqual(strongest["market_value_usd"], 750.0)
@@ -624,14 +748,17 @@ class ApiTestCase(unittest.TestCase):
             ]
         )
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"NU": 12.0}, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"NU": 12.0}),
         ):
             res = self.client.get("/api/investments/portfolio")
         data = res.get_json()
         self.assertEqual(len(data["positions"]), 1)
-        self.assertAlmostEqual(data["total_realized_pnl_usd"], 5.0)
+        self.assertAlmostEqual(data["total_realized_pnl_usd"], 0.0)
+        self.assertAlmostEqual(data["total_dividends_usd"], 5.0)
         self.assertAlmostEqual(data["positions"][0]["market_value_usd"], 120.0)
+        self.assertAlmostEqual(data["cash_available_usd"], 905.0)
+        self.assertAlmostEqual(data["total_portfolio_value_usd"], 1025.0)
 
     def test_portfolio_strongest_by_market_value(self):
         from unittest.mock import patch
@@ -655,8 +782,8 @@ class ApiTestCase(unittest.TestCase):
             ]
         )
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"VOO": 500.0, "NU": 8.0}, "2025-01-01T00:00:00+00:00", False),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"VOO": 500.0, "NU": 8.0}),
         ):
             data = self.client.get("/api/investments/portfolio").get_json()
         strongest = data["strongest_asset"]
@@ -675,16 +802,182 @@ class ApiTestCase(unittest.TestCase):
                 "amount_usd": 200.0,
             }
         )
+        fallback_snap = {
+            "XYZ": quote_service.QuoteSnapshot(
+                symbol="XYZ",
+                price=100.0,
+                currency="USD",
+                timestamp=None,
+                provider="last_imported_unit_price",
+                confidence="fallback",
+                asset_type="stock",
+            )
+        }
         with patch(
-            "services.portfolio_service.quote_service.get_quotes",
-            return_value=({"XYZ": None}, "2025-01-01T00:00:00+00:00", True),
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=(fallback_snap, []),
         ):
             data = self.client.get("/api/investments/portfolio").get_json()
         strongest = data["strongest_asset"]
         self.assertEqual(strongest["asset"], "XYZ")
-        self.assertTrue(strongest["quote_missing"])
+        self.assertFalse(strongest["quote_missing"])
         self.assertAlmostEqual(strongest["cost_basis_usd"], 200.0)
         self.assertTrue(data["quotes_partial"])
+        self.assertAlmostEqual(data["positions"][0]["market_price_usd"], 100.0)
+        self.assertEqual(data["positions"][0]["price_source"], "last_imported_unit_price")
+        self.assertEqual(data["positions"][0]["price_source_label"], "Último precio importado")
+        self.assertAlmostEqual(data["total_assets_value_usd"], 200.0)
+
+    def test_portfolio_deposit_with_usd_asset_stays_in_cash(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                {
+                    "operation_type": "deposit",
+                    "date": "2026-06-20",
+                    "asset": "USD",
+                    "quantity": 200.0,
+                    "amount_usd": 200.0,
+                    "total": 200.0,
+                },
+                {
+                    "operation_type": "buy",
+                    "date": "2026-06-21",
+                    "asset": "ACWI",
+                    "quantity": 1.0,
+                    "amount_usd": 200.0,
+                    "total": 200.0,
+                    "unit_price": 200.0,
+                },
+            ]
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"ACWI": 210.0}),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+
+        assets = [row["asset"] for row in data["positions"]]
+        self.assertEqual(assets, ["ACWI"])
+        self.assertAlmostEqual(data["cash_available_usd"], 0.0)
+        self.assertAlmostEqual(data["total_assets_value_usd"], 210.0)
+        self.assertAlmostEqual(data["total_portfolio_value_usd"], 210.0)
+
+    def test_portfolio_cash_warning_when_negative(self):
+        from unittest.mock import patch
+
+        finance_store.add_investment(
+            {
+                "operation_type": "buy",
+                "date": "2026-06-22",
+                "asset": "GLD",
+                "quantity": 1.0,
+                "amount_usd": 150.0,
+                "total": 150.0,
+                "unit_price": 150.0,
+            }
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"GLD": 151.0}),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+
+        self.assertAlmostEqual(data["cash_available_usd"], -150.0)
+        self.assertIsNotNone(data["cash_warning"])
+        self.assertIn("efectivo calculado es negativo", data["cash_warning"])
+        self.assertIn(data["cash_warning"], data["warnings"])
+
+    def test_portfolio_withdrawal_fields_and_net_contributions(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                {"operation_type": "deposit", "date": "2024-01-01", "total": 1000.0},
+                {"operation_type": "withdrawal", "date": "2024-02-01", "total": 150.0},
+                {
+                    "operation_type": "buy",
+                    "date": "2024-01-15",
+                    "asset": "VOO",
+                    "quantity": 1.0,
+                    "amount_usd": 400.0,
+                },
+            ]
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"VOO": 450.0}),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+
+        self.assertAlmostEqual(data["total_deposits_usd"], 1000.0)
+        self.assertAlmostEqual(data["total_withdrawals_usd"], 150.0)
+        self.assertAlmostEqual(data["net_contributions_usd"], 850.0)
+        self.assertAlmostEqual(data["cash_available_usd"], 450.0)
+        self.assertAlmostEqual(data["total_portfolio_value_usd"], 900.0)
+        self.assertAlmostEqual(data["global_gain_by_contributions_usd"], 50.0)
+        self.assertAlmostEqual(data["total_return_percent"], 5.88, places=2)
+
+    def test_create_withdrawal_via_api(self):
+        finance_store.add_investment(
+            {"operation_type": "deposit", "date": "2024-01-01", "total": 500.0, "amount": 500.0}
+        )
+        res = self.client.post(
+            "/api/investments",
+            json={
+                "operation_type": "withdrawal",
+                "date": "2024-03-01",
+                "amount_usd": 75.0,
+                "total": 75.0,
+                "amount": 75.0,
+                "currency": "USD",
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        inv = res.get_json()["investment"]
+        self.assertEqual(inv["operation_type"], "withdrawal")
+        self.assertEqual(inv["total"], 75.0)
+
+    def test_portfolio_buy_sell_rebuy_and_deposit_excluded(self):
+        from unittest.mock import patch
+
+        finance_store.bulk_add_investments(
+            [
+                # Efectivo aportado: no debe sumarse al total del portafolio.
+                {"operation_type": "deposit", "date": "2024-01-01", "amount_usd": 1000.0, "total": 1000.0},
+                # Compra promediada: 2@100 y luego 2@150 -> qty 4, cost 500 (avg 125).
+                {"operation_type": "buy", "date": "2024-01-02", "asset": "TEST", "quantity": 2.0, "amount_usd": 200.0},
+                {"operation_type": "buy", "date": "2024-01-03", "asset": "TEST", "quantity": 2.0, "amount_usd": 300.0},
+                # Venta parcial: 1 unidad, cost_sold 125, realized 160-125=35.
+                {"operation_type": "sell", "date": "2024-01-04", "asset": "TEST", "quantity": 1.0, "amount_usd": 160.0},
+                # Venta total del resto: 3 unidades, cost_sold 375, realized 480-375=105.
+                {"operation_type": "sell", "date": "2024-01-05", "asset": "TEST", "quantity": 3.0, "amount_usd": 480.0},
+                # Recompra: el coste arranca limpio (qty 1, cost 200), realized se conserva.
+                {"operation_type": "buy", "date": "2024-01-06", "asset": "TEST", "quantity": 1.0, "amount_usd": 200.0},
+            ]
+        )
+        with patch(
+            "services.portfolio_service.quote_service.get_quote_snapshots",
+            return_value=_mock_quote_snapshots({"TEST": 250.0}),
+        ):
+            data = self.client.get("/api/investments/portfolio").get_json()
+
+        self.assertEqual(len(data["positions"]), 1)
+        pos = data["positions"][0]
+        self.assertEqual(pos["asset"], "TEST")
+        self.assertAlmostEqual(pos["quantity"], 1.0)
+        self.assertAlmostEqual(pos["cost_basis_usd"], 200.0)
+        self.assertAlmostEqual(pos["market_value_usd"], 250.0)
+        self.assertAlmostEqual(pos["unrealized_pnl_usd"], 50.0)
+        self.assertAlmostEqual(data["total_realized_pnl_usd"], 140.0)
+        self.assertAlmostEqual(data["total_unrealized_pnl_usd"], 50.0)
+        self.assertAlmostEqual(data["total_pnl_usd"], 190.0)
+        # El depósito de 1000 NO entra: el total es solo el valor del activo.
+        self.assertAlmostEqual(data["total_market_value_usd"], 250.0)
+        self.assertAlmostEqual(data["total_assets_value_usd"], 250.0)
+        self.assertAlmostEqual(data["cash_available_usd"], 940.0)
+        self.assertAlmostEqual(data["total_portfolio_value_usd"], 1190.0)
 
 
 class AiSettingsTestCase(unittest.TestCase):
@@ -856,7 +1149,7 @@ class AiSettingsTestCase(unittest.TestCase):
                 return payload
 
             def health(self):
-                return {"ok": True}
+                return {"ok": True, "vision_model_found": True}
 
         with patch("services.vision_service.registry.get_active_integration", return_value=FakeVision()):
             result = vision_service.ocr_image(b"fakeimage", "image/png")
@@ -870,7 +1163,7 @@ class AiSettingsTestCase(unittest.TestCase):
                 raise IntegrationError("no vision", hint="configura el modelo")
 
             def health(self):
-                return {"ok": False}
+                return {"ok": True, "vision_model_found": True}
 
         with patch("services.vision_service.registry.get_active_integration", return_value=FailingVision()):
             result = vision_service.ocr_image(b"fakeimage", "image/png")
@@ -1043,6 +1336,564 @@ class OcrRefinementTestCase(unittest.TestCase):
         self.assertIsNone(row["pnl_usd"])
         self.assertAlmostEqual(row["unit_price"], 240.0 / 1.52039, places=4)
         self.assertAlmostEqual(row["total"], 240.15, places=2)
+
+
+class QuoteSettingsApiTestCase(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.settings_path = Path(self.tmp.name) / "quote_settings.json"
+        self.original_path = quote_settings.SETTINGS_PATH
+        quote_settings.SETTINGS_PATH = self.settings_path
+        self.client = app.test_client()
+        self.env_patch = patch.dict(
+            "os.environ",
+            {"TWELVE_DATA_API_KEY": "", "ALPHA_VANTAGE_API_KEY": ""},
+            clear=False,
+        )
+        self.env_patch.start()
+
+    def tearDown(self):
+        quote_settings.SETTINGS_PATH = self.original_path
+        self.env_patch.stop()
+        self.tmp.cleanup()
+
+    def test_get_quote_settings_no_keys_exposed(self):
+        res = self.client.get("/api/settings/quotes")
+        self.assertEqual(res.status_code, 200)
+        cfg = res.get_json()["config"]
+        self.assertFalse(cfg["has_twelve_data_key"])
+        self.assertNotIn("twelve_data_api_key", cfg)
+
+    def test_save_quote_settings_masks_keys(self):
+        res = self.client.post(
+            "/api/settings/quotes",
+            json={
+                "twelve_data_api_key": "secret-twelve-key",
+                "broker_reference_total_usd": 10000,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        cfg = res.get_json()["config"]
+        self.assertTrue(cfg["has_twelve_data_key"])
+        self.assertIn("****", cfg["masked_twelve_data_key"])
+        self.assertNotIn("secret", cfg["masked_twelve_data_key"])
+        self.assertEqual(cfg["broker_reference_total_usd"], 10000)
+
+    def test_test_quote_settings_mocked(self):
+        with patch(
+            "services.quote_service.test_provider_connection",
+            return_value={"ok": True, "provider": "yfinance", "symbol": "AAPL", "price": 100.0},
+        ):
+            res = self.client.post("/api/settings/quotes/test", json={})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.get_json()["ok"])
+
+
+class AssistantProfileTestCase(unittest.TestCase):
+    """Fase 1: perfil financiero + metas en JSON local."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.data_path = Path(self.tmp.name) / "delfos_data.json"
+        self.original_path = finance_store.DATA_PATH
+        finance_store.DATA_PATH = self.data_path
+        finance_store.save_data(
+            {
+                "settings": {"currency": "COP"},
+                "categories": [],
+                "accounts": [],
+                "expenses": [],
+                "incomes": [],
+                "investments": [],
+                "notes": [],
+            }
+        )
+        self.client = app.test_client()
+
+    def tearDown(self):
+        finance_store.DATA_PATH = self.original_path
+        self.tmp.cleanup()
+
+    def test_profile_migrates_and_patches(self):
+        res = self.client.get("/api/assistant/profile")
+        self.assertEqual(res.status_code, 200)
+        profile = res.get_json()["profile"]
+        self.assertFalse(profile["onboarding_completed"])
+        self.assertEqual(profile["fiscal_country"], "CO")
+
+        res = self.client.patch(
+            "/api/assistant/profile",
+            json={
+                "monthly_income_fixed": 5000000,
+                "savings_target_percent": 20,
+                "investment_target_percent": 10,
+                "cushion_percent": 10,
+                "risk_profile": "moderate",
+                "onboarding_completed": True,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        profile = res.get_json()["profile"]
+        self.assertEqual(profile["monthly_income_fixed"], 5000000.0)
+        self.assertEqual(profile["savings_target_percent"], 20.0)
+        self.assertEqual(profile["cushion_percent"], 10.0)
+        self.assertTrue(profile["onboarding_completed"])
+        self.assertIsNotNone(profile["last_reviewed_at"])
+
+        finance = self.client.get("/api/finance").get_json()
+        self.assertTrue(finance["financial_profile"]["onboarding_completed"])
+
+    def test_goals_crud(self):
+        res = self.client.post(
+            "/api/assistant/goals",
+            json={"title": "Fondo emergencia", "type": "emergency_fund", "target_amount": 12000000},
+        )
+        self.assertEqual(res.status_code, 201)
+        goal = res.get_json()["goal"]
+        self.assertTrue(goal["id"].startswith("goal_"))
+        self.assertEqual(goal["title"], "Fondo emergencia")
+
+        res2 = self.client.post(
+            "/api/assistant/goals",
+            json={"title": "Viaje", "type": "savings", "target_amount": 3000000},
+        )
+        self.assertEqual(res2.status_code, 201)
+        self.assertEqual(len(res2.get_json()["goals"]), 2)
+
+        gid = goal["id"]
+        res = self.client.patch(f"/api/assistant/goals/{gid}", json={"status": "paused"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["goal"]["status"], "paused")
+
+        res = self.client.delete(f"/api/assistant/goals/{gid}")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.get_json()["goals"]), 1)
+
+    def test_goal_requires_title(self):
+        res = self.client.post("/api/assistant/goals", json={"type": "savings"})
+        self.assertEqual(res.status_code, 400)
+
+    def test_assistant_context_pack(self):
+        self.client.patch(
+            "/api/assistant/profile",
+            json={
+                "monthly_income_fixed": 5000000,
+                "savings_target_percent": 20,
+                "cushion_percent": 10,
+                "emergency_fund_target_months": 6,
+                "onboarding_completed": True,
+            },
+        )
+        self.client.post(
+            "/api/accounts",
+            json={"name": "Nequi", "type": "wallet", "currency": "COP", "initial_balance": 3000000},
+        )
+        self.client.post(
+            "/api/incomes",
+            json={"amount": 5000000, "currency": "COP", "description": "Salario", "category": "Salario"},
+        )
+        self.client.post(
+            "/api/expenses",
+            json={"amount": 1000000, "currency": "COP", "description": "Renta", "category": "Vivienda"},
+        )
+
+        res = self.client.get("/api/assistant/context")
+        self.assertEqual(res.status_code, 200)
+        pack = res.get_json()
+        self.assertIn("profile", pack)
+        self.assertIn("kpis", pack)
+        self.assertIn("goals", pack)
+        kpis = pack["kpis"]
+        self.assertIsNotNone(kpis["savings_actual_percent"])
+        self.assertEqual(kpis["cushion_percent"], 10.0)
+
+        finance = self.client.get("/api/finance").get_json()
+        self.assertIsNotNone(finance.get("assistant_kpis"))
+        self.assertEqual(finance["assistant_kpis"]["cushion_percent"], 10.0)
+
+    def test_assistant_chat_persists_turn(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Vas bien: tu ahorro del mes está encima de la meta.",
+                        "follow_ups": ["¿Y mi emergencia?"],
+                        "memory_updates": [],
+                        "memory_summary": None,
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "¿Cómo voy de ahorro?"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertTrue(body["ai_available"])
+        self.assertIn("ahorro", body["assistant_message"]["content"].lower())
+        self.assertEqual(body["follow_ups"], ["¿Y mi emergencia?"])
+
+        tid = body["thread"]["id"]
+        hist = self.client.get(f"/api/assistant/threads/{tid}/messages").get_json()
+        self.assertGreaterEqual(len(hist["messages"]), 2)
+        roles = [m["role"] for m in hist["messages"]]
+        self.assertIn("user", roles)
+        self.assertIn("assistant", roles)
+
+    def test_chat_profile_suggestion_requires_confirm(self):
+        self.client.patch(
+            "/api/assistant/profile",
+            json={"monthly_income_fixed": 5000000, "onboarding_completed": True},
+        )
+
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Anoto: ahorro 30% y tus fijos. Confirma en la app para guardar.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "memory_updates": [
+                            {"fact": "Quiere ahorrar 30%", "category": "goal"}
+                        ],
+                        "memory_summary": None,
+                        "profile_patch": {
+                            "savings_target_percent": 30,
+                            "fixed_expenses": [
+                                {"label": "Arriendo", "amount": 1500000},
+                                {"label": "Internet", "amount": 80000},
+                            ],
+                            "monthly_income_fixed": None,
+                            "risk_profile": None,
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "Quiero ahorrar 30%. Fijos: arriendo 1.5M e internet 80 mil"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        suggestion = body["profile_suggestion"]
+        self.assertEqual(suggestion["savings_target_percent"], 30.0)
+        self.assertEqual(suggestion["monthly_fixed_expenses"], 1580000.0)
+        self.assertNotIn("monthly_income_fixed", suggestion)
+        self.assertNotIn("risk_profile", suggestion)
+
+        # Sin confirmar, el perfil aún no cambia
+        profile = self.client.get("/api/assistant/profile").get_json()["profile"]
+        self.assertIsNone(profile.get("savings_target_percent"))
+
+        res = self.client.post(
+            "/api/assistant/apply-profile",
+            json={"suggestion": suggestion},
+        )
+        self.assertEqual(res.status_code, 200)
+        applied = res.get_json()["profile"]
+        self.assertEqual(applied["savings_target_percent"], 30.0)
+        self.assertEqual(applied["monthly_fixed_expenses"], 1580000.0)
+        self.assertEqual(len(applied["fixed_expenses"]), 2)
+
+    def test_apply_profile_rejects_empty(self):
+        res = self.client.post("/api/assistant/apply-profile", json={"suggestion": {}})
+        self.assertEqual(res.status_code, 400)
+
+    def test_sanitize_profile_patch_drops_nulls(self):
+        clean = finance_store.sanitize_profile_patch(
+            {
+                "savings_target_percent": 25,
+                "monthly_income_fixed": None,
+                "fixed_expenses": [{"label": "Arriendo", "amount": 1000}],
+            }
+        )
+        self.assertEqual(clean["savings_target_percent"], 25.0)
+        self.assertNotIn("monthly_income_fixed", clean)
+        self.assertEqual(clean["monthly_fixed_expenses"], 1000.0)
+
+    def test_summarize_compacts_old_messages(self):
+        thread = finance_store.get_or_create_main_thread()
+        tid = thread["id"]
+        for i in range(12):
+            role = "user" if i % 2 == 0 else "assistant"
+            finance_store.append_chat_message(tid, role, f"mensaje financiero {i}")
+
+        class _Fake:
+            def complete_json(self, prompt):
+                assert "Mensajes a condensar" in prompt
+                return json.dumps(
+                    {
+                        "summary": "Quiere ahorrar 30% y controla fijos de arriendo.",
+                        "memory_updates": [
+                            {"fact": "Meta de ahorro 30%", "category": "goal"}
+                        ],
+                        "reply": "Compacté el historial viejo; seguimos con lo reciente.",
+                    }
+                )
+
+        fake = _Fake()
+        with patch("integrations.registry.get_active_integration", return_value=fake):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "/sumarize", "thread_id": tid},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertTrue(body["summarized"])
+        self.assertGreater(body["compacted_count"], 0)
+        self.assertIn("30%", body["memory_summary"])
+
+        visible = finance_store.list_chat_messages(tid, limit=None)
+        # Cola reciente + /sumarize + reply del asistente
+        self.assertLessEqual(len(visible), 10)
+        compacted = finance_store.list_chat_messages(tid, limit=None, include_compacted=True)
+        self.assertGreater(len(compacted), len(visible))
+
+    def test_summarize_alias_too_short(self):
+        thread = finance_store.get_or_create_main_thread()
+        finance_store.append_chat_message(thread["id"], "user", "hola corta")
+
+        class _Fake:
+            def complete_json(self, prompt):
+                raise AssertionError("no debe llamar LLM si hay poco historial")
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "/summarize", "thread_id": thread["id"]},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertFalse(body["summarized"])
+        self.assertEqual(body["compacted_count"], 0)
+
+    def test_chat_movement_draft_confirm_saves_expense(self):
+        self.client.post(
+            "/api/accounts",
+            json={"name": "Nequi", "type": "wallet", "currency": "COP", "initial_balance": 200000},
+        )
+
+        class _Fake:
+            def complete_json(self, prompt):
+                assert "movement_draft" in prompt
+                return json.dumps(
+                    {
+                        "reply": "Anoto un Uber de 25 mil. Confirma para guardarlo.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "memory_updates": [],
+                        "memory_summary": None,
+                        "profile_patch": {},
+                        "movement_draft": {
+                            "needs_clarification": None,
+                            "expenses": [
+                                {
+                                    "amount": 25000,
+                                    "currency": "COP",
+                                    "category": "Transporte",
+                                    "category_emoji": "🚌",
+                                    "description": "Uber",
+                                    "payment_method": "",
+                                    "account_name_hint": "Nequi",
+                                    "suggested_new_category": None,
+                                }
+                            ],
+                            "incomes": [],
+                            "investments": [],
+                            "notes": [],
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "Gasté 25 mil en Uber por Nequi"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        draft = body["movement_draft"]
+        self.assertIsNotNone(draft)
+        self.assertEqual(draft["counts"]["expenses"], 1)
+        self.assertEqual(draft["items"][0]["amount"], 25000)
+        self.assertIsNotNone(draft["items"][0]["account_id"])
+
+        # Sin confirmar, aún no hay gasto
+        finance = self.client.get("/api/finance").get_json()
+        before = len(finance.get("expenses") or [])
+
+        confirm = self.client.post(
+            "/api/confirm-analysis",
+            json={"items": draft["items"]},
+        )
+        self.assertEqual(confirm.status_code, 200)
+        saved = confirm.get_json()["saved"]
+        self.assertEqual(saved["expenses"], 1)
+
+        finance = self.client.get("/api/finance").get_json()
+        self.assertEqual(len(finance.get("expenses") or []), before + 1)
+
+    def test_chat_asks_clarification_without_draft_items(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "¿Cuánto fue el gasto?",
+                        "off_topic": False,
+                        "follow_ups": ["Fueron 40 mil"],
+                        "memory_updates": [],
+                        "profile_patch": {},
+                        "movement_draft": {
+                            "needs_clarification": "falta el monto",
+                            "expenses": [],
+                            "incomes": [],
+                            "investments": [],
+                            "notes": [],
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "Pagué un Uber"},
+            )
+        body = res.get_json()
+        draft = body["movement_draft"]
+        self.assertIsNotNone(draft)
+        self.assertEqual(draft["needs_clarification"], "falta el monto")
+        self.assertEqual(draft["counts"]["total"], 0)
+
+    def test_chat_multi_movement_draft(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Anoto 3 gastos. Confirma para guardarlos.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {
+                            "needs_clarification": None,
+                            "expenses": [
+                                {
+                                    "amount": 12000,
+                                    "currency": "COP",
+                                    "category": "Café",
+                                    "description": "Café",
+                                    "account_name_hint": "",
+                                },
+                                {
+                                    "amount": 45000,
+                                    "currency": "COP",
+                                    "category": "Comida",
+                                    "description": "Almuerzo",
+                                    "account_name_hint": "",
+                                },
+                                {
+                                    "amount": 18000,
+                                    "currency": "COP",
+                                    "category": "Transporte",
+                                    "description": "Uber",
+                                    "account_name_hint": "",
+                                },
+                            ],
+                            "incomes": [],
+                            "investments": [],
+                            "notes": [],
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "café 12 mil, almuerzo 45 mil y Uber 18 mil"},
+            )
+        body = res.get_json()
+        self.assertEqual(body["movement_draft"]["counts"]["expenses"], 3)
+        self.assertEqual(len(body["movement_draft"]["items"]), 3)
+
+    def test_buscar_command_and_lookup_intent(self):
+        self.client.post(
+            "/api/expenses",
+            json={
+                "amount": 25000,
+                "currency": "COP",
+                "description": "Uber aeropuerto",
+                "category": "Transporte",
+            },
+        )
+        res = self.client.post(
+            "/api/assistant/chat",
+            json={"message": "/buscar Uber"},
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertGreaterEqual(body["lookup"]["count"], 1)
+        self.assertIn("Uber", body["assistant_message"]["content"])
+
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Revisé tus movimientos.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {},
+                        "lookup": {"q": "Uber", "kind": "expense", "period": "month"},
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "¿Cuánto gasté en Uber este mes?"},
+            )
+        body = res.get_json()
+        self.assertGreaterEqual(body["lookup"]["count"], 1)
+        self.assertIn("25000", body["assistant_message"]["content"])
+
+    def test_chat_account_draft_apply(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Puedo crear Nequi como billetera. Confirma.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {},
+                        "account_draft": {
+                            "name": "Nequi Chat",
+                            "type": "billetera",
+                            "currency": "COP",
+                            "initial_balance": 0,
+                            "emoji": "💜",
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "Crea una cuenta Nequi Chat"},
+            )
+        body = res.get_json()
+        draft = body["account_draft"]
+        self.assertEqual(draft["name"], "Nequi Chat")
+        self.assertEqual(draft["type"], "wallet")
+
+        applied = self.client.post(
+            "/api/assistant/apply-account",
+            json={"suggestion": draft},
+        )
+        self.assertEqual(applied.status_code, 200)
+        accounts = applied.get_json()["accounts"]
+        self.assertTrue(any(a["name"] == "Nequi Chat" for a in accounts))
 
 
 if __name__ == "__main__":

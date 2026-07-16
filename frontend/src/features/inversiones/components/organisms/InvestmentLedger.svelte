@@ -57,10 +57,13 @@
   let sortDir: 'asc' | 'desc' = 'desc';
   let currentPage = 1;
   let prevFilterKey = '';
+  let selectedIds = new Set<string>();
+  let bulkDeleting = false;
 
   const typeOptions = [
     { value: 'all', label: 'Todos' },
     { value: 'deposit', label: 'Depósito' },
+    { value: 'withdrawal', label: 'Retiro' },
     { value: 'buy', label: 'Compra' },
     { value: 'sell', label: 'Venta' },
     { value: 'dividend', label: 'Dividendo' },
@@ -158,14 +161,67 @@
       showToast(err instanceof Error ? err.message : 'Error al eliminar', { type: 'error' });
     }
   }
+
+  $: presentIds = new Set(investments.map((inv) => inv.id));
+  $: pageIds = pageItems.map((inv) => inv.id);
+  $: allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  $: somePageSelected = pageIds.some((id) => selectedIds.has(id));
+  // Cuenta solo selecciones aún presentes; ids obsoletos (tras borrar) se ignoran.
+  $: selectedCount = [...selectedIds].filter((id) => presentIds.has(id)).length;
+
+  function toggleRow(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selectedIds = next;
+  }
+
+  function toggleAllPage() {
+    const next = new Set(selectedIds);
+    if (allPageSelected) pageIds.forEach((id) => next.delete(id));
+    else pageIds.forEach((id) => next.add(id));
+    selectedIds = next;
+  }
+
+  async function removeSelected() {
+    const ids = [...selectedIds].filter((id) => presentIds.has(id));
+    if (!ids.length) return;
+    const noun = ids.length === 1 ? 'fila' : 'filas';
+    if (!confirm(`¿Eliminar ${ids.length} ${noun} del libro de inversiones?`)) return;
+    bulkDeleting = true;
+    let data;
+    try {
+      for (const id of ids) {
+        data = await deleteInvestment(id);
+      }
+      if (data) applyFinancePayload(data);
+      selectedIds = new Set();
+      dispatch('refreshed');
+      showToast(`${ids.length} ${noun} eliminadas`, { type: 'success' });
+    } catch (err) {
+      if (data) applyFinancePayload(data);
+      selectedIds = new Set();
+      dispatch('refreshed');
+      showToast(err instanceof Error ? err.message : 'Error al eliminar', { type: 'error' });
+    } finally {
+      bulkDeleting = false;
+    }
+  }
 </script>
 
 <section class="ledger-section section" id="libro-inversiones" aria-label="Libro de inversiones">
   <div class="ledger-section__header">
     <h2 class="card-title">Libro de inversiones</h2>
-    <button type="button" class="secondary-button" on:click={() => dispatch('newRow')}>
-      + Nueva fila
-    </button>
+    <div class="ledger-section__actions">
+      {#if selectedCount > 0}
+        <button type="button" class="danger-button" on:click={removeSelected} disabled={bulkDeleting}>
+          {bulkDeleting ? 'Eliminando…' : `Eliminar seleccionadas (${selectedCount})`}
+        </button>
+      {/if}
+      <button type="button" class="secondary-button" on:click={() => dispatch('newRow')}>
+        + Nueva fila
+      </button>
+    </div>
   </div>
 
   <SearchFilterBar
@@ -184,6 +240,16 @@
       <table class="ledger-table">
         <thead>
           <tr>
+            <th class="ledger-table__select-col">
+              <input
+                type="checkbox"
+                class="ledger-table__checkbox"
+                aria-label="Seleccionar todas las filas visibles"
+                checked={allPageSelected}
+                indeterminate={somePageSelected && !allPageSelected}
+                on:change={toggleAllPage}
+              />
+            </th>
             {#each columns as col (col.key)}
               <th
                 class:ledger-table__num={col.numeric}
@@ -201,7 +267,16 @@
         </thead>
         <tbody>
           {#each pageItems as inv (inv.id)}
-            <tr>
+            <tr class:is-selected={selectedIds.has(inv.id)}>
+              <td class="ledger-table__select-col">
+                <input
+                  type="checkbox"
+                  class="ledger-table__checkbox"
+                  aria-label="Seleccionar fila"
+                  checked={selectedIds.has(inv.id)}
+                  on:change={() => toggleRow(inv.id)}
+                />
+              </td>
               <td>{operationTypeLabel(resolveOperationType(inv))}</td>
               <td>{inv.date || '—'}</td>
               <td class="ledger-table__asset">{inv.asset || '—'}</td>

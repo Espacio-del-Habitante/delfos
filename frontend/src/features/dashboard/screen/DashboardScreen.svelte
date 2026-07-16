@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import HeaderIsland from '@common/molecules/HeaderIsland.svelte';
   import SummaryCards from '@features/dashboard/components/organisms/SummaryCards.svelte';
+  import ProfilePeek from '@features/dashboard/components/organisms/ProfilePeek.svelte';
   import AccountsPanel from '@features/dashboard/components/organisms/AccountsPanel.svelte';
   import QuickEntry from '@features/dashboard/components/organisms/QuickEntry.svelte';
   import VoiceEntry from '@features/dashboard/components/organisms/VoiceEntry.svelte';
@@ -19,7 +20,7 @@
     deleteInvestment,
     deleteNote,
   } from '@common/lib/api';
-  import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
+  import { applyFinancePayload, finance, financeStatus, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
   import type {
     Account,
@@ -57,7 +58,6 @@
   function onPreviewConfirmed() {
     analysisPreview = null;
     draftText = '';
-    refreshFinanceData();
   }
 
   function findRecord(type: string, id: string) {
@@ -115,9 +115,33 @@
 <div class="app-shell">
   <HeaderIsland summary={$finance?.summary ?? null} />
 
+  {#if $financeStatus === 'loading' && !$finance}
+    <p class="finance-loading" role="status">Cargando finanzas…</p>
+  {:else if $financeStatus === 'error' && !$finance}
+    <p class="finance-loading finance-loading--error" role="alert">
+      No se pudieron cargar los datos.
+      <button type="button" class="linkish" on:click={() => refreshFinanceData()}>Reintentar</button>
+    </p>
+  {/if}
+
+  {#if $finance && $finance.financial_profile && !$finance.financial_profile.onboarding_completed}
+    <aside class="onboarding-banner" aria-label="Alta de perfil">
+      <div>
+        <strong>Configura tu perfil financiero</strong>
+        <p>Ingresos, metas y preferencias para que el asistente tenga contexto.</p>
+      </div>
+      <a class="onboarding-banner__cta" href="/perfil">Empezar</a>
+    </aside>
+  {/if}
+
   <div class="dashboard-grid">
     <div class="dashboard-col-left" id="inicio">
       <SummaryCards summary={$finance?.summary ?? null} />
+      <ProfilePeek
+        profile={$finance?.financial_profile}
+        goals={$finance?.goals ?? []}
+        kpis={$finance?.assistant_kpis}
+      />
       <AccountsPanel
         accounts={$finance?.accounts ?? []}
         on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
@@ -182,3 +206,68 @@
   bind:open={importModalOpen}
   on:refreshed={refreshFinanceData}
 />
+
+<style>
+  .finance-loading {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+  }
+
+  .finance-loading--error {
+    color: var(--danger, #b42318);
+  }
+
+  .finance-loading .linkish {
+    margin-left: 0.35rem;
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .onboarding-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    margin: 0 0 1.1rem;
+    padding: 1rem 1.15rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-soft);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .onboarding-banner strong {
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .onboarding-banner p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .onboarding-banner__cta {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-sm);
+    background: var(--text-strong);
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 140ms var(--ease-out);
+  }
+
+  .onboarding-banner__cta:active {
+    transform: scale(0.97);
+  }
+</style>

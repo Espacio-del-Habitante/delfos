@@ -28,15 +28,111 @@ import type {
   Category,
   ConfirmPayload,
   FinancePayload,
+  AssistantContextPack,
+  AccountDraft,
+  ChatMessage,
+  ChatResponse,
+  ChatThread,
+  FinancialProfile,
+  FinancialProfilePatch,
+  Goal,
+  GoalInput,
   ImportPreviewResponse,
   InvestmentLedgerRow,
   OllamaHealth,
   OcrPreviewResponse,
   PortfolioInsights,
+  QuoteSettings,
+  QuoteSettingsPatch,
+  QuoteTestStatus,
 } from './types';
 
 export function getFinanceData(): Promise<FinancePayload> {
   return fetchJson<FinancePayload>('/api/finance');
+}
+
+export function getAssistantProfile(): Promise<{ profile: FinancialProfile }> {
+  return fetchJson('/api/assistant/profile');
+}
+
+export function updateAssistantProfile(
+  patch: FinancialProfilePatch,
+): Promise<{ profile: FinancialProfile }> {
+  return fetchJson('/api/assistant/profile', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function getAssistantGoals(): Promise<{ goals: Goal[] }> {
+  return fetchJson('/api/assistant/goals');
+}
+
+export function createAssistantGoal(body: GoalInput): Promise<{ goal: Goal; goals: Goal[] }> {
+  return fetchJson('/api/assistant/goals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateAssistantGoal(
+  id: string,
+  body: Partial<GoalInput>,
+): Promise<{ goal: Goal; goals: Goal[] }> {
+  return fetchJson(`/api/assistant/goals/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteAssistantGoal(id: string): Promise<{ goals: Goal[] }> {
+  return fetchJson(`/api/assistant/goals/${id}`, { method: 'DELETE' });
+}
+
+export function getAssistantContext(): Promise<AssistantContextPack> {
+  return fetchJson('/api/assistant/context');
+}
+
+export function ensureAssistantThread(): Promise<{ thread: ChatThread }> {
+  return fetchJson('/api/assistant/threads', { method: 'POST' });
+}
+
+export function getAssistantMessages(threadId: string): Promise<{ messages: ChatMessage[] }> {
+  return fetchJson(`/api/assistant/threads/${threadId}/messages`);
+}
+
+export function sendAssistantChat(
+  message: string,
+  threadId?: string | null,
+): Promise<ChatResponse> {
+  return fetchJson('/api/assistant/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, thread_id: threadId || undefined }),
+  });
+}
+
+export function applyAssistantProfileSuggestion(
+  suggestion: FinancialProfilePatch,
+): Promise<{ profile: FinancialProfile; applied: FinancialProfilePatch }> {
+  return fetchJson('/api/assistant/apply-profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ suggestion }),
+  });
+}
+
+export function applyAssistantAccountSuggestion(
+  suggestion: AccountDraft,
+): Promise<FinancePayload & { account?: unknown; applied?: AccountDraft }> {
+  return fetchJson('/api/assistant/apply-account', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ suggestion }),
+  });
 }
 
 export function fetchPortfolioInsights(): Promise<PortfolioInsights> {
@@ -68,6 +164,26 @@ export function saveAiSettings(patch: AiSettingsPatch): Promise<AiSettingsRespon
 
 export function testAiConnection(patch: AiSettingsPatch): Promise<AiHealthStatus> {
   return fetchJson<AiHealthStatus>('/api/settings/ai/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function getQuoteSettings(): Promise<{ config: QuoteSettings }> {
+  return fetchJson<{ config: QuoteSettings }>('/api/settings/quotes');
+}
+
+export function saveQuoteSettings(patch: QuoteSettingsPatch): Promise<{ config: QuoteSettings }> {
+  return fetchJson<{ config: QuoteSettings }>('/api/settings/quotes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function testQuoteSettings(patch: QuoteSettingsPatch): Promise<QuoteTestStatus> {
+  return fetchJson<QuoteTestStatus>('/api/settings/quotes/test', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
@@ -241,8 +357,20 @@ async function fetchBlob(path: string): Promise<Blob> {
   return res.blob();
 }
 
+async function fetchAssetBlob(path: string): Promise<Blob> {
+  const res = await fetch(path);
+  if (!res.ok) {
+    throw new ApiError(res.statusText, res.status);
+  }
+  return res.blob();
+}
+
 export function exportInvestmentsCsv(): Promise<Blob> {
   return fetchBlob('/api/investments/export.csv');
+}
+
+export function downloadInvestmentsTemplateCsv(): Promise<Blob> {
+  return fetchAssetBlob('/plantillas/plantilla-inversiones.csv');
 }
 
 export function exportInvestmentsXlsx(): Promise<Blob> {

@@ -2,7 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import Modal from '@common/atoms/Modal.svelte';
   import Dropzone from '@common/molecules/Dropzone.svelte';
-  import { importCsvBulk } from '@common/lib/api';
+  import { downloadInvestmentsTemplateCsv, importCsvBulk } from '@common/lib/api';
   import { applyFinancePayload } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
   import IconDownload from '@common/atoms/icons/IconDownload.svelte';
@@ -18,8 +18,34 @@
     'Tipo de Operación, Fecha, Activo, Cantidad, Monto USD, Monto COP, Precio unitario, Costo cierre, P/G USD, Total';
 
   let importing = false;
+  let templateBusy = false;
   let importPreview: ImportPreviewResponse | null = null;
   let pendingFile: File | null = null;
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function downloadTemplate() {
+    templateBusy = true;
+    try {
+      const blob = await downloadInvestmentsTemplateCsv();
+      downloadBlob(blob, 'plantilla-inversiones.csv');
+      showToast('Plantilla descargada', { type: 'success' });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al descargar plantilla', { type: 'error' });
+    } finally {
+      templateBusy = false;
+    }
+  }
 
   function close() {
     open = false;
@@ -99,6 +125,18 @@
     <p class="bulk-import-panel__subtitle investment-actions__export-hint">
       Solo libro de inversiones. Columnas esperadas: {hint}
     </p>
+
+    <div class="bulk-import-panel__exports">
+      <button
+        type="button"
+        class="secondary-button icon-button"
+        disabled={templateBusy}
+        on:click={downloadTemplate}
+      >
+        <IconDownload size={18} />
+        {templateBusy ? 'Descargando…' : 'Descargar plantilla CSV'}
+      </button>
+    </div>
 
     <Dropzone
       class="bulk-import-panel__dropzone"
