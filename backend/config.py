@@ -46,3 +46,9 @@ OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 FLASK_HOST = os.getenv("FLASK_HOST", "127.0.0.1")
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5000"))
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "true").lower() in ("1", "true", "yes")
+# Logs del chat (context → LLM → finance_query/lookup). Off por defecto.
+ASSISTANT_DEBUG = os.getenv("DELFOS_ASSISTANT_DEBUG", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)

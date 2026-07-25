@@ -1,20 +1,24 @@
 <div align="center">
 
-# 🜲 Delfos
+<img src="docs/assets/delfos-logo.png" alt="Delfos logo" width="128" height="128" />
 
-### Personal finance copilot — expenses, income and investments, supercharged with AI
+# Delfos
 
-Capture via **text, voice, CSV or photo**, visualize instantly, and let AI do the boring work.
-**Local-first**: your data lives in your own files, AI is optional.
+### Personal finance copilot — local-first, AI-optional
 
+Capture expenses, income and investments via **text, voice, CSV or photo**.  
+Dashboard + investment ledger. AI proposes; **you confirm**.  
+Your data stays in local JSON files. No cloud account required.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-0F766E.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3-000000?logo=flask&logoColor=white)
 ![Astro](https://img.shields.io/badge/Astro-6-BC52EE?logo=astro&logoColor=white)
 ![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)
 ![Local-first](https://img.shields.io/badge/Local--first-%E2%9C%94-2ea44f)
-![Desktop](https://img.shields.io/badge/Desktop-Windows%20.exe-0078D6?logo=windows&logoColor=white)
+![Release](https://img.shields.io/badge/release-v1.0.0-C4A35A)
 
-[Español](README.md) · **English**
+[Español](README.md) · **English** · [Features](docs/02_funcionalidades.md) · [Architecture](docs/01_arquitectura.md)
 
 </div>
 

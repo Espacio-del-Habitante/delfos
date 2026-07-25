@@ -361,4 +361,4 @@ Consolidar Delfos como un **copiloto financiero personal** confiable y privado:
 ---
 
 > Este documento es la base de visión de Delfos.
-> Debe leerse junto con `docs/01_arquitectura.md`.
+> Debe leerse junto con `docs/01_arquitectura.md` y `docs/02_funcionalidades.md`.

@@ -1,0 +1,48 @@
+{
+  "settings": {
+    "currency": "COP"
+  },
+  "categories": [
+    {"id": "cat_comida", "name": "Comida", "emoji": "🍽️", "kind": "expense"},
+    {"id": "cat_transporte", "name": "Transporte", "emoji": "🚌", "kind": "expense"},
+    {"id": "cat_mercado", "name": "Mercado", "emoji": "🛒", "kind": "expense"},
+    {"id": "cat_cafe", "name": "Café", "emoji": "☕", "kind": "expense"},
+    {"id": "cat_salud", "name": "Salud", "emoji": "🏥", "kind": "expense"},
+    {"id": "cat_educacion", "name": "Educación", "emoji": "📚", "kind": "expense"},
+    {"id": "cat_entretenimiento", "name": "Entretenimiento", "emoji": "🎬", "kind": "expense"},
+    {"id": "cat_servicios", "name": "Servicios", "emoji": "💡", "kind": "expense"},
+    {"id": "cat_salario", "name": "Salario", "emoji": "💼", "kind": "income"},
+    {"id": "cat_freelance", "name": "Freelance", "emoji": "💻", "kind": "income"},
+    {"id": "cat_otros_ingreso", "name": "Otros", "emoji": "💰", "kind": "income"},
+    {"id": "cat_inversion", "name": "Inversión", "emoji": "📈", "kind": "investment"},
+    {"id": "cat_general", "name": "General", "emoji": "🏷️", "kind": "general"},
+    {"id": "cat_nota", "name": "Nota", "emoji": "📝", "kind": "note"}
+  ],
+  "accounts": [],
+  "expenses": [],
+  "incomes": [],
+  "investments": [],
+  "investment_assets": [],
+  "notes": [],
+  "financial_profile": {
+    "monthly_income_fixed": null,
+    "monthly_income_variable_avg": null,
+    "monthly_fixed_expenses": null,
+    "fixed_expenses": [],
+    "savings_target_percent": null,
+    "investment_target_percent": null,
+    "cushion_percent": null,
+    "emergency_fund_target_months": null,
+    "risk_profile": null,
+    "investment_horizon": null,
+    "fiscal_country": "CO",
+    "priorities": [],
+    "onboarding_completed": false,
+    "last_reviewed_at": null
+  },
+  "goals": [],
+  "chat_threads": [],
+  "chat_messages": [],
+  "memory_facts": [],
+  "memory_summaries": []
+}

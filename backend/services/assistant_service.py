@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime, timezone
 
+import config
 from integrations import registry
 from integrations.base import IntegrationError
 from services import ai_service, finance_store, portfolio_service
 from services.portfolio_accounting import aggregate_portfolio
+
+logger = logging.getLogger(__name__)
 
 # Cuentas que cuentan como liquidez para el colchón / emergencia.
 _LIQUID_TYPES = frozenset({"cash", "bank", "wallet", "savings", "debit_card"})
@@ -29,6 +33,22 @@ _KIND_ES = {
     "investment": "Inversión",
     "note": "Nota",
 }
+
+
+def _assistant_trace(event: str, **payload) -> None:
+    """Log activable: DELFOS_ASSISTANT_DEBUG=true. Va a stderr (visible en `uv run python app.py`)."""
+    if not config.ASSISTANT_DEBUG:
+        return
+    try:
+        body = json.dumps(payload, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        body = str(payload)
+    if len(body) > 2400:
+        body = body[:2400] + "…"
+    line = f"[assistant] {event} {body}"
+    logger.info(line)
+    # Flask/werkzeug a veces no muestra loggers de services; print garantiza visibilidad.
+    print(line, flush=True)
 
 
 def _month_prefix():
@@ -885,16 +905,33 @@ def chat(message: str, thread_id: str | None = None) -> dict:
 
     thread = _resolve_thread(thread_id)
     tid = thread["id"]
+    debug: dict = {"enabled": bool(config.ASSISTANT_DEBUG), "thread_id": tid, "message": text}
 
     finance_store.append_chat_message(tid, "user", text)
     pack = build_context_pack(tid)
     prompt = build_chat_prompt(text, pack)
+    if config.ASSISTANT_DEBUG:
+        kpis = pack.get("kpis") or {}
+        debug["portfolio_kpi"] = kpis.get("portfolio")
+        debug["prompt_chars"] = len(prompt)
+        _assistant_trace(
+            "chat.start",
+            message=text,
+            thread_id=tid,
+            portfolio_kpi=kpis.get("portfolio"),
+            prompt_chars=len(prompt),
+        )
 
     try:
         integration = registry.get_active_integration()
+        provider = getattr(integration, "provider", None) or type(integration).__name__
+        debug["provider"] = str(provider)
         raw = integration.complete_json(prompt)
         parsed = _extract_json(raw)
     except IntegrationError as exc:
+        debug["error"] = "integration"
+        debug["error_detail"] = str(exc)
+        _assistant_trace("chat.integration_error", error=str(exc), hint=getattr(exc, "hint", None))
         fallback = (
             "Ahora mismo no puedo hablar con el modelo de IA. "
             f"{exc}"
@@ -904,7 +941,7 @@ def chat(message: str, thread_id: str | None = None) -> dict:
         assistant_msg = finance_store.append_chat_message(
             tid, "assistant", fallback, meta={"error": True}
         )
-        return {
+        out = {
             "thread": thread,
             "user_message": {"role": "user", "content": text},
             "assistant_message": assistant_msg,
@@ -912,7 +949,13 @@ def chat(message: str, thread_id: str | None = None) -> dict:
             "ai_available": False,
             "error": str(exc),
         }
-    except (ValueError, json.JSONDecodeError, TypeError):
+        if config.ASSISTANT_DEBUG:
+            out["debug"] = debug
+        return out
+    except (ValueError, json.JSONDecodeError, TypeError) as exc:
+        debug["error"] = "parse_error"
+        debug["error_detail"] = str(exc)
+        _assistant_trace("chat.parse_error", error=str(exc))
         fallback = (
             "Te escuché, pero no pude interpretar bien la respuesta del modelo. "
             "¿Lo intentamos de nuevo con otras palabras?"
@@ -920,13 +963,30 @@ def chat(message: str, thread_id: str | None = None) -> dict:
         assistant_msg = finance_store.append_chat_message(
             tid, "assistant", fallback, meta={"parse_error": True}
         )
-        return {
+        out = {
             "thread": finance_store.get_or_create_main_thread(),
             "assistant_message": assistant_msg,
             "follow_ups": ["¿Cómo voy de ahorro este mes?", "¿Cómo está mi emergencia?"],
             "ai_available": True,
             "error": "parse_error",
         }
+        if config.ASSISTANT_DEBUG:
+            out["debug"] = debug
+        return out
+
+    raw_fq = parsed.get("finance_query") if isinstance(parsed.get("finance_query"), dict) else None
+    raw_lookup = parsed.get("lookup") if isinstance(parsed.get("lookup"), dict) else None
+    debug["llm"] = {
+        "reply_preview": str(parsed.get("reply") or "")[:180],
+        "off_topic": bool(parsed.get("off_topic")),
+        "follow_ups": parsed.get("follow_ups") or [],
+        "finance_query_raw": raw_fq,
+        "lookup_raw": raw_lookup,
+        "has_movement_draft": bool(parsed.get("movement_draft")),
+        "has_account_draft": bool(parsed.get("account_draft")),
+        "has_profile_patch": bool(parsed.get("profile_patch")),
+    }
+    _assistant_trace("chat.llm", **debug["llm"], provider=debug.get("provider"))
 
     reply = (parsed.get("reply") or "").strip() or "¿Me cuentas un poco más?"
     off_topic = bool(parsed.get("off_topic"))
@@ -975,6 +1035,15 @@ def chat(message: str, thread_id: str | None = None) -> dict:
             if lookup:
                 factual = format_lookup_reply(lookup)
                 reply = f"{reply}\n\n{factual}" if reply else factual
+        debug["resolved"] = {
+            "has_mov_items": has_mov_items,
+            "finance_query": finance_query,
+            "lookup_count": (lookup or {}).get("count") if lookup else None,
+            "skipped_query_because_movement": has_mov_items,
+        }
+        _assistant_trace("chat.resolved", **debug["resolved"])
+    else:
+        debug["resolved"] = {"skipped": "off_topic"}
 
     assistant_msg = finance_store.append_chat_message(
         tid,
@@ -991,7 +1060,7 @@ def chat(message: str, thread_id: str | None = None) -> dict:
         },
     )
 
-    return {
+    out = {
         "thread": next(t for t in finance_store.list_chat_threads() if t["id"] == tid),
         "assistant_message": assistant_msg,
         "follow_ups": follow_ups,
@@ -1005,6 +1074,11 @@ def chat(message: str, thread_id: str | None = None) -> dict:
         "ai_available": True,
         "profile": finance_store.get_financial_profile(),
     }
+    if config.ASSISTANT_DEBUG:
+        debug["final_reply_preview"] = reply[:240]
+        _assistant_trace("chat.done", reply_preview=debug["final_reply_preview"])
+        out["debug"] = debug
+    return out
 
 
 def apply_profile_suggestion(patch: dict) -> dict:

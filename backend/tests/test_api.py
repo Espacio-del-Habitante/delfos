@@ -2020,6 +2020,36 @@ class AssistantProfileTestCase(unittest.TestCase):
         self.assertIn("VOO", content)
         self.assertIn("1000", content)
 
+    def test_assistant_debug_payload_when_enabled(self):
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Mirando ACWI.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {},
+                        "finance_query": {},
+                    }
+                )
+
+        with (
+            patch("services.assistant_service.config.ASSISTANT_DEBUG", True),
+            patch("integrations.registry.get_active_integration", return_value=_Fake()),
+        ):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "¿Qué tal mi activo ACWI?"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIn("debug", body)
+        self.assertTrue(body["debug"]["enabled"])
+        self.assertEqual(body["debug"]["message"], "¿Qué tal mi activo ACWI?")
+        self.assertIn("llm", body["debug"])
+        self.assertIsNone(body.get("finance_query"))
+
     def test_context_pack_portfolio_kpi_with_positions(self):
         finance_store.bulk_add_investments(
             [
