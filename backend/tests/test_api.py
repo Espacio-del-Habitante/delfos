@@ -70,6 +70,89 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.get_json()["error"], "Invalid reset confirmation")
 
+    def test_backup_export_round_trip_and_no_secrets(self):
+        ai_path = Path(self.tmp.name) / "ai_settings.json"
+        quote_path = Path(self.tmp.name) / "quote_settings.json"
+        original_ai = ai_settings.SETTINGS_PATH
+        original_quote = quote_settings.SETTINGS_PATH
+        ai_settings.SETTINGS_PATH = ai_path
+        quote_settings.SETTINGS_PATH = quote_path
+        try:
+            ai_settings.save_config(
+                {
+                    "cloud_enabled": True,
+                    "provider": "gemini",
+                    "api_key": "SECRET_AI_KEY",
+                    "text_model": "gemini-2.0-flash",
+                }
+            )
+            quote_settings.save_config(
+                {
+                    "twelve_data_api_key": "SECRET_TD",
+                    "alpha_vantage_api_key": "SECRET_AV",
+                    "broker_reference_total_usd": 1234.5,
+                }
+            )
+            self.client.post(
+                "/api/accounts",
+                json={"name": "Efectivo", "type": "cash", "currency": "COP", "initial_balance": 50},
+            )
+
+            export = self.client.get("/api/settings/backup")
+            self.assertEqual(export.status_code, 200)
+            bundle = json.loads(export.data.decode("utf-8"))
+            self.assertEqual(bundle["version"], 1)
+            self.assertIn("exported_at", bundle)
+            self.assertEqual(len(bundle["delfos_data"]["accounts"]), 1)
+            self.assertNotIn("api_key", bundle["ai_settings"])
+            self.assertNotIn("twelve_data_api_key", bundle["quote_settings"])
+            self.assertNotIn("alpha_vantage_api_key", bundle["quote_settings"])
+            export_text = export.data.decode("utf-8")
+            self.assertNotIn("SECRET_AI_KEY", export_text)
+            self.assertNotIn("SECRET_TD", export_text)
+            self.assertNotIn("SECRET_AV", export_text)
+
+            bad = self.client.post(
+                "/api/settings/backup/restore",
+                json={"confirmation": "wrong", **bundle},
+            )
+            self.assertEqual(bad.status_code, 400)
+            self.assertEqual(bad.get_json()["error"], "Invalid restore confirmation")
+
+            finance_store.save_data(
+                {
+                    "settings": {"currency": "COP"},
+                    "categories": [],
+                    "accounts": [],
+                    "expenses": [],
+                    "incomes": [],
+                    "investments": [],
+                    "notes": [],
+                }
+            )
+            ai_settings.save_config({"text_model": "other-model"})  # keep api_key
+            quote_settings.save_config({"broker_reference_total_usd": 1})
+
+            ok = self.client.post(
+                "/api/settings/backup/restore",
+                json={"confirmation": "RESTAURAR", **bundle},
+            )
+            self.assertEqual(ok.status_code, 200)
+            data = ok.get_json()
+            self.assertTrue(data.get("restored"))
+            self.assertEqual(len(data["accounts"]), 1)
+            self.assertEqual(data["accounts"][0]["name"], "Efectivo")
+
+            stored_ai = json.loads(ai_path.read_text(encoding="utf-8"))
+            self.assertEqual(stored_ai["api_key"], "SECRET_AI_KEY")
+            self.assertEqual(stored_ai["text_model"], "gemini-2.0-flash")
+            stored_quote = json.loads(quote_path.read_text(encoding="utf-8"))
+            self.assertEqual(stored_quote["twelve_data_api_key"], "SECRET_TD")
+            self.assertEqual(stored_quote["broker_reference_total_usd"], 1234.5)
+        finally:
+            ai_settings.SETTINGS_PATH = original_ai
+            quote_settings.SETTINGS_PATH = original_quote
+
     def test_reset_clears_data(self):
         self.client.post(
             "/api/accounts",

@@ -1,6 +1,7 @@
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 import io
+import json
 import os
 
 import config
@@ -9,6 +10,7 @@ from integrations.base import IntegrationError
 from services import (
     ai_service,
     assistant_service,
+    backup_service,
     bulk_import,
     finance_store,
     investment_ledger,
@@ -226,6 +228,47 @@ def reset_settings():
         return jsonify({"error": "Invalid reset confirmation"}), 400
     finance_store.reset_finance_data()
     return finance_response({"reset": True})
+
+
+@app.route("/api/settings/backup", methods=["GET"])
+def download_backup():
+    bundle = backup_service.build_backup()
+    content = json.dumps(bundle, ensure_ascii=False, indent=2)
+    return send_file(
+        io.BytesIO(content.encode("utf-8")),
+        mimetype="application/json; charset=utf-8",
+        as_attachment=True,
+        download_name="delfos-backup.json",
+    )
+
+
+@app.route("/api/settings/backup/restore", methods=["POST"])
+def restore_backup_route():
+    if "file" in request.files and request.files["file"].filename:
+        confirmation = (request.form.get("confirmation") or "").strip()
+        raw = request.files["file"].read()
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return jsonify({"error": "Invalid backup JSON"}), 400
+    else:
+        body = request.get_json(silent=True) or {}
+        confirmation = (body.get("confirmation") or "").strip()
+        if isinstance(body.get("backup"), dict):
+            payload = body["backup"]
+        else:
+            payload = {k: v for k, v in body.items() if k != "confirmation"}
+
+    if confirmation != "RESTAURAR":
+        return jsonify({"error": "Invalid restore confirmation"}), 400
+
+    try:
+        backup_service.restore_backup(payload)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    registry.clear_cache()
+    return finance_response({"restored": True})
 
 
 @app.route("/api/expenses", methods=["POST"])

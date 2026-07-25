@@ -104,6 +104,8 @@ estado en una sola respuesta tras cada mutación.
 | POST | `/api/analyze` | `ai_service.analyze_text()` (vista previa IA) |
 | POST | `/api/confirm-analysis` | `finance_store.confirm_analysis()` |
 | POST | `/api/settings/reset` | reset con confirmación `"RESTABLECER"` |
+| GET | `/api/settings/backup` | `backup_service.build_backup()` (JSON sin API keys) |
+| POST | `/api/settings/backup/restore` | `backup_service.restore_backup()` con confirmación `"RESTAURAR"` |
 | GET | `/api/ollama/health` | health del adapter Ollama |
 | GET | `/api/ai/health` | health del proveedor activo |
 | GET/POST | `/api/settings/ai` | leer / guardar config de IA |
@@ -131,6 +133,7 @@ estado en una sola respuesta tras cada mutación.
 | `portfolio_service` | Agrega posiciones desde el ledger, calcula costo base, P&L realizado y no realizado |
 | `quote_service` | Motor de cotizaciones en capas (Twelve Data → Alpha Vantage → yfinance → precio importado) con cache TTL 15 min y trazabilidad por activo |
 | `quote_settings` | Configuración de API keys de cotización + total de referencia del broker (secretos gitignored) |
+| `backup_service` | Export/restore del snapshot local (`delfos_data` + settings públicos sin API keys) |
 
 **Persistencia:** todo vive en JSON bajo `config.DATA_DIR`.
 - `delfos_data.json` — datos de finanzas (settings, categorías, cuentas, gastos, ingresos,
@@ -211,6 +214,7 @@ backend/
 │   ├── portfolio_service.py   # posiciones y P&L
 │   ├── quote_service.py       # motor de cotizaciones en capas + cache TTL
 │   ├── quote_settings.py      # config API keys cotizaciones
+│   ├── backup_service.py      # export/restore snapshot (sin secretos)
 │   └── quote_providers/       # twelve_data, alpha_vantage, yfinance
 ├── integrations/
 │   ├── base.py                # AIIntegration + IntegrationError
@@ -232,7 +236,7 @@ frontend/src/
 │   ├── inversiones.astro      # Inversiones
 │   ├── perfil.astro           # Perfil financiero / onboarding (asistente Fase 1)
 │   ├── asistente.astro        # Chat conversacional (asistente Fase 3)
-│   └── configuracion.astro    # Configuración (IA, reset)
+│   └── configuracion.astro    # Configuración (IA, cotizaciones, respaldo, reset)
 ├── features/
 │   ├── dashboard/
 │   │   ├── screen/DashboardScreen.svelte

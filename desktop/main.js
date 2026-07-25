@@ -1,8 +1,10 @@
-const { app, BrowserWindow, Menu, dialog } = require("electron");
+const { app, BrowserWindow, Menu, dialog, session, systemPreferences } = require("electron");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
+
+const MEDIA_PERMISSIONS = new Set(["media", "mediaKeySystem", "microphone", "camera"]);
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const BACKEND_DIR = path.join(ROOT_DIR, "backend");
@@ -152,6 +154,7 @@ function stopBackend() {
 }
 
 function createMainWindow(url) {
+  // ponytail: icono de ventana en dev; electron-builder (icon/.ico empaquetado) queda pendiente.
   mainWindow = new BrowserWindow({
     width: 1340,
     height: 860,
@@ -159,6 +162,7 @@ function createMainWindow(url) {
     minHeight: 680,
     show: false,
     frame: false,
+    icon: path.join(ROOT_DIR, "frontend", "public", "isotipo.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -177,9 +181,24 @@ function createMainWindow(url) {
   return mainWindow.loadURL(url);
 }
 
+function setupMediaPermissions() {
+  // ponytail: allow media for local Flask origin so Web Speech can use the mic in Electron.
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(MEDIA_PERMISSIONS.has(permission));
+  });
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return MEDIA_PERMISSIONS.has(permission);
+  });
+
+  if (process.platform === "darwin" && typeof systemPreferences.askForMediaAccess === "function") {
+    void systemPreferences.askForMediaAccess("microphone");
+  }
+}
+
 async function bootstrap() {
   Menu.setApplicationMenu(null);
   ensureFrontendBuild();
+  setupMediaPermissions();
 
   const backendPort = await getFreePort();
   startBackend(backendPort);

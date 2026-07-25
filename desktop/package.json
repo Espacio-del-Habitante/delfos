@@ -1,6 +1,6 @@
 {
   "name": "delfos-desktop",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Desktop shell (Electron) para Delfos",
   "main": "main.js",
@@ -21,7 +21,7 @@
     "directories": {
       "output": "dist"
     },
-    "icon": "build/icon.png",
+    "icon": "../frontend/public/isotipo.png",
     "files": [
       "main.js",
       "package.json"

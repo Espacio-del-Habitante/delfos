@@ -180,8 +180,13 @@
         <!-- Top row, hidden in the peek state, revealed on approach -->
         <div class="island-head" aria-hidden={revealed ? 'false' : 'true'}>
           <div class="island-brand">
-            <span class="island-brand__mark" aria-hidden="true">✦</span>
-            <span class="island-brand__name">Delfos</span>
+            <img
+              class="island-brand__logo"
+              src="/DelfosLogo.png"
+              alt="Delfos"
+              width="96"
+              height="64"
+            />
           </div>
           <div class="island-status" title={statusText}>
             <span
@@ -202,7 +207,14 @@
 
         <!-- Always-visible signal line: the part that peeks at rest -->
         <div class="island-signal">
-          <span class="island-signal__mark" aria-hidden="true">✦</span>
+          <img
+            class="island-signal__logo"
+            src="/isotipo.png"
+            alt=""
+            width="28"
+            height="28"
+            aria-hidden="true"
+          />
           {#if insightsLoading && !portfolio}
             <span class="island-signal__muted">Cargando cartera…</span>
           {:else if hasPositions}

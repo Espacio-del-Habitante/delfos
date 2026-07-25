@@ -348,6 +348,26 @@ export function resetData(): Promise<FinancePayload> {
   });
 }
 
+export function downloadBackup(): Promise<Blob> {
+  return fetchBlob('/api/settings/backup');
+}
+
+export function restoreBackup(file: File, confirmation: string): Promise<FinancePayload> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('confirmation', confirmation);
+  return fetch(`${API_BASE}/api/settings/backup/restore`, {
+    method: 'POST',
+    body: form,
+  }).then(async (res) => {
+    const data = (await res.json()) as FinancePayload & { error?: string };
+    if (!res.ok) {
+      throw new ApiError(data.error || res.statusText, res.status);
+    }
+    return data;
+  });
+}
+
 async function fetchBlob(path: string): Promise<Blob> {
   const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) {

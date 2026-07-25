@@ -122,6 +122,7 @@ Pendiente: alertas deterministas y reportes anuales de apoyo (no asesoría fisca
 
 - Datos en **JSON local**; sin base de datos ni cuenta de usuario.
 - Restablecer datos exige confirmar escribiendo `RESTABLECER`.
+- Respaldo desde **Configuración**: exporta finanzas + settings públicos (sin API keys); restaurar exige `RESTAURAR` y conserva keys ya guardadas en el equipo si el archivo no las trae.
 - Delfos es una herramienta de registro y análisis personal: **no es asesoría financiera ni fiscal**.
 - Si usas IA en la nube, el texto/imagen salen hacia ese proveedor con tu API key.
 - Cotizaciones externas pueden estar parciales o desfasadas.
@@ -136,6 +137,6 @@ Pendiente: alertas deterministas y reportes anuales de apoyo (no asesoría fisca
 | `/inversiones` | Ledger, OCR, import/export, portafolio |
 | `/perfil` | Perfil financiero y metas |
 | `/asistente` | Chat del copiloto |
-| `/configuracion` | IA, cotizaciones, reset |
+| `/configuracion` | IA, cotizaciones, respaldo, reset |
 
 Detalle de endpoints: [`01_arquitectura.md`](01_arquitectura.md) §3.1.

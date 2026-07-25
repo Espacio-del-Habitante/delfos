@@ -9,9 +9,11 @@
   import {
     createCategory,
     deleteCategory,
+    downloadBackup,
     getAiSettings,
     getQuoteSettings,
     resetData,
+    restoreBackup,
     saveAiSettings,
     saveQuoteSettings,
     testAiConnection,
@@ -69,6 +71,11 @@
 
   let resetOpen = false;
   let resetInput = '';
+  let restoreOpen = false;
+  let restoreInput = '';
+  let restoreFile: File | null = null;
+  let restoreBusy = false;
+  let backupBusy = false;
   let newName = '';
   let newKind = 'expense';
   let newEmoji = '🏷️';
@@ -274,6 +281,58 @@
       showToast('Delfos restablecido', { type: 'success' });
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Error al restablecer', { type: 'error' });
+    }
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportBackup() {
+    backupBusy = true;
+    try {
+      const blob = await downloadBackup();
+      downloadBlob(blob, 'delfos-backup.json');
+      showToast('Respaldo descargado', { type: 'success' });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al exportar', { type: 'error' });
+    } finally {
+      backupBusy = false;
+    }
+  }
+
+  function openRestore() {
+    restoreOpen = true;
+    restoreInput = '';
+    restoreFile = null;
+  }
+
+  function onRestoreFile(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    restoreFile = input.files?.[0] ?? null;
+  }
+
+  async function confirmRestore() {
+    if (!restoreFile || restoreInput.trim() !== 'RESTAURAR') return;
+    restoreBusy = true;
+    try {
+      const data = await restoreBackup(restoreFile, 'RESTAURAR');
+      applyFinancePayload(data);
+      restoreOpen = false;
+      restoreInput = '';
+      restoreFile = null;
+      void loadAiSettings();
+      void loadQuoteSettings();
+      showToast('Respaldo restaurado', { type: 'success' });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al restaurar', { type: 'error' });
+    } finally {
+      restoreBusy = false;
     }
   }
 </script>
@@ -500,6 +559,22 @@
       {/if}
     </section>
 
+    <section class="settings-card" aria-label="Respaldo">
+      <header class="settings-card__head">
+        <h2 class="settings-card__title">Respaldo</h2>
+        <p class="settings-card__hint">
+          Exporta o restaura finanzas y configuración (sin API keys). Al restaurar se conservan las keys
+          ya guardadas en este equipo.
+        </p>
+      </header>
+      <div class="backup-actions">
+        <button type="button" class="secondary-button" disabled={backupBusy} on:click={exportBackup}>
+          {backupBusy ? 'Exportando…' : 'Exportar respaldo'}
+        </button>
+        <button type="button" class="secondary-button" on:click={openRestore}>Restaurar respaldo</button>
+      </div>
+    </section>
+
     <section class="settings-card settings-card--danger" aria-label="Zona de riesgo">
       <div class="danger-zone">
         <p class="danger-zone__label">Zona de riesgo</p>
@@ -511,6 +586,40 @@
 
   <BottomNav active="ajustes" />
 </div>
+
+<Modal bind:open={restoreOpen} title="Restaurar respaldo" narrow>
+  <p class="danger-zone__text">
+    Se reemplazarán los datos actuales con el archivo de respaldo. Escribe <strong>RESTAURAR</strong> para
+    confirmar.
+  </p>
+  <label class="backup-file-label" for="backup-restore-file">Archivo JSON</label>
+  <input
+    id="backup-restore-file"
+    type="file"
+    accept="application/json,.json"
+    class="form-control"
+    on:change={onRestoreFile}
+  />
+  <input
+    type="text"
+    class="form-control"
+    style="margin-top: 10px;"
+    bind:value={restoreInput}
+    placeholder="RESTAURAR"
+    autocomplete="off"
+  />
+  <svelte:fragment slot="footer">
+    <button type="button" class="secondary-button" on:click={() => (restoreOpen = false)}>Cancelar</button>
+    <button
+      type="button"
+      class="danger-button"
+      disabled={!restoreFile || restoreInput.trim() !== 'RESTAURAR' || restoreBusy}
+      on:click={confirmRestore}
+    >
+      {restoreBusy ? 'Restaurando…' : 'Restaurar'}
+    </button>
+  </svelte:fragment>
+</Modal>
 
 <Modal bind:open={resetOpen} title="Restablecer Delfos" narrow>
   <p class="danger-zone__text">Se borrarán todos los datos. Escribe <strong>RESTABLECER</strong> para confirmar.</p>
@@ -702,6 +811,20 @@
     flex-wrap: wrap;
     gap: 10px;
     margin-top: 6px;
+  }
+
+  .backup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .backup-file-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 0.8;
   }
 
   .ai-status-pill {

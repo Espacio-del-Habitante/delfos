@@ -29,7 +29,7 @@
       onstart: (() => void) | null;
       onend: (() => void) | null;
       onresult: ((event: { resultIndex: number; results: { [i: number]: { [j: number]: { transcript: string } } } }) => void) | null;
-      onerror: (() => void) | null;
+      onerror: ((event: { error?: string }) => void) | null;
     })();
     recognition.lang = 'es-CO';
     recognition.continuous = false;
@@ -52,8 +52,16 @@
       dispatch('transcript', text);
       status = 'Transcripción lista';
     };
-    recognition.onerror = () => {
-      status = 'No pude escuchar. Intenta de nuevo.';
+    recognition.onerror = (event) => {
+      const messages: Record<string, string> = {
+        'not-allowed': 'Micrófono bloqueado. Revisa permisos del sistema o de la app.',
+        'service-not-allowed': 'El reconocimiento de voz no está permitido en este entorno.',
+        network: 'Sin red para el servicio de reconocimiento. Revisa la conexión.',
+        'no-speech': 'No detecté voz. Intenta de nuevo.',
+        'audio-capture': 'No hay micrófono disponible.',
+        aborted: 'Escucha cancelada.',
+      };
+      status = messages[event.error ?? ''] ?? 'No pude escuchar. Intenta de nuevo.';
     };
   });
 
