@@ -1,6 +1,6 @@
 {
   "name": "delfos-desktop",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Desktop shell (Electron) para Delfos",
   "main": "main.js",
@@ -11,6 +11,7 @@
     "build:backend:binary": "node ./scripts/build-backend.mjs",
     "pack": "npm run build:frontend && npm run build:backend:binary && electron-builder --dir",
     "dist": "npm run build:frontend && npm run build:backend:binary && electron-builder",
+    "dist:win": "npm run build:frontend && npm run build:backend:binary && electron-builder --win nsis portable",
     "dist:linux": "npm run build:frontend && npm run build:backend:binary && electron-builder --linux AppImage",
     "dist:mac": "npm run build:frontend && npm run build:backend:binary && electron-builder --mac dmg"
   },
@@ -20,6 +21,7 @@
     "directories": {
       "output": "dist"
     },
+    "icon": "build/icon.png",
     "files": [
       "main.js",
       "package.json"
@@ -34,6 +36,16 @@
         ]
       }
     ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "linux": {
       "target": [
         "AppImage"

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/delfos-logo.png" alt="Delfos logo" width="128" height="128" />
+<img src="docs/assets/delfos-logo.png" alt="Delfos logo" width="240" />
 
 # Delfos
 
@@ -16,7 +16,7 @@ Your data stays in local JSON files. No cloud account required.
 ![Astro](https://img.shields.io/badge/Astro-6-BC52EE?logo=astro&logoColor=white)
 ![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)
 ![Local-first](https://img.shields.io/badge/Local--first-%E2%9C%94-2ea44f)
-![Release](https://img.shields.io/badge/release-v1.0.0-C4A35A)
+![Release](https://img.shields.io/badge/release-v1.1.0-C4A35A)
 
 [Español](README.md) · **English** · [Features](docs/02_funcionalidades.md) · [Architecture](docs/01_arquitectura.md)
 

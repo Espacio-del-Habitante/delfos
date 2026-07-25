@@ -1,4 +1,4 @@
-# Delfos Desktop (Electron)
+﻿# Delfos Desktop (Electron)
 
 PoC de escritorio para ejecutar Delfos como una sola app local:
 
@@ -37,6 +37,12 @@ PoC de escritorio para ejecutar Delfos como una sola app local:
 ## Empaquetado (fase 2)
 
 Genera instalables con backend embebido (binario PyInstaller + shell Electron):
+
+```bash
+npm --prefix desktop run dist:win
+```
+
+Para Linux:
 
 ```bash
 npm --prefix desktop run dist:linux
