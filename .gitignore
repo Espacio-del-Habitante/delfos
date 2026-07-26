@@ -15,3 +15,6 @@ backend/data/quote_settings.json
 build/
 dist/
 *.spec
+
+plantilla_inversiones_hapi_alineada.csv
+delfos-import-*/
