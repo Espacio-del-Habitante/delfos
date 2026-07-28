@@ -2,6 +2,7 @@
   import HeaderIsland from '@common/molecules/HeaderIsland.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import OnboardingWizard from '@features/asistente/components/organisms/OnboardingWizard.svelte';
   import {
@@ -9,10 +10,18 @@
     deleteAssistantGoal,
     getAssistantGoals,
     getAssistantProfile,
+    updateAssistantProfile,
   } from '@common/lib/api';
   import { finance, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
-  import type { AssistantKpis, FinancialProfile, Goal, GoalType, SelectOption } from '@common/lib/types';
+  import type {
+    AssistantKpis,
+    FinancialProfile,
+    FixedExpenseItem,
+    Goal,
+    GoalType,
+    SelectOption,
+  } from '@common/lib/types';
   import { onMount } from 'svelte';
 
   let profile: FinancialProfile | null = null;
@@ -20,9 +29,12 @@
   let showWizard = false;
   let loaded = false;
   let newTitle = '';
-  let newAmount = '';
+  let newAmount: number | null = null;
   let newType = 'savings';
   let adding = false;
+  let fixedLabel = '';
+  let fixedAmount: number | null = null;
+  let savingFixed = false;
 
   const goalTypeOptions: SelectOption[] = [
     { value: 'emergency_fund', label: 'Fondo de emergencia' },
@@ -34,6 +46,8 @@
 
   $: kpis = ($finance?.assistant_kpis ?? null) as AssistantKpis | null;
   $: activeGoals = goals.filter((g) => g.status === 'active' || !g.status);
+  $: fixedItems = (profile?.fixed_expenses ?? []) as FixedExpenseItem[];
+  $: fixedTotal = fixedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   onMount(async () => {
     try {
@@ -83,22 +97,68 @@
     }
     adding = true;
     try {
-      const amountRaw = newAmount;
-      const amount = amountRaw === '' || amountRaw == null ? null : Number(amountRaw);
+      const amount = newAmount != null && Number.isFinite(newAmount) ? newAmount : null;
       const { goals: g } = await createAssistantGoal({
         title,
         type: newType as GoalType,
-        target_amount: amount != null && Number.isFinite(amount) ? amount : null,
+        target_amount: amount,
         priority: goals.length + 1,
       });
       goals = g;
       newTitle = '';
-      newAmount = '';
+      newAmount = null;
       showToast('Meta agregada', { type: 'success' });
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Error al agregar', { type: 'error' });
     } finally {
       adding = false;
+    }
+  }
+
+  async function persistFixedExpenses(items: FixedExpenseItem[]) {
+    const sum = items.reduce((s, x) => s + Number(x.amount || 0), 0);
+    const { profile: p } = await updateAssistantProfile({
+      fixed_expenses: items,
+      monthly_fixed_expenses: items.length ? sum : null,
+    });
+    profile = p;
+    await refreshFinanceData().catch(() => undefined);
+  }
+
+  async function addFixedExpense() {
+    const label = String(fixedLabel ?? '').trim();
+    const amount = fixedAmount;
+    if (!label) {
+      showToast('Escribe un nombre', { type: 'error' });
+      return;
+    }
+    if (amount == null || !Number.isFinite(amount) || amount <= 0) {
+      showToast('Monto inválido', { type: 'error' });
+      return;
+    }
+    savingFixed = true;
+    try {
+      await persistFixedExpenses([...fixedItems, { label, amount }]);
+      fixedLabel = '';
+      fixedAmount = null;
+      showToast('Gasto fijo agregado', { type: 'success' });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al agregar', { type: 'error' });
+    } finally {
+      savingFixed = false;
+    }
+  }
+
+  async function removeFixedExpense(index: number) {
+    if (!confirm('¿Eliminar este gasto fijo?')) return;
+    savingFixed = true;
+    try {
+      await persistFixedExpenses(fixedItems.filter((_, i) => i !== index));
+      showToast('Gasto fijo eliminado', { type: 'success' });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al eliminar', { type: 'error' });
+    } finally {
+      savingFixed = false;
     }
   }
 
@@ -146,7 +206,11 @@
         <p class="stat-card__value">
           {kpis?.savings_actual_percent != null ? `${kpis.savings_actual_percent}%` : '—'}
         </p>
-        <p class="stat-card__meta">meta {profile.savings_target_percent ?? '—'}%</p>
+        <p class="stat-card__meta">
+          {kpis?.savings_actual_percent == null
+            ? 'Registra el ingreso del mes'
+            : '% del mes (ingreso − gasto)'}
+        </p>
       </article>
       <article class="stat-card">
         <div class="stat-card__icon stat-card__icon--cushion" aria-hidden="true">◇</div>
@@ -161,7 +225,9 @@
           {kpis?.emergency_months_approx != null ? kpis.emergency_months_approx : '—'}
           <span class="stat-card__unit">meses</span>
         </p>
-        <p class="stat-card__meta">meta {profile.emergency_fund_target_months ?? '—'} meses</p>
+        <p class="stat-card__meta">
+          saldo en cuentas de emergencia · meta {profile.emergency_fund_target_months ?? '—'} meses
+        </p>
       </article>
       <article class="stat-card">
         <div class="stat-card__icon stat-card__icon--goals" aria-hidden="true">◎</div>
@@ -197,6 +263,10 @@
           <dd>{profile.monthly_fixed_expenses ?? '—'}</dd>
         </div>
         <div>
+          <dt>Día de pago</dt>
+          <dd>{profile.income_payday_day ?? '—'}</dd>
+        </div>
+        <div>
           <dt>% inversión</dt>
           <dd>{profile.investment_target_percent ?? '—'}%</dd>
         </div>
@@ -209,13 +279,6 @@
           <dd>{horizonLabel(profile.investment_horizon)}</dd>
         </div>
       </dl>
-      {#if profile.fixed_expenses?.length}
-        <p class="note">
-          Detalle fijos: {profile.fixed_expenses
-            .map((x) => `${x.label} ${x.amount}`)
-            .join(' · ')}
-        </p>
-      {/if}
       {#if profile.priorities?.length}
         <p class="note">Prioridades: {profile.priorities.join(' · ')}</p>
       {/if}
@@ -225,6 +288,52 @@
           ({kpis.portfolio.top_weight_percent ?? '—'}% del costo)
         </p>
       {/if}
+    </section>
+
+    <section class="panel" aria-label="Gastos fijos">
+      <header class="panel__head">
+        <div>
+          <h2>Gastos fijos</h2>
+          <p>Arriendo, internet, etc. El total alimenta la distribución del salario.</p>
+        </div>
+      </header>
+
+      {#if fixedItems.length === 0}
+        <p class="muted">Sin gastos fijos — agrega el primero abajo.</p>
+      {:else}
+        <ul class="goal-list">
+          {#each fixedItems as item, i (i)}
+            <li class="goal-item">
+              <div>
+                <p class="goal-item__title">{item.label}</p>
+                <p class="goal-item__meta">{item.amount}</p>
+              </div>
+              <button
+                type="button"
+                class="card-action-btn card-action-btn--danger"
+                disabled={savingFixed}
+                on:click={() => removeFixedExpense(i)}
+              >
+                Eliminar
+              </button>
+            </li>
+          {/each}
+        </ul>
+        <p class="fixed-total">Total mensual = {fixedTotal}</p>
+      {/if}
+
+      <div class="add-goal">
+        <input type="text" placeholder="Ej. Arriendo" bind:value={fixedLabel} />
+        <MoneyInput placeholder="Monto" bind:value={fixedAmount} />
+        <button
+          type="button"
+          class="btn btn--solid"
+          disabled={savingFixed}
+          on:click={addFixedExpense}
+        >
+          Agregar
+        </button>
+      </div>
     </section>
 
     <section class="panel" aria-label="Metas">
@@ -246,12 +355,21 @@
                 <p class="goal-item__title">{g.title}</p>
                 <p class="goal-item__meta">
                   {#if g.target_amount != null}
-                    Objetivo {g.target_amount}
+                    {g.current_amount ?? 0} / {g.target_amount}
+                  {:else if g.current_amount != null && g.current_amount > 0}
+                    Acumulado {g.current_amount}
                   {:else}
                     Sin monto fijo
                   {/if}
                   · {g.status}
                 </p>
+                {#if g.linked_account_names?.length}
+                  <p class="goal-item__accounts">
+                    Cuentas: {g.linked_account_names.join(' · ')}
+                  </p>
+                {:else}
+                  <p class="goal-item__accounts muted">Sin cuentas enlazadas</p>
+                {/if}
               </div>
               <button
                 type="button"
@@ -268,7 +386,7 @@
       <div class="add-goal">
         <CustomSelect options={goalTypeOptions} bind:value={newType} />
         <input type="text" placeholder="Nueva meta" bind:value={newTitle} />
-        <input type="number" placeholder="Monto" bind:value={newAmount} min="0" step="any" />
+        <MoneyInput placeholder="Monto" bind:value={newAmount} />
         <button type="button" class="btn btn--solid" disabled={adding} on:click={addGoal}>
           Agregar meta
         </button>
@@ -495,12 +613,26 @@
     color: var(--text-muted);
   }
 
+  .goal-item__accounts {
+    margin: 0.2rem 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .fixed-total {
+    margin: 12px 0 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
   .add-goal {
     display: grid;
     gap: 0.55rem;
     margin-top: 1rem;
   }
 
+  .add-goal :global(input),
   .add-goal input {
     width: 100%;
     border: 1px solid var(--border-soft);

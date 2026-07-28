@@ -25,6 +25,7 @@ class AIIntegration(ABC):
 
     - `complete_json`: texto -> JSON crudo (string) para analyze_text.
     - `vision_json`: imagen + prompt -> JSON crudo (string) para OCR.
+    - `transcribe_audio`: audio -> texto (STT; default no soportado).
     - `health`: estado de conexion/modelos para la UI y los endpoints.
     """
 
@@ -37,6 +38,13 @@ class AIIntegration(ABC):
     @abstractmethod
     def vision_json(self, prompt: str, image_b64: str, mime: str = "image/png") -> str:
         """Envia un prompt + imagen (base64) y devuelve la respuesta cruda (JSON)."""
+
+    def transcribe_audio(self, audio_bytes: bytes, mime: str = "audio/webm") -> str:
+        """Transcribe audio a texto. Override en proveedores con STT."""
+        raise IntegrationError(
+            f"El proveedor '{self.name}' no soporta transcripcion de audio.",
+            hint="Configura Gemini u OpenAI-compatible (Groq/OpenRouter) en Configuracion.",
+        )
 
     @abstractmethod
     def health(self) -> dict:

@@ -78,6 +78,27 @@ def _liquid_balance_cop(accounts):
     return total
 
 
+def _emergency_balance_cop(accounts, goals):
+    """Suma COP de cuentas enlazadas a metas type=emergency_fund. 0 si no hay enlace."""
+    emergency_ids = {
+        g.get("id")
+        for g in (goals or [])
+        if g.get("type") == "emergency_fund" and g.get("id")
+    }
+    if not emergency_ids:
+        return 0.0
+    total = 0.0
+    linked = False
+    for acc in accounts or []:
+        if acc.get("goal_id") not in emergency_ids:
+            continue
+        linked = True
+        if (acc.get("currency") or "COP") != "COP":
+            continue
+        total += float(acc.get("current_balance") or 0)
+    return total if linked else 0.0
+
+
 def _portfolio_concentration(investments):
     """Concentración por costo base + cash (sin quotes: rápido y determinista)."""
     agg = aggregate_portfolio(investments or [])
@@ -114,10 +135,8 @@ def build_kpis():
 
     income_month = _sum_month(data.get("incomes") or [], currency)
     expense_month = _sum_month(data.get("expenses") or [], currency)
-    profile_income = (profile.get("monthly_income_fixed") or 0) + (
-        profile.get("monthly_income_variable_avg") or 0
-    )
-    income_base = income_month if income_month > 0 else float(profile_income or 0)
+    # KPI honesto: solo ingresos del ledger del mes (perfil = plantilla, no inventa %).
+    income_base = float(income_month)
 
     savings_actual = None
     if income_base > 0:
@@ -130,15 +149,16 @@ def build_kpis():
 
     liquid = _liquid_balance_cop(data.get("accounts") or [])
     fixed = float(profile.get("monthly_fixed_expenses") or 0)
-    # Emergencia: liquido / (gasto mes o fijos de perfil o ingreso base)
-    monthly_ref = expense_month if expense_month > 0 else (fixed if fixed > 0 else income_base)
-    emergency_months = None
-    if monthly_ref > 0:
-        emergency_months = round(liquid / monthly_ref, 1)
+    # Emergencia: solo saldos de cuentas enlazadas a metas emergency_fund.
+    monthly_ref = fixed if fixed > 0 else (expense_month if expense_month > 0 else income_base)
+    emergency_balance = _emergency_balance_cop(data.get("accounts") or [], data.get("goals") or [])
+    emergency_months = 0.0
+    if emergency_balance > 0 and monthly_ref > 0:
+        emergency_months = round(emergency_balance / monthly_ref, 1)
 
     emergency_target = profile.get("emergency_fund_target_months")
     emergency_delta = None
-    if emergency_months is not None and emergency_target is not None:
+    if emergency_target is not None:
         emergency_delta = round(emergency_months - float(emergency_target), 1)
 
     concentration = _portfolio_concentration(data.get("investments") or [])
@@ -158,6 +178,7 @@ def build_kpis():
             "fixed_expenses": round(fixed, 2) if fixed else None,
             "income_base": round(income_base, 2),
             "liquid_balance": round(liquid, 2),
+            "emergency_balance": round(emergency_balance, 2),
         },
         "savings_actual_percent": savings_actual,
         "savings_target_percent": target,
@@ -169,7 +190,7 @@ def build_kpis():
         "allocation_sum_percent": round(alloc_sum, 1) if alloc_sum else None,
         "portfolio": concentration,
         "active_goals_count": len(
-            [g for g in finance_store.get_goals() if g.get("status") == "active"]
+            [g for g in finance_store.get_goals(data) if g.get("status") == "active"]
         ),
     }
 

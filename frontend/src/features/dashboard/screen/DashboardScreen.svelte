@@ -19,9 +19,11 @@
     deleteIncome,
     deleteInvestment,
     deleteNote,
+    updateAssistantProfile,
   } from '@common/lib/api';
   import { applyFinancePayload, finance, financeStatus, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
+  import { findCategoryByName } from '@common/lib/categories';
   import type {
     Account,
     AnalysisPreview,
@@ -32,6 +34,8 @@
     NoteRecord,
   } from '@common/lib/types';
 
+  const LIQUID_TYPES = new Set(['cash', 'bank', 'wallet', 'savings', 'debit_card']);
+
   let draftText = '';
   let analysisPreview: AnalysisPreview | null = null;
 
@@ -41,11 +45,86 @@
 
   let expenseModalOpen = false;
   let incomeModalOpen = false;
+  let incomePrefill: {
+    amount?: number | null;
+    accountId?: string | null;
+    category?: string | null;
+    categoryEmoji?: string | null;
+    description?: string | null;
+    currency?: string | null;
+  } | null = null;
   let importModalOpen = false;
+  let dismissingPayday = false;
 
   onMount(() => {
     refreshFinanceData().catch(() => showToast('No se pudo cargar los datos', { type: 'error' }));
   });
+
+  $: profile = $finance?.financial_profile ?? null;
+  $: baseCurrency =
+    Object.keys($finance?.summary?.balances_by_currency ?? {})[0] || 'COP';
+  $: monthYm = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  })();
+  $: todayDay = new Date().getDate();
+  $: hasIncomeThisMonth = ($finance?.incomes ?? []).some(
+    (inc) =>
+      String(inc.date || '').startsWith(monthYm) &&
+      (inc.currency || baseCurrency) === baseCurrency &&
+      Number(inc.amount) > 0,
+  );
+  $: showPaydayBanner = Boolean(
+    profile?.onboarding_completed &&
+      profile.income_payday_day != null &&
+      todayDay >= profile.income_payday_day &&
+      !hasIncomeThisMonth &&
+      profile.income_prompt_dismissed_ym !== monthYm,
+  );
+
+  function pickPaydayAccount(accounts: Account[], currency: string): string {
+    const sameCur = (a: Account) => (a.currency || 'COP') === currency;
+    const operating = accounts.find((a) => a.role === 'operating' && sameCur(a));
+    if (operating) return operating.id;
+    const liquid = accounts.find((a) => LIQUID_TYPES.has(a.type) && sameCur(a));
+    if (liquid) return liquid.id;
+    return accounts.find(sameCur)?.id ?? '';
+  }
+
+  function openPaydayIncome() {
+    const accounts = $finance?.accounts ?? [];
+    const categories = $finance?.categories ?? [];
+    const fixed = Number(profile?.monthly_income_fixed) || 0;
+    const variable = Number(profile?.monthly_income_variable_avg) || 0;
+    const amount = fixed + variable || null;
+    const salaryCat = findCategoryByName(categories, 'Salario', 'income');
+    incomePrefill = {
+      amount,
+      accountId: pickPaydayAccount(accounts, baseCurrency) || null,
+      category: 'Salario',
+      categoryEmoji: salaryCat?.emoji || '💰',
+      description: 'Salario',
+      currency: baseCurrency,
+    };
+    incomeModalOpen = true;
+  }
+
+  async function dismissPaydayPrompt() {
+    if (dismissingPayday) return;
+    dismissingPayday = true;
+    try {
+      const { profile: updated } = await updateAssistantProfile({
+        income_prompt_dismissed_ym: monthYm,
+      });
+      if ($finance) {
+        applyFinancePayload({ ...$finance, financial_profile: updated });
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo omitir', { type: 'error' });
+    } finally {
+      dismissingPayday = false;
+    }
+  }
 
   function handleAnalyzed(e: CustomEvent<AnalysisPreview>) {
     analysisPreview = e.detail;
@@ -132,6 +211,26 @@
       </div>
       <a class="onboarding-banner__cta" href="/perfil">Empezar</a>
     </aside>
+  {:else if showPaydayBanner}
+    <aside class="onboarding-banner" aria-label="Recordatorio de ingreso">
+      <div>
+        <strong>¿Ya te pagaron?</strong>
+        <p>Registra el ingreso del mes para ver el % de ahorro real y repartir el salario.</p>
+      </div>
+      <div class="onboarding-banner__actions">
+        <button
+          type="button"
+          class="onboarding-banner__ghost"
+          disabled={dismissingPayday}
+          on:click={dismissPaydayPrompt}
+        >
+          Ahora no
+        </button>
+        <button type="button" class="onboarding-banner__cta" on:click={openPaydayIncome}>
+          Registrar ingreso
+        </button>
+      </div>
+    </aside>
   {/if}
 
   <div class="dashboard-grid">
@@ -144,6 +243,7 @@
       />
       <AccountsPanel
         accounts={$finance?.accounts ?? []}
+        goals={$finance?.goals ?? []}
         on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
         on:delete={(e) => handleDelete(e.detail.type, e.detail.id)}
         on:refresh={refreshFinanceData}
@@ -159,7 +259,10 @@
       <VoiceEntry bind:text={draftText} on:transcript={(e) => (draftText = e.detail)} />
       <ControlCenterPanel
         on:openExpense={() => (expenseModalOpen = true)}
-        on:openIncome={() => (incomeModalOpen = true)}
+        on:openIncome={() => {
+          incomePrefill = null;
+          incomeModalOpen = true;
+        }}
         on:openImport={() => (importModalOpen = true)}
       />
     </div>
@@ -190,6 +293,7 @@
   accounts={$finance?.accounts ?? []}
   categories={$finance?.categories ?? []}
   investmentAssets={$finance?.investment_assets ?? []}
+  goals={$finance?.goals ?? []}
   on:close={closeEdit}
   on:saved={closeEdit}
   on:deleted={closeEdit}
@@ -198,6 +302,7 @@
 <ManualEntryModals
   bind:expenseOpen={expenseModalOpen}
   bind:incomeOpen={incomeModalOpen}
+  bind:incomePrefill
   accounts={$finance?.accounts ?? []}
   categories={$finance?.categories ?? []}
 />
@@ -255,19 +360,50 @@
     font-size: 0.9rem;
   }
 
+  .onboarding-banner__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
   .onboarding-banner__cta {
     display: inline-flex;
     align-items: center;
     padding: 0.6rem 1rem;
     border-radius: var(--radius-sm);
+    border: none;
     background: var(--text-strong);
     color: #fff;
+    font: inherit;
     font-weight: 600;
     text-decoration: none;
+    cursor: pointer;
     transition: transform 140ms var(--ease-out);
   }
 
-  .onboarding-banner__cta:active {
+  .onboarding-banner__ghost {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    color: var(--text-strong);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 140ms var(--ease-out);
+  }
+
+  .onboarding-banner__cta:active,
+  .onboarding-banner__ghost:active {
     transform: scale(0.97);
+  }
+
+  .onboarding-banner__cta:disabled,
+  .onboarding-banner__ghost:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 </style>

@@ -10,6 +10,8 @@ export const ACCOUNT_TYPES: Record<string, string> = {
   other: 'Otro',
 };
 
+export { formatMoneyInput, parseMoneyInput } from './moneyInput.mjs';
+
 export function formatAmount(amount: number | null | undefined, currency = 'COP'): string {
   if (amount == null) return '—';
   if (currency === 'USD') return `$${amount.toLocaleString('en-US')} USD`;
@@ -51,4 +53,15 @@ export function formatLedgerNumber(value: number | null | undefined): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 4,
   });
+}
+
+const MONTHS_SHORT_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** ISO YYYY-MM-DD → "15 jul" para la lista de movimientos. */
+export function formatMovementDate(iso: string | undefined): string {
+  if (!iso) return '';
+  const day = iso.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return iso;
+  const [, m, d] = day.split('-');
+  return `${Number(d)} ${MONTHS_SHORT_ES[Number(m) - 1]}`;
 }

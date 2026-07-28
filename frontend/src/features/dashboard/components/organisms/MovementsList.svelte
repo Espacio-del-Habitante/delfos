@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import SearchFilterBar from '@common/molecules/SearchFilterBar.svelte';
   import { filterMovements, type MovementFilterState } from '@common/lib/filters';
+  import { formatMovementDate } from '@common/lib/formatters';
   import type { Movement, MovementFilterOption } from '@common/lib/types';
 
   export let movements: Movement[] = [];
@@ -59,7 +60,7 @@
             <div class="timeline-item__top">
               <span class="timeline-item__type">{m.type_label || m.type}</span>
               <div class="timeline-item__top-right">
-                <span class="timeline-item__date">{m.date}</span>
+                <span class="timeline-item__date">{formatMovementDate(m.date)}</span>
                 <div class="timeline-item__actions">
                   <button type="button" class="timeline-action-btn" on:click={() => dispatch('edit', { type: m.type, id: m.id })}>Editar</button>
                   <button type="button" class="timeline-action-btn timeline-action-btn--danger" on:click={() => dispatch('delete', { type: m.type, id: m.id })}>Eliminar</button>

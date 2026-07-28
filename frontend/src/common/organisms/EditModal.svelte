@@ -3,6 +3,7 @@
   import CategorySelector from '@common/molecules/CategorySelector.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
   import AssetSelect from '@common/molecules/AssetSelect.svelte';
+  import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import {
     deleteAccount,
     deleteExpense,
@@ -20,7 +21,7 @@
   import { applyFinancePayload } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
   import { createModalShellState, hideModalShell, showModalShell } from '@common/lib/modalShell';
-  import type { Account, Category, EditRecordType, ExpenseRecord, IncomeRecord, InvestmentAsset, InvestmentRecord, NoteRecord } from '@common/lib/types';
+  import type { Account, Category, EditRecordType, ExpenseRecord, IncomeRecord, InvestmentAsset, InvestmentRecord, NoteRecord, Goal } from '@common/lib/types';
 
   export let open = false;
   export let recordType: EditRecordType | null = null;
@@ -28,6 +29,7 @@
   export let accounts: Account[] = [];
   export let categories: Category[] = [];
   export let investmentAssets: InvestmentAsset[] = [];
+  export let goals: Goal[] = [];
 
   const dispatch = createEventDispatcher<{ close: void; saved: void; deleted: void }>();
 
@@ -68,6 +70,17 @@
   $: currencyOptions = [
     { value: 'COP', label: 'COP' },
     { value: 'USD', label: 'USD' },
+  ];
+  $: roleOptions = [
+    { value: 'general', label: 'General' },
+    { value: 'operating', label: 'Operativa' },
+    { value: 'goal', label: 'De meta' },
+  ];
+  $: goalOptions = [
+    { value: '', label: 'Sin meta' },
+    ...goals
+      .filter((g) => g.status === 'active' || !g.status)
+      .map((g) => ({ value: g.id, label: g.title })),
   ];
 
   $: title =
@@ -116,6 +129,8 @@
           emoji: val('emoji') || '💰',
           initial_balance: parseFloat(String(val('initial_balance'))) || 0,
           current_balance: parseFloat(String(val('current_balance'))) || 0,
+          goal_id: val('goal_id') || null,
+          role: val('role') || 'general',
         });
       } else if (recordType === 'expense') {
         data = await updateExpense(record.id, {
@@ -255,14 +270,20 @@
             <label class="edit-form__field">Moneda
               <CustomSelect options={currencyOptions} value={r.currency} name="currency" />
             </label>
+            <label class="edit-form__field">Rol
+              <CustomSelect options={roleOptions} value={r.role || 'general'} name="role" />
+            </label>
+            <label class="edit-form__field">Meta
+              <CustomSelect options={goalOptions} value={r.goal_id || ''} name="goal_id" />
+            </label>
             <label class="edit-form__field">Emoji
               <input class="edit-form__input" name="emoji" value={r.emoji || '💰'} maxlength="4" />
             </label>
             <label class="edit-form__field">Balance inicial
-              <input class="edit-form__input" type="number" name="initial_balance" value={r.initial_balance ?? 0} step="0.01" />
+              <MoneyInput class="edit-form__input" name="initial_balance" value={r.initial_balance ?? 0} emptyAsNull={false} />
             </label>
             <label class="edit-form__field">Balance actual
-              <input class="edit-form__input" type="number" name="current_balance" value={r.current_balance ?? 0} step="0.01" />
+              <MoneyInput class="edit-form__input" name="current_balance" value={r.current_balance ?? 0} emptyAsNull={false} />
             </label>
           {:else if recordType === 'expense'}
             {@const r = record as ExpenseRecord}
@@ -274,7 +295,7 @@
             </label>
             <div class="edit-form__row">
               <label class="edit-form__field">Monto
-                <input class="edit-form__input" type="number" name="amount" value={r.amount ?? ''} min="0" step="0.01" required />
+                <MoneyInput class="edit-form__input" name="amount" value={r.amount ?? null} required />
               </label>
               <label class="edit-form__field">Moneda
                 <CustomSelect options={currencyOptions} value={r.currency || 'COP'} name="currency" />
@@ -308,7 +329,7 @@
             </label>
             <div class="edit-form__row">
               <label class="edit-form__field">Monto
-                <input class="edit-form__input" type="number" name="amount" value={r.amount ?? ''} min="0" step="0.01" required />
+                <MoneyInput class="edit-form__input" name="amount" value={r.amount ?? null} required />
               </label>
               <label class="edit-form__field">Moneda
                 <CustomSelect options={currencyOptions} value={r.currency || 'COP'} name="currency" />
@@ -368,31 +389,31 @@
                 <input class="edit-form__input" type="number" name="quantity" value={r.quantity ?? ''} step="any" />
               </label>
               <label class="edit-form__field">Precio unitario
-                <input class="edit-form__input" type="number" name="unit_price" value={r.unit_price ?? ''} step="0.0001" />
+                <MoneyInput class="edit-form__input" name="unit_price" value={r.unit_price ?? null} maxFractionDigits={4} />
               </label>
             </div>
             <div class="edit-form__row">
               <label class="edit-form__field">Monto USD
-                <input class="edit-form__input" type="number" name="amount_usd" value={r.amount_usd ?? ''} step="0.01" />
+                <MoneyInput class="edit-form__input" name="amount_usd" value={r.amount_usd ?? null} />
               </label>
               <label class="edit-form__field">Monto COP
-                <input class="edit-form__input" type="number" name="amount_cop" value={r.amount_cop ?? ''} step="0.01" />
+                <MoneyInput class="edit-form__input" name="amount_cop" value={r.amount_cop ?? null} />
               </label>
             </div>
             <div class="edit-form__row">
               <label class="edit-form__field">Costo cierre
-                <input class="edit-form__input" type="number" name="closing_cost" value={r.closing_cost ?? ''} step="0.01" />
+                <MoneyInput class="edit-form__input" name="closing_cost" value={r.closing_cost ?? null} />
               </label>
               <label class="edit-form__field">P/G USD
-                <input class="edit-form__input" type="number" name="pnl_usd" value={r.pnl_usd ?? ''} step="0.01" />
+                <MoneyInput class="edit-form__input" name="pnl_usd" value={r.pnl_usd ?? null} />
               </label>
             </div>
             <div class="edit-form__row">
               <label class="edit-form__field">Total
-                <input class="edit-form__input" type="number" name="total" value={r.total ?? r.amount ?? ''} step="0.01" />
+                <MoneyInput class="edit-form__input" name="total" value={r.total ?? r.amount ?? null} />
               </label>
               <label class="edit-form__field">Monto (legacy)
-                <input class="edit-form__input" type="number" name="amount" value={r.amount ?? ''} min="0" step="0.01" />
+                <MoneyInput class="edit-form__input" name="amount" value={r.amount ?? null} />
               </label>
             </div>
             <label class="edit-form__field">Moneda

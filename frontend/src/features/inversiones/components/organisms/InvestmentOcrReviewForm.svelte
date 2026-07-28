@@ -4,6 +4,7 @@
   import IconCheck from '@common/atoms/icons/IconCheck.svelte';
   import IconX from '@common/atoms/icons/IconX.svelte';
   import AssetSelect from '@common/molecules/AssetSelect.svelte';
+  import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import { createInvestmentAsset } from '@common/lib/api';
   import { applyFinancePayload } from '@common/stores/finance';
   import { operationTypeLabel } from '@common/lib/formatters';
@@ -35,6 +36,12 @@
     if (!trimmed) return null;
     const n = Number(trimmed.replace(/,/g, ''));
     return Number.isFinite(n) ? n : null;
+  }
+
+  function setMoney(field: 'amount_usd' | 'amount_cop' | 'unit_price' | 'closing_cost' | 'pnl_usd' | 'total', n: number | null) {
+    if (!activeRow) return;
+    activeRow[field] = n;
+    rows = rows;
   }
 
   function goPrev() {
@@ -176,58 +183,39 @@
       </label>
       <label>
         Monto USD
-        <input
-          type="text"
-          value={activeRow.amount_usd ?? ''}
-          on:input={(e) => {
-            activeRow.amount_usd = parseOptionalNumber(e.currentTarget.value);
-            rows = rows;
-          }}
+        <MoneyInput
+          value={activeRow.amount_usd ?? null}
+          on:change={(e) => setMoney('amount_usd', e.detail)}
         />
       </label>
       <label>
         Monto COP
-        <input
-          type="text"
-          value={activeRow.amount_cop ?? ''}
-          on:input={(e) => {
-            activeRow.amount_cop = parseOptionalNumber(e.currentTarget.value);
-            rows = rows;
-          }}
+        <MoneyInput
+          value={activeRow.amount_cop ?? null}
+          on:change={(e) => setMoney('amount_cop', e.detail)}
         />
       </label>
       <label>
         Precio unitario
-        <input
-          type="text"
-          value={activeRow.unit_price ?? ''}
-          on:input={(e) => {
-            activeRow.unit_price = parseOptionalNumber(e.currentTarget.value);
-            rows = rows;
-          }}
+        <MoneyInput
+          value={activeRow.unit_price ?? null}
+          maxFractionDigits={4}
+          on:change={(e) => setMoney('unit_price', e.detail)}
         />
       </label>
       <label>
         Costo cierre
-        <input
-          type="text"
-          value={activeRow.closing_cost ?? ''}
-          on:input={(e) => {
-            activeRow.closing_cost = parseOptionalNumber(e.currentTarget.value);
-            rows = rows;
-          }}
+        <MoneyInput
+          value={activeRow.closing_cost ?? null}
+          on:change={(e) => setMoney('closing_cost', e.detail)}
         />
       </label>
       {#if activeRow.operation_type === 'sell' || activeRow.operation_type === 'dividend'}
         <label>
           P/G USD
-          <input
-            type="text"
-            value={activeRow.pnl_usd ?? ''}
-            on:input={(e) => {
-              activeRow.pnl_usd = parseOptionalNumber(e.currentTarget.value);
-              rows = rows;
-            }}
+          <MoneyInput
+            value={activeRow.pnl_usd ?? null}
+            on:change={(e) => setMoney('pnl_usd', e.detail)}
           />
         </label>
       {:else if activeRow.pnl_usd != null}
@@ -235,13 +223,9 @@
       {/if}
       <label>
         Total
-        <input
-          type="text"
-          value={activeRow.total ?? ''}
-          on:input={(e) => {
-            activeRow.total = parseOptionalNumber(e.currentTarget.value);
-            rows = rows;
-          }}
+        <MoneyInput
+          value={activeRow.total ?? null}
+          on:change={(e) => setMoney('total', e.detail)}
         />
       </label>
     </form>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import {
     createAssistantGoal,
     deleteAssistantGoal,
@@ -18,9 +19,10 @@
   let saving = false;
 
   let fiscalCountry = 'CO';
-  let incomeFixed = '';
-  let incomeVariable = '';
-  let fixedExpensesTotal = '';
+  let incomeFixed: number | null = null;
+  let incomeVariable: number | null = null;
+  let fixedExpensesTotal: number | null = null;
+  let paydayDay = '';
   let savingsPercent = '20';
   let investmentPercent = '10';
   let cushionPercent = '10';
@@ -29,7 +31,7 @@
   let investmentHorizon = 'medium';
   let prioritiesText = '';
   let goalTitle = '';
-  let goalAmount = '';
+  let goalAmount: number | null = null;
   let goalType = 'savings';
   let existingGoals: Goal[] = [];
 
@@ -79,13 +81,10 @@
 
   function applyProfile(profile: FinancialProfile) {
     fiscalCountry = profile.fiscal_country || 'CO';
-    incomeFixed = profile.monthly_income_fixed != null ? String(profile.monthly_income_fixed) : '';
-    incomeVariable =
-      profile.monthly_income_variable_avg != null
-        ? String(profile.monthly_income_variable_avg)
-        : '';
-    fixedExpensesTotal =
-      profile.monthly_fixed_expenses != null ? String(profile.monthly_fixed_expenses) : '';
+    incomeFixed = profile.monthly_income_fixed ?? null;
+    incomeVariable = profile.monthly_income_variable_avg ?? null;
+    fixedExpensesTotal = profile.monthly_fixed_expenses ?? null;
+    paydayDay = profile.income_payday_day != null ? String(profile.income_payday_day) : '';
     savingsPercent =
       profile.savings_target_percent != null ? String(profile.savings_target_percent) : '20';
     investmentPercent =
@@ -121,9 +120,10 @@
     try {
       const { profile } = await updateAssistantProfile({
         fiscal_country: String(fiscalCountry ?? '').trim() || 'CO',
-        monthly_income_fixed: numOrNull(incomeFixed),
-        monthly_income_variable_avg: numOrNull(incomeVariable),
-        monthly_fixed_expenses: numOrNull(fixedExpensesTotal),
+        monthly_income_fixed: incomeFixed,
+        monthly_income_variable_avg: incomeVariable,
+        monthly_fixed_expenses: fixedExpensesTotal,
+        income_payday_day: numOrNull(paydayDay),
       });
       applyProfile(profile);
       step = 2;
@@ -145,12 +145,12 @@
       const { goals } = await createAssistantGoal({
         title,
         type: goalType as GoalType,
-        target_amount: numOrNull(goalAmount),
+        target_amount: goalAmount,
         priority: existingGoals.length + 1,
       });
       existingGoals = goals;
       goalTitle = '';
-      goalAmount = '';
+      goalAmount = null;
       showToast('Meta agregada', { type: 'success' });
       return true;
     } catch (err) {
@@ -241,21 +241,26 @@
         </label>
         <label class="field">
           <span>Ingreso mensual fijo</span>
-          <input type="number" inputmode="decimal" min="0" step="any" bind:value={incomeFixed} />
+          <MoneyInput bind:value={incomeFixed} />
         </label>
         <label class="field">
           <span>Ingreso variable (promedio)</span>
-          <input type="number" inputmode="decimal" min="0" step="any" bind:value={incomeVariable} />
+          <MoneyInput bind:value={incomeVariable} />
         </label>
         <label class="field">
           <span>Gastos fijos mensuales (total)</span>
+          <MoneyInput bind:value={fixedExpensesTotal} placeholder="Arriendo + servicios + …" />
+        </label>
+        <label class="field">
+          <span>Día de pago (1–28)</span>
           <input
             type="number"
-            inputmode="decimal"
-            min="0"
-            step="any"
-            bind:value={fixedExpensesTotal}
-            placeholder="Arriendo + servicios + …"
+            inputmode="numeric"
+            min="1"
+            max="28"
+            step="1"
+            bind:value={paydayDay}
+            placeholder="Ej. 30 → usa 28"
           />
         </label>
         <div class="onboarding__actions">
@@ -270,6 +275,28 @@
         <p class="onboarding__hint">
           Puedes agregar varias metas. Deja un colchón del ingreso sin comprometer.
         </p>
+
+        <div class="glossary">
+          <h3 class="glossary__title">Cómo se relacionan</h3>
+          <ul class="glossary__list">
+            <li><strong>Cuenta operativa</strong> — día a día; ahí cae el salario y queda el líquido.</li>
+            <li><strong>Cuenta de meta / bolsillo</strong> — ahorro etiquetado enlazado a una meta.</li>
+            <li><strong>Meta</strong> — el objetivo; su progreso suma los saldos de cuentas enlazadas.</li>
+            <li><strong>Colchón</strong> — % que no se mueve; se queda en la operativa.</li>
+            <li><strong>% inversión</strong> — parte del ingreso pensada para broker u otra reserva.</li>
+          </ul>
+          <p class="glossary__cta">
+            Después crea cuentas en el dashboard y enlázalas a metas. El colchón de emergencia solo
+            cuenta si hay una cuenta enlazada a esa meta.
+          </p>
+          {#if existingGoals.some((g) => g.type === 'emergency_fund')}
+            <p class="glossary__hint">
+              Tienes una meta de emergencia: enlázale una cuenta (rol “De meta”) para que el KPI sea
+              honesto.
+            </p>
+          {/if}
+        </div>
+
         <label class="field">
           <span>% ahorro objetivo</span>
           <input type="number" inputmode="decimal" min="0" max="100" step="1" bind:value={savingsPercent} />
@@ -343,7 +370,7 @@
           </label>
           <label class="field">
             <span>Monto objetivo (opcional)</span>
-            <input type="number" inputmode="decimal" min="0" step="any" bind:value={goalAmount} />
+            <MoneyInput bind:value={goalAmount} />
           </label>
           <button type="button" class="btn btn-ghost" disabled={saving} on:click={addGoal}>
             Agregar meta
@@ -495,6 +522,45 @@
   .goals-box__title {
     margin: 0;
     font-size: 0.95rem;
+  }
+
+  .glossary {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.9rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-soft);
+    background: rgba(15, 23, 42, 0.02);
+  }
+
+  .glossary__title {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .glossary__list {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: grid;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .glossary__list strong {
+    color: var(--text-strong);
+  }
+
+  .glossary__cta,
+  .glossary__hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .glossary__hint {
+    color: var(--text-strong);
+    font-weight: 600;
   }
 
   .muted {

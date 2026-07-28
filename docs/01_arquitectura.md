@@ -92,6 +92,9 @@ estado en una sola respuesta tras cada mutación.
 | GET | `/api/investments/export.xlsx` | `investment_ledger.export_xlsx()` |
 | POST | `/api/investments/import.csv` | `investment_ledger.import_csv()` (preview / confirm) |
 | POST | `/api/investments/ocr` | `vision_service.analyze_investment_image()` |
+| POST | `/api/transcribe` | `speech_service.transcribe_audio()` (STT: Whisper local y/o nube) |
+| POST | `/api/settings/stt/warmup` | descarga/carga Whisper local |
+
 | POST | `/api/investments/ocr/confirm` | `investment_ledger.confirm_ledger_rows()` |
 | POST | `/api/expenses/import.csv` | `bulk_import.import_expenses_csv()` |
 | POST | `/api/incomes/import.csv` | `bulk_import.import_incomes_csv()` |
@@ -116,6 +119,8 @@ estado en una sola respuesta tras cada mutación.
 | GET/POST | `/api/assistant/goals` | listar / crear meta |
 | PATCH/DELETE | `/api/assistant/goals/<id>` | editar / borrar meta |
 | GET | `/api/assistant/context` | context pack (perfil + KPIs + metas; sin LLM) |
+| POST | `/api/allocations/propose` | `allocation_service.propose_allocation()` (preview) |
+| POST | `/api/allocations/confirm` | `allocation_service.confirm_allocation()` → transfers/expenses |
 | GET/POST | `/api/assistant/threads` | listar / asegurar thread principal |
 | GET | `/api/assistant/threads/<id>/messages` | historial del hilo |
 | POST | `/api/assistant/chat` | mensaje → pack → LLM → guarda turno |
@@ -124,10 +129,12 @@ estado en una sola respuesta tras cada mutación.
 
 | Servicio | Responsabilidad |
 |----------|-----------------|
-| `finance_store` | **Núcleo de datos.** Carga/guarda el JSON, migraciones suaves, CRUD de cuentas/gastos/ingresos/inversiones/notas/categorías, `financial_profile`/`goals` (asistente), ajuste de saldos, resúmenes, charts, `get_finance_payload`, `confirm_analysis` |
-| `assistant_service` | KPIs del copiloto + context pack (`build_kpis`, `build_context_pack`) sin LLM |
+| `finance_store` | **Núcleo de datos.** Carga/guarda el JSON, migraciones suaves, CRUD de cuentas/gastos/ingresos/inversiones/notas/categorías/transfers, `financial_profile`/`goals` (asistente; metas con `current_amount` de cuentas enlazadas), ajuste de saldos, resúmenes, charts, `get_finance_payload`, `confirm_analysis` |
+| `assistant_service` | KPIs del copiloto + context pack (`build_kpis`, `build_context_pack`) sin LLM; emergencia solo con cuentas enlazadas a `emergency_fund` |
+| `allocation_service` | Propuesta/confirmación determinista de distribución de salario (fijos, emergencia, metas, inversión) |
 | `ai_service` | Construye el prompt financiero, llama al proveedor activo (`registry`), parsea el JSON y arma la **vista previa** de análisis; fallback a nota si la IA falla |
 | `vision_service` | OCR de capturas de broker: valida la imagen, llama a `vision_json` del proveedor, normaliza/depura filas del ledger |
+| `speech_service` | STT: valida audio y llama a `transcribe_audio` del proveedor activo (dictado en Electron) |
 | `investment_ledger` | Export CSV/XLSX, import CSV, parseo de fechas/números (heurística español/COP), mapeo fila↔inversión, refinado/anti-alucinación de filas OCR |
 | `bulk_import` | Import CSV genérico de gastos, ingresos, notas y cuentas (preview + confirm) |
 | `portfolio_service` | Agrega posiciones desde el ledger, calcula costo base, P&L realizado y no realizado |
@@ -147,7 +154,7 @@ legadas, normalizar el ledger, sembrar `investment_assets`, etc.) y reescribe si
 
 | Archivo | Rol |
 |---------|-----|
-| `base` | `AIIntegration` (interfaz: `complete_json`, `vision_json`, `health`) y `IntegrationError` (error normalizado de red/HTTP/config/modelo) |
+| `base` | `AIIntegration` (interfaz: `complete_json`, `vision_json`, `transcribe_audio`, `health`) y `IntegrationError` (error normalizado de red/HTTP/config/modelo) |
 | `settings` | Config + secretos. Precedencia: archivo guardado por UI > variables `.env` > defaults. `effective_provider`, `get_public_config` (sin api_key), `mask_key` |
 | `registry` | Selecciona el adapter activo según la config y lo **cachea por config-hash**; `get_active_integration`, `build_integration`, `clear_cache`, `available_providers` |
 | `ollama` | Adapter local (Ollama REST vía `urllib`): texto, visión y health |
@@ -207,8 +214,11 @@ backend/
 ├── config.py              # .env, DATA_DIR, FRONTEND_DIR, OLLAMA_*, FLASK_*
 ├── services/
 │   ├── finance_store.py       # núcleo de datos + persistencia JSON
+│   ├── allocation_service.py  # propuesta/confirmación de asignación de salario
+│   ├── assistant_service.py   # KPIs + context pack + chat
 │   ├── ai_service.py          # análisis de texto con IA (preview)
 │   ├── vision_service.py      # OCR de inversiones (preview)
+│   ├── speech_service.py      # STT dictado (Electron / fallback)
 │   ├── investment_ledger.py   # export/import + parseo + refinado OCR
 │   ├── bulk_import.py         # import CSV de gastos/ingresos/notas/cuentas
 │   ├── portfolio_service.py   # posiciones y P&L

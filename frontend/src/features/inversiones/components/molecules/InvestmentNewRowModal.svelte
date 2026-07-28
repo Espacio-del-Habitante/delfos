@@ -2,10 +2,12 @@
   import { createEventDispatcher } from 'svelte';
   import Modal from '@common/atoms/Modal.svelte';
   import AssetSelect from '@common/molecules/AssetSelect.svelte';
+  import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import { INVESTMENT_OPERATION_TYPES } from '@common/lib/investmentTypes';
   import { createInvestment } from '@common/lib/api';
   import { applyFinancePayload, finance } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
+  import { parseMoneyInput } from '@common/lib/moneyInput.mjs';
 
   export let open = false;
 
@@ -21,12 +23,12 @@
       date: new Date().toISOString().slice(0, 10),
       asset: '',
       quantity: '',
-      amount_usd: '',
-      amount_cop: '',
-      unit_price: '',
-      closing_cost: '',
-      pnl_usd: '',
-      total: '',
+      amount_usd: null as number | null,
+      amount_cop: null as number | null,
+      unit_price: null as number | null,
+      closing_cost: null as number | null,
+      pnl_usd: null as number | null,
+      total: null as number | null,
     };
   }
 
@@ -42,11 +44,10 @@
     dispatch('close');
   }
 
-  function parseNum(raw: string): number | null {
-    const trimmed = raw.trim();
-    if (!trimmed) return null;
-    const n = Number(trimmed.replace(/,/g, ''));
-    return Number.isFinite(n) ? n : null;
+  function parseNum(raw: string | number | null | undefined): number | null {
+    if (raw == null || raw === '') return null;
+    if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+    return parseMoneyInput(String(raw));
   }
 
   $: investmentAssets = $finance?.investment_assets ?? [];
@@ -129,35 +130,35 @@
         </label>
         <label class="edit-form__field">
           Precio unitario
-          <input class="edit-form__input" type="number" bind:value={newRow.unit_price} step="0.0001" />
+          <MoneyInput class="edit-form__input" bind:value={newRow.unit_price} maxFractionDigits={4} />
         </label>
       </div>
 
       <div class="edit-form__row">
         <label class="edit-form__field">
           Monto USD
-          <input class="edit-form__input" type="number" bind:value={newRow.amount_usd} step="0.01" />
+          <MoneyInput class="edit-form__input" bind:value={newRow.amount_usd} />
         </label>
         <label class="edit-form__field">
           Monto COP
-          <input class="edit-form__input" type="number" bind:value={newRow.amount_cop} step="0.01" />
+          <MoneyInput class="edit-form__input" bind:value={newRow.amount_cop} />
         </label>
       </div>
 
       <div class="edit-form__row">
         <label class="edit-form__field">
           Costo cierre
-          <input class="edit-form__input" type="number" bind:value={newRow.closing_cost} step="0.01" />
+          <MoneyInput class="edit-form__input" bind:value={newRow.closing_cost} />
         </label>
         <label class="edit-form__field">
           P/G USD
-          <input class="edit-form__input" type="number" bind:value={newRow.pnl_usd} step="0.01" />
+          <MoneyInput class="edit-form__input" bind:value={newRow.pnl_usd} />
         </label>
       </div>
 
       <label class="edit-form__field edit-form__field--full">
         Total
-        <input class="edit-form__input" type="number" bind:value={newRow.total} step="0.01" />
+        <MoneyInput class="edit-form__input" bind:value={newRow.total} />
       </label>
     </form>
   </div>

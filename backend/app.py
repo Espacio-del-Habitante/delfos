@@ -9,14 +9,17 @@ from integrations import registry, settings as ai_settings
 from integrations.base import IntegrationError
 from services import (
     ai_service,
+    allocation_service,
     assistant_service,
     backup_service,
     bulk_import,
     finance_store,
     investment_ledger,
+    local_whisper,
     portfolio_service,
     quote_service,
     quote_settings,
+    speech_service,
     vision_service,
 )
 
@@ -96,6 +99,8 @@ def create_account():
                 "currency": body.get("currency", "COP"),
                 "initial_balance": body.get("initial_balance", 0),
                 "emoji": body.get("emoji", "💰"),
+                "goal_id": body.get("goal_id"),
+                "role": body.get("role"),
             }
         )
     except ValueError as exc:
@@ -106,7 +111,10 @@ def create_account():
 @app.route("/api/accounts/<account_id>", methods=["PATCH"])
 def patch_account(account_id):
     body = request.get_json(silent=True) or {}
-    account = finance_store.update_account(account_id, body)
+    try:
+        account = finance_store.update_account(account_id, body)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     if not account:
         return jsonify({"error": "Account not found"}), 404
     return finance_response({"account": account})
@@ -437,6 +445,20 @@ def investments_ocr():
     return jsonify(result), status
 
 
+@app.route("/api/transcribe", methods=["POST"])
+def transcribe_audio():
+    if not request.files.get("audio"):
+        return jsonify({"error": "Audio requerido (campo audio)"}), 400
+    uploaded = request.files["audio"]
+    audio_bytes = uploaded.read()
+    content_type = (uploaded.content_type or "audio/webm").split(";")[0].strip().lower()
+    result = speech_service.transcribe_audio(audio_bytes, content_type)
+    if result.get("error") and not result.get("text"):
+        status = 503 if result.get("ai_available") is False else 400
+        return jsonify(result), status
+    return jsonify(result)
+
+
 @app.route("/api/investments/ocr/confirm", methods=["POST"])
 def investments_ocr_confirm():
     body = request.get_json(silent=True) or {}
@@ -504,6 +526,18 @@ def test_ai_settings():
         return jsonify({"ok": False, "error": str(exc), "hint": exc.hint}), 200
     code = 200 if status.get("ok") else 200
     return jsonify(status), code
+
+
+@app.route("/api/settings/stt/warmup", methods=["POST"])
+def warmup_local_stt():
+    """Descarga/carga Whisper local (puede tardar la primera vez)."""
+    body = request.get_json(silent=True) or {}
+    model = body.get("local_whisper_model")
+    if not model:
+        model = ai_settings.load_config().get("local_whisper_model")
+    result = local_whisper.warmup(model)
+    code = 200 if result.get("ok") else 503
+    return jsonify(result), code
 
 
 @app.route("/api/settings/quotes", methods=["GET"])
@@ -583,6 +617,44 @@ def assistant_delete_goal(goal_id):
 def assistant_context():
     thread_id = (request.args.get("thread_id") or "").strip() or None
     return jsonify(assistant_service.build_context_pack(thread_id))
+
+
+@app.route("/api/allocations/propose", methods=["POST"])
+def allocations_propose():
+    body = request.get_json(silent=True) or {}
+    try:
+        amount = float(body.get("income_amount") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"error": "income_amount inválido"}), 400
+    from_account_id = (body.get("from_account_id") or "").strip()
+    currency = (body.get("currency") or "COP").strip() or "COP"
+    try:
+        proposal = allocation_service.propose_allocation(
+            amount, from_account_id, currency=currency
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"proposal": proposal})
+
+
+@app.route("/api/allocations/confirm", methods=["POST"])
+def allocations_confirm():
+    body = request.get_json(silent=True) or {}
+    proposal = body.get("proposal")
+    if not isinstance(proposal, dict):
+        return jsonify({"error": "proposal es obligatoria"}), 400
+    try:
+        result = allocation_service.confirm_allocation(proposal)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return finance_response(
+        {
+            "allocation": {
+                "applied": result["applied"],
+                "moved": result["moved"],
+            }
+        }
+    )
 
 
 @app.route("/api/assistant/threads", methods=["GET"])

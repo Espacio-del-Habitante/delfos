@@ -4,6 +4,7 @@
   import Modal from '@common/atoms/Modal.svelte';
   import EmojiPickerField from '@common/molecules/EmojiPickerField.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
   import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import {
@@ -19,6 +20,7 @@
     testAiConnection,
     testQuoteSettings,
     updateCategory,
+    warmupLocalStt,
   } from '@common/lib/api';
   import { KIND_LABELS } from '@common/lib/categories';
   import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
@@ -52,6 +54,10 @@
   let aiHasKey = false;
   let aiMaskedKey = '';
   let aiTestStatus: AiHealthStatus | null = null;
+  let preferCloudStt = false;
+  let localWhisperModel = 'base';
+  let localWhisperStatus: AiSettings['local_whisper'] | null = null;
+  let sttWarming = false;
 
   let quoteLoaded = false;
   let quoteLoading = false;
@@ -63,7 +69,7 @@
   let quoteHasAlpha = false;
   let quoteMaskedTwelve = '';
   let quoteMaskedAlpha = '';
-  let quoteBrokerRef = '';
+  let quoteBrokerRef: number | null = null;
   let quoteTestStatus: QuoteTestStatus | null = null;
 
   $: providerOptions = aiProviders.map<SelectOption>((p) => ({ value: p.id, label: p.label }));
@@ -102,6 +108,9 @@
     aiHasKey = cfg.has_api_key;
     aiMaskedKey = cfg.masked_key;
     aiApiKey = '';
+    preferCloudStt = Boolean(cfg.prefer_cloud_stt);
+    localWhisperModel = cfg.local_whisper_model || 'base';
+    localWhisperStatus = cfg.local_whisper ?? null;
   }
 
   async function loadAiSettings() {
@@ -136,9 +145,26 @@
       text_model: aiTextModel.trim(),
       vision_model: aiVisionModel.trim(),
       base_url: aiBaseUrl.trim(),
+      prefer_cloud_stt: preferCloudStt,
+      local_whisper_model: localWhisperModel,
     };
     if (aiApiKey.trim()) patch.api_key = aiApiKey.trim();
     return patch;
+  }
+
+  async function warmupWhisper() {
+    sttWarming = true;
+    try {
+      await saveAiSettings(buildAiPatch());
+      const result = await warmupLocalStt(localWhisperModel);
+      localWhisperStatus = result;
+      if (result.ok) showToast('Whisper local listo', { type: 'success' });
+      else showToast(result.error || result.hint || 'No se pudo cargar Whisper', { type: 'error' });
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al preparar Whisper', { type: 'error' });
+    } finally {
+      sttWarming = false;
+    }
   }
 
   async function saveAi() {
@@ -172,7 +198,7 @@
     quoteHasAlpha = cfg.has_alpha_vantage_key;
     quoteMaskedTwelve = cfg.masked_twelve_data_key;
     quoteMaskedAlpha = cfg.masked_alpha_vantage_key;
-    quoteBrokerRef = cfg.broker_reference_total_usd != null ? String(cfg.broker_reference_total_usd) : '';
+    quoteBrokerRef = cfg.broker_reference_total_usd ?? null;
     quoteTwelveKey = '';
     quoteAlphaKey = '';
   }
@@ -195,9 +221,8 @@
     const patch: QuoteSettingsPatch = {};
     if (quoteTwelveKey.trim()) patch.twelve_data_api_key = quoteTwelveKey.trim();
     if (quoteAlphaKey.trim()) patch.alpha_vantage_api_key = quoteAlphaKey.trim();
-    const ref = quoteBrokerRef.trim();
-    if (ref) {
-      patch.broker_reference_total_usd = parseFloat(ref);
+    if (quoteBrokerRef != null && Number.isFinite(quoteBrokerRef)) {
+      patch.broker_reference_total_usd = quoteBrokerRef;
     } else {
       patch.broker_reference_total_usd = null;
     }
@@ -478,7 +503,51 @@
           </div>
         {/if}
 
+        <div class="settings-tip" role="note" style="margin-top:1rem;">
+          <span class="settings-tip__icon" aria-hidden="true">🎤</span>
+          <p class="settings-tip__text">
+            <strong>Dictado en escritorio.</strong> Por defecto usa Whisper local (sin internet). Activa
+            “dictado mejorado” para preferir Gemini/Groq cuando la nube esté configurada.
+          </p>
+        </div>
+
+        <label class="ai-switch">
+          <input type="checkbox" bind:checked={preferCloudStt} />
+          <span class="ai-switch__track" aria-hidden="true"><span class="ai-switch__thumb"></span></span>
+          <span class="ai-switch__label">
+            Dictado mejorado (nube)
+            <span class="ai-switch__hint"
+              >Si falla o está apagado, se usa Whisper local. Requiere nube habilitada arriba.</span
+            >
+          </span>
+        </label>
+
+        <div class="ai-field">
+          <span class="ai-field__label">Modelo Whisper local</span>
+          <CustomSelect
+            options={[
+              { value: 'tiny', label: 'tiny (rápido, menos preciso)' },
+              { value: 'base', label: 'base (recomendado)' },
+              { value: 'small', label: 'small (mejor, más pesado)' },
+            ]}
+            value={localWhisperModel}
+            on:change={(e) => (localWhisperModel = e.detail.value)}
+          />
+          <span class="ai-field__help">
+            {#if localWhisperStatus?.installed === false}
+              No instalado. En backend: <code>uv sync --group stt</code>
+            {:else if localWhisperStatus?.loaded}
+              Modelo cargado ({localWhisperStatus.model || localWhisperModel}).
+            {:else}
+              La primera vez descarga el modelo (~75–150 MB).
+            {/if}
+          </span>
+        </div>
+
         <div class="ai-actions">
+          <button type="button" class="secondary-button" on:click={warmupWhisper} disabled={sttWarming}>
+            {sttWarming ? 'Descargando Whisper…' : 'Preparar Whisper local'}
+          </button>
           <button type="button" class="secondary-button" on:click={testAi} disabled={aiTesting}>
             {aiTesting ? 'Probando…' : 'Probar conexión'}
           </button>
@@ -532,11 +601,9 @@
 
         <div class="ai-field">
           <span class="ai-field__label">Total de referencia del broker (USD)</span>
-          <input
-            type="text"
+          <MoneyInput
             class="form-control"
             bind:value={quoteBrokerRef}
-            inputmode="decimal"
             placeholder="Opcional — para comparar con tu balance en Delfos"
           />
         </div>

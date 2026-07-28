@@ -23,6 +23,7 @@ import type {
   AiHealthStatus,
   AiSettingsPatch,
   AiSettingsResponse,
+  AllocationProposal,
   AnalysisPreview,
   BulkImportKind,
   Category,
@@ -170,6 +171,22 @@ export function testAiConnection(patch: AiSettingsPatch): Promise<AiHealthStatus
   });
 }
 
+export function warmupLocalStt(model?: string): Promise<{
+  ok: boolean;
+  available?: boolean;
+  installed?: boolean;
+  loaded?: boolean;
+  model?: string;
+  error?: string;
+  hint?: string;
+}> {
+  return fetchJson('/api/settings/stt/warmup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(model ? { local_whisper_model: model } : {}),
+  });
+}
+
 export function getQuoteSettings(): Promise<{ config: QuoteSettings }> {
   return fetchJson<{ config: QuoteSettings }>('/api/settings/quotes');
 }
@@ -235,6 +252,28 @@ export function createIncome(body: Record<string, unknown>): Promise<FinancePayl
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+export function proposeAllocation(body: {
+  income_amount: number;
+  from_account_id: string;
+  currency?: string;
+}): Promise<{ proposal: AllocationProposal }> {
+  return fetchJson('/api/allocations/propose', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function confirmAllocation(
+  proposal: AllocationProposal,
+): Promise<FinancePayload & { allocation?: { applied?: Record<string, number>; moved?: number } }> {
+  return fetchJson('/api/allocations/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ proposal }),
   });
 }
 
@@ -454,6 +493,31 @@ export function ocrInvestmentImage(file: File): Promise<OcrPreviewResponse> {
       throw new ApiError(message, res.status);
     }
     return data;
+  });
+}
+
+export function transcribeAudio(blob: Blob): Promise<{ text: string; ai_available?: boolean }> {
+  const form = new FormData();
+  const mime = (blob.type || 'audio/webm').split(';')[0];
+  const ext = mime.includes('mp4') || mime.includes('m4a') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
+  form.append('audio', blob, `dictado.${ext}`);
+  return fetch(`${API_BASE}/api/transcribe`, {
+    method: 'POST',
+    body: form,
+  }).then(async (res) => {
+    const data = (await res.json()) as {
+      text?: string;
+      error?: string;
+      hint?: string;
+      ai_available?: boolean;
+    };
+    if (!res.ok) {
+      const message = data.hint
+        ? `${data.error || res.statusText}. ${data.hint}`
+        : data.error || res.statusText;
+      throw new ApiError(message, res.status);
+    }
+    return { text: data.text || '', ai_available: data.ai_available };
   });
 }
 

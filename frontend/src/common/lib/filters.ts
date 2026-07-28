@@ -1,4 +1,5 @@
 import type { InvestmentRecord, Movement, OperationType } from './types';
+import { inDateRange } from './filtersDate.mjs';
 
 export interface InvestmentFilterState {
   search: string;
@@ -17,13 +18,6 @@ export interface MovementFilterState {
 
 function normalizeSearch(value: string): string {
   return value.trim().toLowerCase();
-}
-
-function inDateRange(date: string | undefined, from: string, to: string): boolean {
-  const d = date || '';
-  if (from && d < from) return false;
-  if (to && d > to) return false;
-  return true;
 }
 
 function resolveOperationType(inv: InvestmentRecord): string {
@@ -63,7 +57,7 @@ export function filterMovements(movements: Movement[], filters: MovementFilterSt
     if (filters.type !== 'all' && m.type !== filters.type) {
       return false;
     }
-    if (!inDateRange(m.date, filters.dateFrom, filters.dateTo)) {
+    if (!inDateRange(m.date || m.created_at, filters.dateFrom, filters.dateTo)) {
       return false;
     }
     if (!q) return true;

@@ -33,6 +33,8 @@
     "investment_target_percent": null,
     "cushion_percent": null,
     "emergency_fund_target_months": null,
+    "income_payday_day": null,
+    "income_prompt_dismissed_ym": null,
     "risk_profile": null,
     "investment_horizon": null,
     "fiscal_country": "CO",

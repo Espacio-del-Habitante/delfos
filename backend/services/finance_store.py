@@ -39,6 +39,8 @@ DEFAULT_FINANCIAL_PROFILE = {
     "investment_target_percent": None,
     "cushion_percent": None,  # holgura / colchón del ingreso (no comprometida)
     "emergency_fund_target_months": None,
+    "income_payday_day": None,  # día del mes 1–28 (evita feb/31)
+    "income_prompt_dismissed_ym": None,  # "YYYY-MM" si el usuario dijo "Ahora no"
     "risk_profile": None,
     "investment_horizon": None,
     "fiscal_country": "CO",
@@ -58,6 +60,7 @@ PROFILE_PATCH_KEYS = frozenset(
         "investment_target_percent",
         "cushion_percent",
         "emergency_fund_target_months",
+        "income_payday_day",
         "risk_profile",
         "investment_horizon",
         "fiscal_country",
@@ -69,6 +72,7 @@ GOAL_STATUSES = frozenset({"active", "paused", "done", "cancelled"})
 GOAL_TYPES = frozenset(
     {"emergency_fund", "savings", "investment", "debt", "custom"}
 )
+ACCOUNT_ROLES = frozenset({"operating", "goal", "general"})
 RISK_PROFILES = frozenset({"conservative", "moderate", "aggressive"})
 INVESTMENT_HORIZONS = frozenset({"short", "medium", "long"})
 
@@ -81,6 +85,7 @@ DEFAULT_DATA = {
     "investments": [],
     "investment_assets": [],
     "notes": [],
+    "transfers": [],
     "financial_profile": deepcopy(DEFAULT_FINANCIAL_PROFILE),
     "goals": [],
     "chat_threads": [],
@@ -337,6 +342,8 @@ def _load_data_unlocked():
         needs_save = True
     if _migrate_assistant(data):
         needs_save = True
+    if _migrate_account_links(data):
+        needs_save = True
     if needs_save:
         _save_data_unlocked(data)
     return data
@@ -345,6 +352,27 @@ def _load_data_unlocked():
 def load_data():
     with _DATA_LOCK:
         return _load_data_unlocked()
+
+
+def _migrate_account_links(data):
+    """Cuenta plana + enlace a meta: goal_id, role; transfers[]."""
+    changed = False
+    if not isinstance(data.get("transfers"), list):
+        data["transfers"] = []
+        changed = True
+    goal_ids = {g.get("id") for g in (data.get("goals") or []) if g.get("id")}
+    for account in data.get("accounts") or []:
+        if "goal_id" not in account:
+            account["goal_id"] = None
+            changed = True
+        elif account.get("goal_id") and account["goal_id"] not in goal_ids:
+            account["goal_id"] = None
+            changed = True
+        role = account.get("role")
+        if role not in ACCOUNT_ROLES:
+            account["role"] = "general"
+            changed = True
+    return changed
 
 
 def _migrate_assistant(data):
@@ -362,7 +390,14 @@ def _migrate_assistant(data):
         if not isinstance(profile.get("fixed_expenses"), list):
             profile["fixed_expenses"] = []
             changed = True
-    for key in ("goals", "chat_threads", "chat_messages", "memory_facts", "memory_summaries"):
+    for key in (
+        "goals",
+        "chat_threads",
+        "chat_messages",
+        "memory_facts",
+        "memory_summaries",
+        "transfers",
+    ):
         if not isinstance(data.get(key), list):
             data[key] = []
             changed = True
@@ -598,6 +633,23 @@ def find_account_by_name(name):
     return None
 
 
+def _normalize_account_role(raw):
+    role = (raw or "general").strip().lower() if isinstance(raw, str) else "general"
+    return role if role in ACCOUNT_ROLES else "general"
+
+
+def _normalize_goal_id(raw, data=None):
+    if raw in (None, ""):
+        return None
+    goal_id = str(raw).strip()
+    if not goal_id:
+        return None
+    goals = (data or load_data()).get("goals") or []
+    if not any(g.get("id") == goal_id for g in goals):
+        raise ValueError("goal_id no existe")
+    return goal_id
+
+
 def add_account(account_input):
     data = load_data()
     name = (account_input.get("name") or "").strip()
@@ -610,6 +662,10 @@ def add_account(account_input):
         type_raw if type_raw in ACCOUNT_TYPES else "other"
     )
     initial = float(account_input.get("initial_balance") or 0)
+    goal_id = _normalize_goal_id(account_input.get("goal_id"), data)
+    role = _normalize_account_role(account_input.get("role"))
+    if goal_id and role == "general":
+        role = "goal"
     account = {
         "id": _next_id("account", data["accounts"]),
         "name": name,
@@ -618,6 +674,8 @@ def add_account(account_input):
         "initial_balance": initial,
         "current_balance": initial,
         "emoji": account_input.get("emoji") or "💰",
+        "goal_id": goal_id,
+        "role": role,
         "created_at": _now_iso(),
     }
     data["accounts"].append(account)
@@ -754,6 +812,7 @@ RESET_DATA = {
     "investments": [],
     "investment_assets": [],
     "notes": [],
+    "transfers": [],
     "financial_profile": deepcopy(DEFAULT_FINANCIAL_PROFILE),
     "goals": [],
     "chat_threads": [],
@@ -780,6 +839,12 @@ def update_account(account_id, updates):
             account["initial_balance"] = float(updates["initial_balance"])
         if "current_balance" in updates and updates["current_balance"] is not None:
             account["current_balance"] = round(float(updates["current_balance"]), 2)
+        if "goal_id" in updates:
+            account["goal_id"] = _normalize_goal_id(updates.get("goal_id"), data)
+        if "role" in updates and updates["role"] is not None:
+            account["role"] = _normalize_account_role(updates["role"])
+        if account.get("goal_id") and account.get("role") == "general":
+            account["role"] = "goal"
         save_data(data)
         return account
     return None
@@ -797,6 +862,52 @@ def delete_account(account_id):
                 item["account_id"] = None
     save_data(data)
     return True
+
+
+def add_transfer(transfer_input, *, data=None, persist=True):
+    """Transfer interno entre cuentas (ajusta saldos; no crea gasto/ingreso)."""
+    if data is None:
+        data = load_data()
+    from_id = transfer_input.get("from_account_id")
+    to_id = transfer_input.get("to_account_id")
+    if not from_id or not to_id:
+        raise ValueError("from_account_id y to_account_id son obligatorios")
+    if from_id == to_id:
+        raise ValueError("origen y destino deben ser distintos")
+    amount = float(transfer_input.get("amount") or 0)
+    if amount <= 0:
+        raise ValueError("amount debe ser > 0")
+    currency = transfer_input.get("currency") or "COP"
+    accounts_by_id = {a["id"]: a for a in data["accounts"]}
+    src = accounts_by_id.get(from_id)
+    dst = accounts_by_id.get(to_id)
+    if not src or not dst:
+        raise ValueError("cuenta de origen o destino no encontrada")
+    if src.get("currency") != currency or dst.get("currency") != currency:
+        raise ValueError("la moneda del transfer debe coincidir con ambas cuentas")
+    goal_id = transfer_input.get("goal_id")
+    if goal_id in ("", None):
+        goal_id = None
+    elif not any(g.get("id") == goal_id for g in (data.get("goals") or [])):
+        goal_id = None
+    transfer = {
+        "id": _next_id("transfer", data.setdefault("transfers", [])),
+        "from_account_id": from_id,
+        "to_account_id": to_id,
+        "amount": round(amount, 2),
+        "currency": currency,
+        "date": transfer_input.get("date") or _today(),
+        "goal_id": goal_id,
+        "label": (transfer_input.get("label") or "").strip() or "Transferencia",
+        "source": transfer_input.get("source") or "manual",
+        "created_at": _now_iso(),
+    }
+    data["transfers"].append(transfer)
+    _apply_balance_delta(data, from_id, amount, currency, subtract=True)
+    _apply_balance_delta(data, to_id, amount, currency, subtract=False)
+    if persist:
+        save_data(data)
+    return deepcopy(transfer)
 
 
 def find_expense(expense_id):
@@ -1296,12 +1407,18 @@ def build_summary(data=None):
 
 def get_accounts_view(data=None):
     data = data if data is not None else load_data()
+    goals_by_id = {g["id"]: g for g in (data.get("goals") or []) if g.get("id")}
     views = []
     for account in data["accounts"]:
         balance = account.get("current_balance", 0)
+        goal_id = account.get("goal_id")
+        goal = goals_by_id.get(goal_id) if goal_id else None
         views.append(
             {
                 **account,
+                "goal_id": goal_id or None,
+                "role": account.get("role") or "general",
+                "goal_title": (goal.get("title") if goal else None),
                 "type_label": ACCOUNT_TYPES.get(account.get("type"), account.get("type", "")),
                 "movement_count": count_movements_for_account(account["id"], data),
                 "balance_display": format_amount(balance, account.get("currency", "COP")),
@@ -1309,6 +1426,29 @@ def get_accounts_view(data=None):
             }
         )
     return views
+
+
+def _enrich_goal(goal, accounts, base_currency="COP"):
+    """Vista de meta: current_amount = suma de cuentas enlazadas (moneda base)."""
+    goal_id = goal.get("id")
+    linked = [a for a in accounts if a.get("goal_id") == goal_id]
+    current = 0.0
+    for acc in linked:
+        if (acc.get("currency") or "COP") != base_currency:
+            continue
+        current += float(acc.get("current_balance") or 0)
+    return {
+        **deepcopy(goal),
+        "current_amount": round(current, 2),
+        "linked_account_ids": [a["id"] for a in linked],
+        "linked_account_names": [a.get("name") or a["id"] for a in linked],
+    }
+
+
+def _record_day(row):
+    """YYYY-MM-DD de negocio; fallback a created_at / hoy."""
+    raw = str(row.get("date") or row.get("created_at") or _today())
+    return raw[:10] if len(raw) >= 10 else _today()
 
 
 def get_movements(limit=12, data=None):
@@ -1329,7 +1469,8 @@ def get_movements(limit=12, data=None):
                 "category_emoji": exp.get("category_emoji", ""),
                 "account_id": exp.get("account_id"),
                 "account_name": (accounts_by_id.get(exp.get("account_id")) or {}).get("name"),
-                "date": datetime.fromisoformat(exp["created_at"]).strftime("%d %b"),
+                # ISO para filtros Desde/Hasta (antes "%d %b" rompía la comparación)
+                "date": _record_day(exp),
                 "created_at": exp["created_at"],
             }
         )
@@ -1347,7 +1488,7 @@ def get_movements(limit=12, data=None):
                 "category_emoji": inc.get("category_emoji", ""),
                 "account_id": inc.get("account_id"),
                 "account_name": (accounts_by_id.get(inc.get("account_id")) or {}).get("name"),
-                "date": datetime.fromisoformat(inc["created_at"]).strftime("%d %b"),
+                "date": _record_day(inc),
                 "created_at": inc["created_at"],
             }
         )
@@ -1365,7 +1506,7 @@ def get_movements(limit=12, data=None):
                 "category_emoji": inv.get("category_emoji", "📈"),
                 "account_id": inv.get("account_id"),
                 "account_name": (accounts_by_id.get(inv.get("account_id")) or {}).get("name"),
-                "date": datetime.fromisoformat(inv["created_at"]).strftime("%d %b"),
+                "date": _record_day(inv),
                 "created_at": inv["created_at"],
             }
         )
@@ -1383,7 +1524,7 @@ def get_movements(limit=12, data=None):
                 "category_emoji": "📝",
                 "account_id": note.get("account_id"),
                 "account_name": (accounts_by_id.get(note.get("account_id")) or {}).get("name"),
-                "date": datetime.fromisoformat(note["created_at"]).strftime("%d %b"),
+                "date": _record_day(note),
                 "created_at": note["created_at"],
             }
         )
@@ -1393,10 +1534,7 @@ def get_movements(limit=12, data=None):
 
 
 def _parse_expense_date(exp):
-    raw = exp.get("date") or exp.get("created_at") or _today()
-    if len(raw) >= 10:
-        return raw[:10]
-    return _today()
+    return _record_day(exp)
 
 
 def get_chart_data(data=None):
@@ -1484,7 +1622,6 @@ def get_movement_filters():
 
 def get_finance_payload():
     data = load_data()
-    goals = data.get("goals") or []
     return {
         "summary": build_summary(data),
         "accounts": get_accounts_view(data),
@@ -1496,9 +1633,10 @@ def get_finance_payload():
         "investments": data["investments"],
         "investment_assets": data.get("investment_assets", []),
         "notes": data["notes"],
+        "transfers": deepcopy(data.get("transfers") or []),
         "charts": get_chart_data(data),
         "financial_profile": deepcopy(data["financial_profile"]),
-        "goals": sorted(deepcopy(goals), key=lambda g: (g.get("priority", 99), g.get("created_at") or "")),
+        "goals": get_goals(data),
         "assistant_kpis": _assistant_kpis_safe(),
     }
 
@@ -1526,6 +1664,28 @@ def _optional_percent(value):
     if n < 0 or n > 100:
         raise ValueError("El porcentaje debe estar entre 0 y 100")
     return n
+
+
+def _optional_payday_day(value):
+    if value is None or value == "":
+        return None
+    n = int(float(value))
+    if n < 1 or n > 28:
+        raise ValueError("income_payday_day debe ser un día entre 1 y 28")
+    return n
+
+
+def _optional_ym(value):
+    """YYYY-MM o null."""
+    if value is None or value == "":
+        return None
+    s = str(value).strip()
+    if len(s) != 7 or s[4] != "-" or not (s[:4].isdigit() and s[5:].isdigit()):
+        raise ValueError("income_prompt_dismissed_ym debe ser YYYY-MM")
+    month = int(s[5:])
+    if month < 1 or month > 12:
+        raise ValueError("income_prompt_dismissed_ym debe ser YYYY-MM")
+    return s
 
 
 def get_financial_profile():
@@ -1572,11 +1732,13 @@ def sanitize_profile_patch(raw):
     if "monthly_fixed_expenses" in patch:
         result["monthly_fixed_expenses"] = _optional_float(patch["monthly_fixed_expenses"])
     if "fixed_expenses" in patch:
+        # Lista = fuente de verdad: el total siempre es la suma (o None si vacía).
         result["fixed_expenses"] = _normalize_fixed_expenses(patch["fixed_expenses"])
-        if "monthly_fixed_expenses" not in result and result["fixed_expenses"]:
-            result["monthly_fixed_expenses"] = round(
-                sum(float(x["amount"]) for x in result["fixed_expenses"]), 2
-            )
+        result["monthly_fixed_expenses"] = (
+            round(sum(float(x["amount"]) for x in result["fixed_expenses"]), 2)
+            if result["fixed_expenses"]
+            else None
+        )
     if "savings_target_percent" in patch:
         result["savings_target_percent"] = _optional_percent(patch["savings_target_percent"])
     if "investment_target_percent" in patch:
@@ -1589,6 +1751,8 @@ def sanitize_profile_patch(raw):
         result["emergency_fund_target_months"] = _optional_float(
             patch["emergency_fund_target_months"]
         )
+    if "income_payday_day" in patch:
+        result["income_payday_day"] = _optional_payday_day(patch["income_payday_day"])
     if "risk_profile" in patch:
         raw_r = patch["risk_profile"]
         if raw_r in (None, ""):
@@ -1635,11 +1799,13 @@ def update_financial_profile(updates):
     if "monthly_fixed_expenses" in updates:
         profile["monthly_fixed_expenses"] = _optional_float(updates["monthly_fixed_expenses"])
     if "fixed_expenses" in updates:
+        # Lista = fuente de verdad: el total siempre es la suma (o None si vacía).
         profile["fixed_expenses"] = _normalize_fixed_expenses(updates["fixed_expenses"])
-        if profile["monthly_fixed_expenses"] is None and profile["fixed_expenses"]:
-            profile["monthly_fixed_expenses"] = round(
-                sum(float(x.get("amount") or 0) for x in profile["fixed_expenses"]), 2
-            )
+        profile["monthly_fixed_expenses"] = (
+            round(sum(float(x.get("amount") or 0) for x in profile["fixed_expenses"]), 2)
+            if profile["fixed_expenses"]
+            else None
+        )
     if "savings_target_percent" in updates:
         profile["savings_target_percent"] = _optional_percent(updates["savings_target_percent"])
     if "investment_target_percent" in updates:
@@ -1651,6 +1817,12 @@ def update_financial_profile(updates):
     if "emergency_fund_target_months" in updates:
         profile["emergency_fund_target_months"] = _optional_float(
             updates["emergency_fund_target_months"]
+        )
+    if "income_payday_day" in updates:
+        profile["income_payday_day"] = _optional_payday_day(updates["income_payday_day"])
+    if "income_prompt_dismissed_ym" in updates:
+        profile["income_prompt_dismissed_ym"] = _optional_ym(
+            updates["income_prompt_dismissed_ym"]
         )
     if "risk_profile" in updates:
         raw = updates["risk_profile"]
@@ -1688,9 +1860,13 @@ def update_financial_profile(updates):
     return deepcopy(profile)
 
 
-def get_goals():
-    goals = load_data().get("goals") or []
-    return sorted(deepcopy(goals), key=lambda g: (g.get("priority", 99), g.get("created_at") or ""))
+def get_goals(data=None):
+    data = data if data is not None else load_data()
+    goals = data.get("goals") or []
+    accounts = data.get("accounts") or []
+    base_currency = (data.get("settings") or {}).get("currency") or "COP"
+    enriched = [_enrich_goal(g, accounts, base_currency) for g in goals]
+    return sorted(enriched, key=lambda g: (g.get("priority", 99), g.get("created_at") or ""))
 
 
 def add_goal(goal_input):
@@ -1720,7 +1896,7 @@ def add_goal(goal_input):
     }
     data["goals"].append(goal)
     save_data(data)
-    return deepcopy(goal)
+    return _enrich_goal(goal, data["accounts"], (data.get("settings") or {}).get("currency") or "COP")
 
 
 def update_goal(goal_id, updates):
@@ -1757,7 +1933,7 @@ def update_goal(goal_id, updates):
             goal["notes"] = (str(raw).strip() if raw else "") or None
         goal["updated_at"] = _now_iso()
         save_data(data)
-        return deepcopy(goal)
+        return _enrich_goal(goal, data["accounts"], (data.get("settings") or {}).get("currency") or "COP")
     return None
 
 
@@ -1767,6 +1943,9 @@ def delete_goal(goal_id):
     data["goals"] = [g for g in data["goals"] if g["id"] != goal_id]
     if len(data["goals"]) == before:
         return False
+    for account in data.get("accounts") or []:
+        if account.get("goal_id") == goal_id:
+            account["goal_id"] = None
     save_data(data)
     return True
 

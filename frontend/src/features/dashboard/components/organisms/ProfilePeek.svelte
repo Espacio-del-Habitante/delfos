@@ -54,9 +54,13 @@
           {kpis?.savings_actual_percent != null ? `${kpis.savings_actual_percent}%` : '—'}
         </p>
         <p class="peek-card__meta">
-          meta {kpis?.savings_target_percent ?? profile?.savings_target_percent ?? '—'}%
-          {#if kpis?.savings_vs_target_delta != null}
+          {#if kpis?.savings_actual_percent == null}
+            Registra el ingreso del mes
+          {:else if kpis?.savings_vs_target_delta != null}
+            % del mes (ingreso − gasto) · meta {kpis?.savings_target_percent ?? profile?.savings_target_percent ?? '—'}%
             · {kpis.savings_vs_target_delta >= 0 ? '+' : ''}{kpis.savings_vs_target_delta} pts
+          {:else}
+            % del mes (ingreso − gasto) · meta {kpis?.savings_target_percent ?? profile?.savings_target_percent ?? '—'}%
           {/if}
         </p>
       </article>
@@ -75,7 +79,9 @@
           {kpis?.emergency_months_approx != null ? `${kpis.emergency_months_approx}` : '—'}
           <span class="peek-card__unit">meses</span>
         </p>
-        <p class="peek-card__meta">meta {profile?.emergency_fund_target_months ?? '—'} meses</p>
+        <p class="peek-card__meta">
+          saldo en cuentas de emergencia · meta {profile?.emergency_fund_target_months ?? '—'} meses
+        </p>
       </article>
 
       <article class="peek-card">

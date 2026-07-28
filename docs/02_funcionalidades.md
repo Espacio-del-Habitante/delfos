@@ -19,6 +19,8 @@ Delfos es un **copiloto personal de finanzas**, local-first: registras gastos, i
 | App escritorio Windows (`.exe`) | ✅ |
 | Shell Electron (Linux/Mac PoC) | ✅ PoC |
 | Perfil financiero + metas | ✅ |
+| Asignación de salario (allocation) | ✅ |
+| Día de pago + recordatorio de ingreso | ✅ |
 | KPIs / context pack del asistente | ✅ |
 | Chat del asistente con memoria ligera | ✅ |
 | Alertas por reglas | 🔜 Futuro |
@@ -44,7 +46,7 @@ Delfos es un **copiloto personal de finanzas**, local-first: registras gastos, i
 | Modo | Qué hace |
 |------|----------|
 | Manual | Formularios en la UI |
-| Voz | Dictado → texto para análisis o registro |
+| Voz | Dictado → texto. En Electron: Whisper **local** por defecto; opcional “dictado mejorado” (nube Gemini/Groq) desde Configuración. |
 | Texto + IA | `"45 mil en almuerzo y 18 mil en taxi"` → vista previa de movimientos → confirmación |
 | CSV masivo | Import de gastos, ingresos, notas y cuentas (preview → confirm) |
 
@@ -99,9 +101,10 @@ Agregación derivada del ledger (no se persiste):
 
 Extensión sobre el núcleo, mismos datos locales:
 
-1. **Perfil y metas** — onboarding en `/perfil`: ingreso, % ahorro/inversión/colchón, emergencia, riesgo, horizonte y `goals`.
-2. **Context pack / KPIs** — ahorro vs meta, meses de emergencia, concentración de portafolio (`GET /api/assistant/context`).
-3. **Chat** — conversación en `/asistente` anclada al context pack; memoria ligera (facts/summaries). El chat no es la fuente de verdad de los números.
+1. **Perfil y metas** — onboarding en `/perfil`: ingreso, día de pago (1–28), % ahorro/inversión/colchón, emergencia, riesgo, horizonte y `goals`.
+2. **Context pack / KPIs** — ahorro vs meta **solo con ingresos del ledger del mes** (sin ingreso → `null` / “Registra el ingreso del mes”), meses de emergencia, concentración de portafolio (`GET /api/assistant/context`).
+3. **Recordatorio de payday** — si ya pasó el día de pago y no hay ingreso del mes, banner en el dashboard → modal de ingreso prefilled (Salario + cuenta operativa) → `AllocationModal` al guardar.
+4. **Chat** — conversación en `/asistente` anclada al context pack; memoria ligera (facts/summaries). El chat no es la fuente de verdad de los números.
 
 Pendiente: alertas deterministas y reportes anuales de apoyo (no asesoría fiscal).
 

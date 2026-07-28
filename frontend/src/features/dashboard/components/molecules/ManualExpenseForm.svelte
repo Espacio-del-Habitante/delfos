@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import CategorySelector from '@common/molecules/CategorySelector.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import { createCategory, createExpense } from '@common/lib/api';
   import { findCategoryByName } from '@common/lib/categories';
   import { applyFinancePayload } from '@common/stores/finance';
@@ -16,7 +17,7 @@
   const dispatch = createEventDispatcher<{ success: void; requestCreate: { text: string } }>();
 
   let accountId = '';
-  let amount = '';
+  let amount: number | null = null;
   let currency = 'COP';
   let category = '';
   let categoryEmoji = '';
@@ -48,7 +49,7 @@
       await ensureCategory(categoryName, categoryEmoji, 'expense');
       const data = await createExpense({
         account_id: accountId || null,
-        amount: parseFloat(amount),
+        amount: amount ?? 0,
         currency,
         category: categoryName,
         category_emoji: categoryEmoji,
@@ -56,7 +57,7 @@
         payment_method: payment,
       });
       applyFinancePayload(data);
-      amount = '';
+      amount = null;
       description = '';
       payment = '';
       showToast('Gasto guardado', { type: 'success' });
@@ -74,14 +75,7 @@
 <form id={formId} class="manual-form" on:submit={submitExpense}>
   <div class="manual-form__grid">
     <CustomSelect options={accountOptions} bind:value={accountId} />
-    <input
-      type="number"
-      class="form-control"
-      bind:value={amount}
-      placeholder="Monto"
-      required
-      min="1"
-    />
+    <MoneyInput class="form-control" bind:value={amount} placeholder="Monto" required />
     <CustomSelect
       options={[
         { value: 'COP', label: 'COP' },

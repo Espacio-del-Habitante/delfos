@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import CategorySelector from '@common/molecules/CategorySelector.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import { confirmAnalysis } from '@common/lib/api';
   import { showToast } from '@common/lib/toast';
   import { applyFinancePayload } from '@common/stores/finance';
@@ -265,7 +266,15 @@
                   <div class="preview-item__row">
                     <label>
                       Monto
-                      <input type="number" class="preview-amount" bind:value={item.amount} min="0" step="0.01" />
+                      <MoneyInput
+                        class="preview-amount"
+                        value={item.amount ?? 0}
+                        emptyAsNull={false}
+                        on:change={(e) => {
+                          item.amount = e.detail ?? 0;
+                          items = items;
+                        }}
+                      />
                     </label>
                     <label>
                       Moneda

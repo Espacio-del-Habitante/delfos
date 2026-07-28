@@ -98,6 +98,17 @@ Origen/destino de movimientos (efectivo, banco, tarjeta crédito/débito, billet
 cripto, ahorros, otro). Tiene nombre, tipo, moneda, saldo inicial, saldo actual y emoji. El
 saldo actual se ajusta automáticamente con gastos, ingresos e inversiones de su misma moneda.
 
+Puede enlazarse a una **meta** (`goal_id` opcional) y tiene un **rol**:
+`operating` (donde cae el salario / líquido del mes), `goal` (bolsillo de una meta) o
+`general` (default). Varias cuentas pueden apuntar a la misma meta. No hay jerarquía
+padre/hijo: un bolsillo del banco = una cuenta plana en Delfos.
+
+### 4.4b Qué es un transfer interno
+
+Movimiento entre dos cuentas propias (`transfers[]` en el JSON): ajusta saldos sin crear
+gasto ni ingreso. Se usa al confirmar una **propuesta de asignación de salario**
+(`source: "allocation"`).
+
 ### 4.5 Qué es una categoría (category)
 
 Etiqueta reutilizable con emoji y un `kind` (`expense`, `income`, `investment`, `general`,
@@ -126,6 +137,13 @@ de ventas y dividendos. No se almacena: se calcula a partir de las inversiones.
 Flujo en dos pasos: el usuario manda texto libre → la IA devuelve una **vista previa** de
 movimientos sugeridos (gastos, inversiones, notas) → el usuario revisa, ajusta y **confirma**;
 solo entonces se persisten. La IA nunca guarda sin confirmación.
+
+### 4.9b Qué es la asignación de salario (allocation)
+
+Tras registrar un ingreso tipo salario, Delfos **propone** (motor determinista, sin LLM) cómo
+repartir hacia gastos fijos, fondo de emergencia, metas e inversión según el perfil. El usuario
+acepta, declina o edita cada línea y **confirma**; solo entonces se crean transfers y/o gastos
+fijos. El colchón (`cushion_percent`) no se mueve: queda en la cuenta operativa.
 
 ### 4.10 Qué es el OCR de inversiones
 
@@ -183,7 +201,8 @@ de visión extrae filas del ledger que el usuario revisa antes de guardar.
 ### 6.2 Etapa 2 — Captura asistida e inversiones (implementado / en evolución)
 
 **Captura:**
-- Entrada manual por formularios y entrada por **voz**.
+- Entrada manual por formularios y entrada por **voz** (Web Speech en navegador; en Electron
+  Whisper local por defecto, con opción de dictado mejorado en la nube vía Configuración).
 - **Análisis de texto con IA** (`/api/analyze` + `/api/confirm-analysis`) con vista previa y
   confirmación, sugerencia de cuenta y de nueva categoría.
 - **Importación masiva CSV** de gastos, ingresos, notas y cuentas (con vista previa).
@@ -208,8 +227,15 @@ IA opcional). Detalle accionable en `PLAN_IMPLEMENTACION_DELFOS_ASISTENTE_FINANC
 - **Perfil financiero y metas (implementado — Fase 1):** onboarding guiado en `/perfil`;
   ingreso, % ahorro/inversión/colchón, emergencia, riesgo, horizonte y `goals` en
   `delfos_data.json` (sin usuarios ni auth). API `/api/assistant/profile` y `/api/assistant/goals`.
-- **KPIs / context pack (implementado — Fase 2):** ahorro vs meta, meses de emergencia,
+  Cuentas enlazables a metas (`goal_id` + `role`); progreso de meta = suma de saldos enlazados.
+- **KPIs / context pack (implementado — Fase 2):** ahorro vs meta (solo con ingresos
+  registrados del mes; si no hay ingreso → KPI en `null`), meses de emergencia
+  (solo saldos de cuentas enlazadas a metas `emergency_fund`; 0 si no hay enlace),
   concentración de portafolio; `GET /api/assistant/context` y cards en inicio/`/perfil`.
+- **Día de pago y recordatorio (implementado):** `income_payday_day` (1–28) en el perfil;
+  al llegar esa fecha sin ingreso del mes, el dashboard pide registrar salario (o “Ahora no”).
+- **Asignación de salario (implementado):** `POST /api/allocations/propose|confirm` propone
+  distribución al registrar salario; el usuario confirma líneas antes de persistir.
 - **Chat con memoria estructurada (implementado — Fase 3):** conversación libre en `/asistente`
   anclada al context pack; memoria facts/summaries ligera; el chat no es la fuente de verdad.
   Sin RAG/vector DB.
@@ -258,7 +284,8 @@ IA opcional). Detalle accionable en `PLAN_IMPLEMENTACION_DELFOS_ASISTENTE_FINANC
 ## 9. Entidades principales del dominio
 
 **Finanzas:**
-- Account (cuenta)
+- Account (cuenta; `goal_id`, `role`)
+- Transfer (transfer interno entre cuentas)
 - Expense (gasto)
 - Income (ingreso)
 - Investment (inversión / fila del ledger)
@@ -266,7 +293,7 @@ IA opcional). Detalle accionable en `PLAN_IMPLEMENTACION_DELFOS_ASISTENTE_FINANC
 - Note (nota)
 - Category (categoría con `kind`)
 - FinancialProfile (perfil del asistente: ingresos, % metas, riesgo, onboarding)
-- Goal (meta financiera persistida)
+- Goal (meta financiera; vista con `current_amount` desde cuentas enlazadas)
 
 **Derivados (no persistidos):**
 - Summary (resumen mensual y de saldos)
@@ -345,7 +372,14 @@ Consolidar Delfos como un **copiloto financiero personal** confiable y privado:
 | Gasto | Salida de dinero; resta del saldo de la cuenta asociada |
 | Ingreso | Entrada de dinero; suma al saldo de la cuenta asociada |
 | Inversión | Operación sobre un activo (compra/venta/depósito/dividendo) en el ledger |
-| Cuenta | Origen/destino de movimientos con saldo y moneda |
+| Cuenta | Origen/destino de movimientos con saldo y moneda; opcionalmente enlazada a una meta (`goal_id`) y con rol (`operating` / `goal` / `general`) |
+| Cuenta operativa | Rol `operating`: donde cae el salario y queda el líquido / colchón del mes |
+| Cuenta de meta / bolsillo | Rol `goal`: ahorro etiquetado enlazado a una meta |
+| Meta | Objetivo (`Goal`): progreso = suma de saldos de cuentas con ese `goal_id` |
+| Colchón | % del ingreso que no se compromete; queda en la cuenta operativa |
+| Día de pago | Día del mes (1–28) tentativo en el que suele llegar el salario; dispara recordatorio |
+| Transfer | Movimiento interno entre cuentas propias (ajusta saldos; no es gasto ni ingreso) |
+| Asignación (allocation) | Propuesta post-salario (fijos / emergencia / metas / inversión) → confirmación del usuario |
 | Categoría | Etiqueta con emoji y `kind` para clasificar movimientos |
 | Nota | Texto libre con tags; también fallback cuando la IA no clasifica |
 | Ledger | Tabla central de 10 columnas de inversiones (export/import/OCR) |

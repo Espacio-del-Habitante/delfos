@@ -12,6 +12,8 @@ export interface Summary {
   has_data: boolean;
 }
 
+export type AccountRole = 'operating' | 'goal' | 'general';
+
 export interface Account {
   id: string;
   name: string;
@@ -20,6 +22,9 @@ export interface Account {
   emoji: string;
   initial_balance?: number;
   current_balance?: number;
+  goal_id?: string | null;
+  role?: AccountRole | string;
+  goal_title?: string | null;
   type_label?: string;
   movement_count?: number;
   balance_display?: string;
@@ -178,6 +183,10 @@ export interface FinancialProfile {
   /** % del ingreso no comprometido (colchón / holgura). */
   cushion_percent: number | null;
   emergency_fund_target_months: number | null;
+  /** Día del mes (1–28) en que suele llegar el salario. */
+  income_payday_day: number | null;
+  /** YYYY-MM si el usuario descartó el recordatorio de ingreso ese mes. */
+  income_prompt_dismissed_ym: string | null;
   risk_profile: RiskProfile | null;
   investment_horizon: InvestmentHorizon | null;
   fiscal_country: string | null;
@@ -196,6 +205,9 @@ export interface Goal {
   status: GoalStatus | string;
   priority: number;
   notes: string | null;
+  current_amount?: number;
+  linked_account_ids?: string[];
+  linked_account_names?: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -225,6 +237,8 @@ export interface AssistantKpis {
     expense?: number;
     income_base?: number;
     liquid_balance?: number;
+    emergency_balance?: number;
+    fixed_expenses?: number | null;
   };
   savings_actual_percent?: number | null;
   savings_target_percent?: number | null;
@@ -336,10 +350,59 @@ export interface FinancePayload {
   investments: InvestmentRecord[];
   investment_assets?: InvestmentAsset[];
   notes: NoteRecord[];
+  transfers?: TransferRecord[];
   charts?: unknown;
   financial_profile?: FinancialProfile;
   goals?: Goal[];
   assistant_kpis?: AssistantKpis | null;
+}
+
+export interface TransferRecord {
+  id: string;
+  from_account_id: string;
+  to_account_id: string;
+  amount: number;
+  currency: string;
+  date?: string;
+  goal_id?: string | null;
+  label?: string;
+  source?: string;
+  created_at?: string;
+}
+
+export type AllocationLineKind =
+  | 'fixed_expense'
+  | 'emergency'
+  | 'goal'
+  | 'investment'
+  | 'investment_reserve'
+  | 'cushion';
+
+export interface AllocationLine {
+  id: string;
+  kind: AllocationLineKind | string;
+  label: string;
+  amount: number;
+  enabled: boolean;
+  disabled_reason?: string | null;
+  to_account_id?: string | null;
+  goal_id?: string | null;
+  accepted: boolean;
+  editable: boolean;
+}
+
+export interface AllocationProposal {
+  income_amount: number;
+  from_account_id: string;
+  currency: string;
+  lines: AllocationLine[];
+  summary: {
+    to_move: number;
+    fixed: number;
+    cushion: number;
+    liquid_remaining: number;
+    warning?: string | null;
+  };
 }
 
 export interface PreviewItem {
@@ -443,6 +506,17 @@ export interface AiSettings {
   has_api_key: boolean;
   masked_key: string;
   effective_provider?: AiProviderId;
+  /** Si true, intenta STT en la nube antes que Whisper local. */
+  prefer_cloud_stt?: boolean;
+  local_whisper_model?: string;
+  local_whisper?: {
+    available?: boolean;
+    installed?: boolean;
+    loaded?: boolean;
+    model?: string;
+    error?: string;
+    hint?: string;
+  };
 }
 
 export interface AiProviderOption {
@@ -478,6 +552,8 @@ export interface AiSettingsPatch {
   vision_model?: string;
   base_url?: string;
   api_key?: string;
+  prefer_cloud_stt?: boolean;
+  local_whisper_model?: string;
 }
 
 export interface QuoteSettings {

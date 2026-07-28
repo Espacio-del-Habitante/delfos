@@ -1702,6 +1702,34 @@ class AssistantProfileTestCase(unittest.TestCase):
         self.assertNotIn("monthly_income_fixed", clean)
         self.assertEqual(clean["monthly_fixed_expenses"], 1000.0)
 
+    def test_fixed_expenses_always_recomputes_monthly_total(self):
+        finance_store.update_financial_profile({"monthly_fixed_expenses": 999_999})
+        profile = finance_store.update_financial_profile(
+            {
+                "fixed_expenses": [
+                    {"label": "Arriendo", "amount": 1_200_000},
+                    {"label": "Internet", "amount": 80_000},
+                ]
+            }
+        )
+        self.assertEqual(profile["monthly_fixed_expenses"], 1_280_000.0)
+        self.assertEqual(len(profile["fixed_expenses"]), 2)
+
+        profile = finance_store.update_financial_profile({"fixed_expenses": []})
+        self.assertEqual(profile["fixed_expenses"], [])
+        self.assertIsNone(profile["monthly_fixed_expenses"])
+
+        clean = finance_store.sanitize_profile_patch(
+            {
+                "monthly_fixed_expenses": 1,
+                "fixed_expenses": [
+                    {"label": "A", "amount": 100},
+                    {"label": "B", "amount": 50},
+                ],
+            }
+        )
+        self.assertEqual(clean["monthly_fixed_expenses"], 150.0)
+
     def test_summarize_compacts_old_messages(self):
         thread = finance_store.get_or_create_main_thread()
         tid = thread["id"]

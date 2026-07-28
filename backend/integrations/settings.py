@@ -21,6 +21,8 @@ ALLOWED_KEYS = (
     "vision_model",
     "base_url",
     "api_key",
+    "prefer_cloud_stt",
+    "local_whisper_model",
 )
 
 
@@ -44,6 +46,8 @@ def _env_defaults() -> dict:
         "vision_model": os.getenv("AI_VISION_MODEL", ""),
         "base_url": os.getenv("AI_BASE_URL", ""),
         "api_key": api_key,
+        "prefer_cloud_stt": _env_bool("DELFOS_PREFER_CLOUD_STT", False),
+        "local_whisper_model": os.getenv("DELFOS_WHISPER_MODEL", "base"),
     }
 
 
@@ -73,6 +77,11 @@ def load_config() -> dict:
     if merged.get("provider") not in VALID_PROVIDERS:
         merged["provider"] = "local"
     merged["cloud_enabled"] = bool(merged.get("cloud_enabled"))
+    merged["prefer_cloud_stt"] = bool(merged.get("prefer_cloud_stt"))
+    model = (merged.get("local_whisper_model") or "base").strip().lower()
+    if model not in ("tiny", "base", "small", "medium", "large-v3"):
+        model = "base"
+    merged["local_whisper_model"] = model
     return merged
 
 
@@ -96,6 +105,13 @@ def save_config(patch: dict) -> dict:
             new_saved["api_key"] = value
         elif key == "cloud_enabled":
             new_saved["cloud_enabled"] = bool(value)
+        elif key == "prefer_cloud_stt":
+            new_saved["prefer_cloud_stt"] = bool(value)
+        elif key == "local_whisper_model":
+            model = (str(value) or "base").strip().lower()
+            new_saved["local_whisper_model"] = (
+                model if model in ("tiny", "base", "small", "medium", "large-v3") else "base"
+            )
         elif key == "provider":
             provider = (str(value) or "local").strip().lower()
             new_saved["provider"] = provider if provider in VALID_PROVIDERS else "local"
@@ -149,6 +165,8 @@ def resolved_models(cfg: dict | None = None) -> dict:
 
 def get_public_config() -> dict:
     """Config segura para el cliente: SIN api_key en claro."""
+    from services import local_whisper
+
     cfg = load_config()
     return {
         "provider": cfg.get("provider", "local"),
@@ -159,4 +177,7 @@ def get_public_config() -> dict:
         "has_api_key": bool(cfg.get("api_key")),
         "masked_key": mask_key(cfg.get("api_key")),
         "effective_provider": effective_provider(cfg),
+        "prefer_cloud_stt": bool(cfg.get("prefer_cloud_stt")),
+        "local_whisper_model": cfg.get("local_whisper_model") or "base",
+        "local_whisper": local_whisper.whisper_available(),
     }

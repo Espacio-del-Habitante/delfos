@@ -71,3 +71,6 @@ El pipeline hace:
 - Este módulo no cambia la arquitectura existente de Delfos; solo la envuelve.
 - El backend sigue siendo la API Flask oficial y mantiene capas `app.py -> services -> integrations`.
 - En app empaquetada, Electron arranca `backend/delfos-backend` desde `resources/`.
+- El dictado en Electron usa Whisper local por defecto (`faster-whisper`, grupo `stt`).
+  En Configuración puedes activar “dictado mejorado” para preferir la nube (Gemini/Groq).
+  Primera carga: `POST /api/settings/stt/warmup` o el botón “Preparar Whisper local”.

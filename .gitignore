@@ -10,11 +10,12 @@ delfos.db
 backend/data/delfos_data.json
 backend/data/ai_settings.json
 backend/data/quote_settings.json
+plantilla_inversiones_hapi_alineada.csv
+delfos-import-*/
+delfos-import-julio-2026/
 
 # PyInstaller / build artifacts
 build/
 dist/
 *.spec
 
-plantilla_inversiones_hapi_alineada.csv
-delfos-import-*/

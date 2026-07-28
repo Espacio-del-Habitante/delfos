@@ -80,6 +80,89 @@ class OpenAICompatibleIntegration(AIIntegration):
         ]
         return self._post(self.vision_model, messages, json_mode=False)
 
+    def _whisper_model(self) -> str:
+        host = self.base_url.lower()
+        if "groq" in host:
+            return "whisper-large-v3"
+        return "whisper-1"
+
+    def _ext_for_mime(self, mime: str) -> str:
+        mapping = {
+            "audio/webm": "webm",
+            "audio/wav": "wav",
+            "audio/mpeg": "mp3",
+            "audio/mp4": "mp4",
+            "audio/m4a": "m4a",
+            "audio/ogg": "ogg",
+            "audio/flac": "flac",
+        }
+        return mapping.get(mime, "webm")
+
+    def transcribe_audio(self, audio_bytes: bytes, mime: str = "audio/webm") -> str:
+        if not self.api_key:
+            raise IntegrationError(
+                "Falta la API key del proveedor compatible.",
+                hint="Pega tu key (OpenRouter/Groq) en Configuracion.",
+            )
+        host = self.base_url.lower()
+        if "openrouter" in host:
+            raise IntegrationError(
+                "OpenRouter pide saldo minimo (~USD 0.50) para transcribir audio.",
+                hint="Para dictar en Electron: en Configuracion cambia a Gemini (recomendado) o Groq, o recarga saldo en OpenRouter.",
+            )
+        model = self._whisper_model()
+        boundary = "----delfosSpeechBoundary7a3f"
+        filename = f"audio.{self._ext_for_mime(mime)}"
+        lines = [
+            f"--{boundary}",
+            f'Content-Disposition: form-data; name="model"',
+            "",
+            model,
+            f"--{boundary}",
+            f'Content-Disposition: form-data; name="file"; filename="{filename}"',
+            f"Content-Type: {mime}",
+            "",
+        ]
+        head = "\r\n".join(lines).encode("utf-8") + b"\r\n"
+        tail = f"\r\n--{boundary}--\r\n".encode("utf-8")
+        body = head + audio_bytes + tail
+        url = f"{self.base_url}/audio/transcriptions"
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Authorization": f"Bearer {self.api_key}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            if exc.code == 402 or "balance" in detail.lower():
+                raise IntegrationError(
+                    "El proveedor de audio no tiene saldo suficiente.",
+                    hint="Recarga saldo o cambia a Gemini/Groq en Configuracion.",
+                    status=exc.code,
+                ) from exc
+            hint = (
+                "Whisper suele funcionar mejor con Groq. "
+                "Si usas otro proveedor compatible, prueba Gemini para el dictado."
+            )
+            raise IntegrationError(
+                f"Transcripcion HTTP {exc.code}: {detail}",
+                hint=hint,
+                status=exc.code,
+            ) from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise IntegrationError(f"No se pudo contactar el proveedor en {self.base_url}: {exc}") from exc
+        text = (payload.get("text") if isinstance(payload, dict) else None) or ""
+        if not text:
+            raise IntegrationError("El proveedor no devolvio texto de la transcripcion.")
+        return json.dumps({"text": text}, ensure_ascii=False)
+
     def health(self) -> dict:
         base = {
             "ok": False,

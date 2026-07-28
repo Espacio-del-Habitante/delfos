@@ -72,6 +72,20 @@ class GeminiIntegration(AIIntegration):
         ]
         return self._post(self.vision_model, parts)
 
+    def transcribe_audio(self, audio_bytes: bytes, mime: str = "audio/webm") -> str:
+        import base64
+
+        audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
+        prompt = (
+            "Transcribe este audio al espanol exactamente como se escucha. "
+            'Devuelve SOLO JSON valido: {"text": "..."} sin explicaciones.'
+        )
+        parts = [
+            {"text": prompt},
+            {"inline_data": {"mime_type": mime, "data": audio_b64}},
+        ]
+        return self._post(self.text_model, parts)
+
     def health(self) -> dict:
         base = {
             "ok": False,
