@@ -75,6 +75,9 @@
     investment_target_percent: 'Meta de inversión %',
     cushion_percent: 'Colchón %',
     emergency_fund_target_months: 'Meses de emergencia',
+    pay_frequency: 'Frecuencia de pago',
+    income_payday_day: 'Día de pago',
+    income_payday_weekday: 'Día de cobro (semana)',
     risk_profile: 'Perfil de riesgo',
     investment_horizon: 'Horizonte',
     fiscal_country: 'País fiscal',
@@ -345,7 +348,10 @@
 </script>
 
 <div class="app-shell chat-shell">
-  <HeaderIsland summary={$finance?.summary ?? null} />
+  <HeaderIsland
+    summary={$finance?.summary ?? null}
+    kpis={$finance?.assistant_kpis ?? null}
+  />
 
   <header class="chat-head">
     <div class="hero-titlebar">

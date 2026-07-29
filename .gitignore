@@ -8,6 +8,7 @@ delfos.db
 
 # Datos locales del usuario (no versionar finanzas personales)
 backend/data/delfos_data.json
+backend/data/qa_delfos_data.json
 backend/data/ai_settings.json
 backend/data/quote_settings.json
 plantilla_inversiones_hapi_alineada.csv

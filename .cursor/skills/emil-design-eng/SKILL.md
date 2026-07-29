@@ -349,6 +349,27 @@ useEffect(() => {
 // <div data-mounted={mounted}>
 ```
 
+## Steppers / wizards (Delfos)
+
+Canonical pattern lives in `frontend/src/common/styles/global.css` as `.delfos-stepper`. Reuse it for every multi-step flow — do not invent a second visual language.
+
+**When to use:** short wizards (onboarding, income → distribute → proposal). Not for nav tabs or loading progress bars.
+
+**Position:** organic tab/bubble, **top-right**, so the left title area stays clear.
+- `--on-card`: tab on a white form card stack (onboarding).
+- `--in-panel`: tab on the **modal shell** via Modal `slot="chrome"` (`.modal__chrome`) — overlapping the panel top edge, **not** inside the scrollable `.modal__body`.
+
+**Shape:** asymmetric organic `border-radius`, connected path between steps (`li::after`), not three rigid boxes with progress underlines.
+
+**Colors (ink, no pastels):**
+- Idle: muted ink
+- Active: solid dark navy/black + white number
+- Done: check on muted gray/ink (never pastel green success washes)
+
+**Do:** share `.delfos-stepper` / `__list` / `__num` / `__label` + `is-active` / `is-done`. Put modal steppers in `slot="chrome"`.
+
+**Don't:** full-width steppers on desktop, top-left placement, pastel greens, grid-of-boxes underlines, stepper as first child of scrollable modal body.
+
 ## CSS Transform Mastery
 
 ### translateY with percentages

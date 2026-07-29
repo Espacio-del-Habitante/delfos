@@ -40,6 +40,19 @@ Curvas recomendadas:
 - Usa `@starting-style` cuando el soporte del proyecto lo permita.
 - Para crossfades imperfectos, considera `filter: blur(2px)` temporal y ligero.
 
+## Steppers / wizards
+
+Patron Delfos (clases en `frontend/src/common/styles/global.css`: `.delfos-stepper`):
+
+- **Cuando:** flujos multi-paso cortos (onboarding, ingreso→distribuir→propuesta). No para tabs de navegacion ni progress bars de carga.
+- **Posicion:** tab/burbuja organica, **top-right** (`align-self: flex-end` / `margin-left: auto`) para no saturar el area del titulo a la izquierda.
+  - `--on-card`: encima de card blanca (onboarding).
+  - `--in-panel`: en el **chrome del modal** (`Modal` `slot="chrome"` / `.modal__chrome`), solapando el borde superior del panel — **no** dentro de `.modal__body` scrollable.
+- **Forma:** burbuja organica (`border-radius` asimetrico), path conectado entre pasos (`::after`), no 3 cajas rigidas con underline de progreso.
+- **Colores (ink, sin pasteles):** idle muted; **active** = navy/ink solido + numero blanco; **done** = check en gris/ink muted (no verdes pastel).
+- **Do:** reutilizar `.delfos-stepper` + `--on-card` o `--in-panel` en `slot="chrome"` para modales.
+- **Don't:** steppers full-width en desktop, pasteles de success, progress underlines por caja, burbuja top-left, stepper como primer hijo del body scrollable.
+
 ## Performance Y Accesibilidad
 
 - Anima solo `transform` y `opacity` salvo justificacion fuerte.

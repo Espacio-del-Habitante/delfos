@@ -232,8 +232,14 @@ IA opcional). Detalle accionable en `PLAN_IMPLEMENTACION_DELFOS_ASISTENTE_FINANC
   registrados del mes; si no hay ingreso → KPI en `null`), meses de emergencia
   (solo saldos de cuentas enlazadas a metas `emergency_fund`; 0 si no hay enlace),
   concentración de portafolio; `GET /api/assistant/context` y cards en inicio/`/perfil`.
-- **Día de pago y recordatorio (implementado):** `income_payday_day` (1–28) en el perfil;
-  al llegar esa fecha sin ingreso del mes, el dashboard pide registrar salario (o “Ahora no”).
+- **Día de pago, frecuencia y recordatorio (implementado):** `pay_frequency`
+  (`monthly` | `biweekly` | `weekly`, default `monthly`) en el perfil. Los montos
+  (`monthly_income_*`, `monthly_fixed_expenses`) siguen siendo **totales mensuales**.
+  - Mensual: `income_payday_day` (1–28); sin ingreso del mes → banner.
+  - Quincenal: mitades de calendario (1–14 / 15–fin); banner por quincena sin ingreso.
+  - Semanal: `income_payday_weekday` (0=lun … 6=dom); banner ese día sin ingreso en 7 días.
+  Un ingreso “completo del periodo” escala fijos y propuesta al tamaño del cheque
+  (÷1 / ÷2 / ÷4).
 - **Asignación de salario (implementado):** `POST /api/allocations/propose|confirm` propone
   distribución al registrar salario; el usuario confirma líneas antes de persistir.
 - **Chat con memoria estructurada (implementado — Fase 3):** conversación libre en `/asistente`

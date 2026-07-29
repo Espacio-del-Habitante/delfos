@@ -176,29 +176,107 @@
     return '—';
   }
 
+  function frequencyLabel(v: string | null | undefined) {
+    if (v === 'biweekly') return 'Quincenal';
+    if (v === 'weekly') return 'Semanal';
+    if (v === 'monthly') return 'Mensual';
+    return '—';
+  }
+
+  const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+  function paydayLabel(p: FinancialProfile): string {
+    const freq = String(p.pay_frequency || 'monthly');
+    if (freq === 'weekly') {
+      const wd = p.income_payday_weekday;
+      if (wd == null || wd < 0 || wd > 6) return '—';
+      return WEEKDAY_LABELS[wd];
+    }
+    return p.income_payday_day != null ? String(p.income_payday_day) : '—';
+  }
+
   function typeLabel(t: string) {
     return goalTypeOptions.find((o) => o.value === t)?.label ?? t;
+  }
+
+  function statusLabel(s: string | null | undefined) {
+    if (s === 'active' || !s) return 'activa';
+    if (s === 'paused') return 'pausada';
+    if (s === 'done' || s === 'completed') return 'cumplida';
+    return s;
+  }
+
+  /** Miles con punto (es-CO): 3000000 → 3.000.000 */
+  function money(n: number | null | undefined): string {
+    if (n == null || !Number.isFinite(Number(n))) return '—';
+    return `$${Number(n).toLocaleString('es-CO')}`;
+  }
+
+  function pct(n: number | null | undefined): string {
+    if (n == null || !Number.isFinite(n)) return '—';
+    return `${Math.round(n)}%`;
+  }
+
+  function shareOfTotal(amount: number, total: number): number | null {
+    if (!total || total <= 0) return null;
+    return (100 * Number(amount || 0)) / total;
+  }
+
+  /** Meta explícita, o meses×fijos para fondo de emergencia. */
+  function goalTarget(g: Goal): number | null {
+    if (g.target_amount != null && Number.isFinite(Number(g.target_amount))) {
+      return Number(g.target_amount);
+    }
+    if (g.type === 'emergency_fund' && profile) {
+      const months = Number(profile.emergency_fund_target_months);
+      const fixed = Number(profile.monthly_fixed_expenses ?? fixedTotal);
+      if (months > 0 && fixed > 0) return months * fixed;
+    }
+    return null;
+  }
+
+  function goalProgress(g: Goal): number | null {
+    const target = goalTarget(g);
+    if (target == null || target <= 0) return null;
+    const current = Number(g.current_amount ?? 0);
+    return Math.min(100, Math.max(0, (100 * current) / target));
   }
 </script>
 
 <div class="app-shell">
-  <HeaderIsland summary={$finance?.summary ?? null} />
-
-  <section class="hero section">
-    <div class="hero-titlebar">
-      <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
-      <h1>Perfil financiero</h1>
-    </div>
-    <p>Contexto, colchón y metas que usa el asistente. Sin cuenta ni login.</p>
-  </section>
+  <HeaderIsland summary={$finance?.summary ?? null} kpis={kpis} />
 
   {#if !loaded}
+    <section class="hero section">
+      <div class="hero-titlebar">
+        <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
+        <h1>Perfil financiero</h1>
+      </div>
+      <p>Contexto, colchón y metas que usa el asistente. Sin cuenta ni login.</p>
+    </section>
     <p class="muted">Cargando…</p>
   {:else if showWizard}
-    <section class="panel">
-      <OnboardingWizard on:completed={onCompleted} />
+    <section class="onboarding-shell section" aria-label="Configuración inicial">
+      <OnboardingWizard on:completed={onCompleted}>
+        <div slot="title" class="hero-titlebar">
+          <a href="/" class="hero-back" aria-label="Volver al inicio"
+            ><IconChevron size={24} direction="left" /></a
+          >
+          <h1>Perfil financiero</h1>
+        </div>
+        <p slot="tagline" class="onboarding-tagline">
+          Contexto, colchón y metas que usa el asistente. Sin cuenta ni login.
+        </p>
+      </OnboardingWizard>
     </section>
   {:else if profile}
+    <section class="hero section">
+      <div class="hero-titlebar">
+        <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
+        <h1>Perfil financiero</h1>
+      </div>
+      <p>Contexto, colchón y metas que usa el asistente. Sin cuenta ni login.</p>
+    </section>
     <div class="stat-grid" aria-label="KPIs del perfil">
       <article class="stat-card">
         <div class="stat-card__icon stat-card__icon--savings" aria-hidden="true">↗</div>
@@ -252,19 +330,23 @@
         </div>
         <div>
           <dt>Ingreso fijo</dt>
-          <dd>{profile.monthly_income_fixed ?? '—'}</dd>
+          <dd>{money(profile.monthly_income_fixed)}</dd>
         </div>
         <div>
           <dt>Ingreso variable</dt>
-          <dd>{profile.monthly_income_variable_avg ?? '—'}</dd>
+          <dd>{money(profile.monthly_income_variable_avg)}</dd>
         </div>
         <div>
           <dt>Gastos fijos</dt>
-          <dd>{profile.monthly_fixed_expenses ?? '—'}</dd>
+          <dd>{money(profile.monthly_fixed_expenses)}</dd>
         </div>
         <div>
-          <dt>Día de pago</dt>
-          <dd>{profile.income_payday_day ?? '—'}</dd>
+          <dt>Frecuencia</dt>
+          <dd>{frequencyLabel(profile.pay_frequency)}</dd>
+        </div>
+        <div>
+          <dt>{String(profile.pay_frequency) === 'weekly' ? 'Día de cobro' : 'Día de pago'}</dt>
+          <dd>{paydayLabel(profile)}</dd>
         </div>
         <div>
           <dt>% inversión</dt>
@@ -303,10 +385,29 @@
       {:else}
         <ul class="goal-list">
           {#each fixedItems as item, i (i)}
+            {@const share = shareOfTotal(item.amount, fixedTotal)}
             <li class="goal-item">
-              <div>
+              <div class="goal-item__body">
                 <p class="goal-item__title">{item.label}</p>
-                <p class="goal-item__meta">{item.amount}</p>
+                <p class="goal-item__meta">
+                  {money(item.amount)}
+                  {#if share != null}
+                    <span class="goal-item__sep">·</span>
+                    {pct(share)} del total
+                  {/if}
+                </p>
+                {#if share != null}
+                  <div
+                    class="goal-progress"
+                    role="progressbar"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={Math.round(share)}
+                    aria-label={`Porcentaje del total: ${pct(share)}`}
+                  >
+                    <span class="goal-progress__bar" style={`width: ${Math.min(100, share)}%`}></span>
+                  </div>
+                {/if}
               </div>
               <button
                 type="button"
@@ -319,7 +420,7 @@
             </li>
           {/each}
         </ul>
-        <p class="fixed-total">Total mensual = {fixedTotal}</p>
+        <p class="fixed-total">Total mensual = {money(fixedTotal)}</p>
       {/if}
 
       <div class="add-goal">
@@ -349,20 +450,41 @@
       {:else}
         <ul class="goal-list">
           {#each goals as g (g.id)}
+            {@const current = Number(g.current_amount ?? 0)}
+            {@const target = goalTarget(g)}
+            {@const progress = goalProgress(g)}
             <li class="goal-item">
-              <div>
+              <div class="goal-item__body">
                 <p class="goal-item__type">{typeLabel(String(g.type))}</p>
                 <p class="goal-item__title">{g.title}</p>
                 <p class="goal-item__meta">
-                  {#if g.target_amount != null}
-                    {g.current_amount ?? 0} / {g.target_amount}
-                  {:else if g.current_amount != null && g.current_amount > 0}
-                    Acumulado {g.current_amount}
-                  {:else}
-                    Sin monto fijo
+                  Acumulado {money(current)}
+                  {#if target != null}
+                    <span class="goal-item__sep">·</span>
+                    Meta {money(target)}
                   {/if}
-                  · {g.status}
+                  {#if progress != null}
+                    <span class="goal-item__sep">·</span>
+                    <strong class="goal-item__pct">{pct(progress)}</strong>
+                  {:else if target == null}
+                    <span class="goal-item__sep">·</span>
+                    Sin meta
+                  {/if}
+                  <span class="goal-item__sep">·</span>
+                  {statusLabel(String(g.status))}
                 </p>
+                {#if progress != null}
+                  <div
+                    class="goal-progress"
+                    role="progressbar"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={Math.round(progress)}
+                    aria-label={`Progreso: ${pct(progress)}`}
+                  >
+                    <span class="goal-progress__bar" style={`width: ${progress}%`}></span>
+                  </div>
+                {/if}
                 {#if g.linked_account_names?.length}
                   <p class="goal-item__accounts">
                     Cuentas: {g.linked_account_names.join(' · ')}
@@ -402,18 +524,28 @@
     margin-bottom: 1rem;
   }
 
-  .hero h1 {
-    margin: 0 0 0.35rem;
+  .hero h1,
+  .hero-titlebar h1 {
+    margin: 0;
     font-size: 1.55rem;
     letter-spacing: -0.02em;
   }
 
-  .hero p {
+  .hero p,
+  .onboarding-tagline {
     margin: 0;
     color: var(--text-muted);
     max-width: 44ch;
     font-size: 0.95rem;
     line-height: 1.45;
+  }
+
+  .hero .hero-titlebar {
+    margin-bottom: 0.35rem;
+  }
+
+  .onboarding-shell {
+    margin-bottom: 16px;
   }
 
   .panel {
@@ -592,6 +724,11 @@
     background: var(--surface);
   }
 
+  .goal-item__body {
+    min-width: 0;
+    flex: 1;
+  }
+
   .goal-item__type {
     margin: 0;
     font-size: 0.7rem;
@@ -611,10 +748,37 @@
     margin: 0;
     font-size: 0.8rem;
     color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .goal-item__sep {
+    margin: 0 0.15rem;
+    opacity: 0.7;
+  }
+
+  .goal-item__pct {
+    color: var(--text-strong);
+    font-weight: 700;
+  }
+
+  .goal-progress {
+    margin-top: 0.45rem;
+    height: 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+    overflow: hidden;
+  }
+
+  .goal-progress__bar {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--text-strong);
+    transition: width 200ms var(--ease-out);
   }
 
   .goal-item__accounts {
-    margin: 0.2rem 0 0;
+    margin: 0.35rem 0 0;
     font-size: 0.78rem;
     color: var(--text-muted);
   }

@@ -170,6 +170,125 @@ class AllocationAndEmergencyTests(unittest.TestCase):
         self.assertEqual(sum(parts), 600_000)
         self.assertEqual(parts, [round(p, 2) for p in parts])
 
+    def test_confirm_fixed_total_one_expense(self):
+        """Modo Total: una línea agregada → un solo expense (sin split silencioso)."""
+        finance_store.update_financial_profile(
+            {
+                "monthly_fixed_expenses": 1_900_000,
+                "fixed_expenses": [
+                    {"label": "Arriendo", "amount": 1_880_000},
+                    {"label": "Comida", "amount": 20_000},
+                ],
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            600_000, "account_001", currency="COP"
+        )
+        self.assertEqual(proposal.get("fixed_mode"), "total")
+        self.assertEqual(len(proposal.get("fixed_desglose") or []), 2)
+        for ln in proposal["lines"]:
+            ln["accepted"] = ln["kind"] == "fixed_expense" and ln["enabled"]
+        result = allocation_service.confirm_allocation(proposal)
+        self.assertLessEqual(result["moved"], 600_000 + 0.01)
+        self.assertEqual(result["moved"], 600_000)
+        self.assertEqual(result["applied"]["expenses"], 1)
+        self.assertEqual(result["expenses"][0]["description"], "Gastos fijos del mes")
+
+    def test_confirm_fixed_desglose_one_expense_per_line(self):
+        finance_store.update_financial_profile(
+            {
+                "monthly_fixed_expenses": 1_000_000,
+                "fixed_expenses": [
+                    {"label": "Arriendo", "amount": 800_000},
+                    {"label": "Internet", "amount": 200_000},
+                ],
+                "savings_target_percent": 0,
+                "investment_target_percent": 0,
+                "cushion_percent": 0,
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            5_000_000, "account_001", currency="COP"
+        )
+        desglose = proposal.get("fixed_desglose") or []
+        self.assertEqual(len(desglose), 2)
+        self.assertEqual(sum(float(x["amount"]) for x in desglose), 1_000_000)
+        lines = [*desglose]
+        for ln in proposal["lines"]:
+            if ln["kind"] != "fixed_expense":
+                lines.append({**ln, "accepted": False})
+        for ln in lines:
+            if ln["kind"] == "fixed_expense":
+                ln["accepted"] = True
+                ln["enabled"] = True
+        proposal["fixed_mode"] = "desglose"
+        proposal["lines"] = lines
+        result = allocation_service.confirm_allocation(proposal)
+        self.assertEqual(result["applied"]["expenses"], 2)
+        self.assertEqual(result["moved"], 1_000_000)
+        labels = {e["description"] for e in result["expenses"]}
+        self.assertEqual(labels, {"Arriendo", "Internet"})
+
+    def test_cushion_copy_names_operating_account(self):
+        proposal = allocation_service.propose_allocation(
+            5_000_000, "account_001", currency="COP"
+        )
+        cushion = next(ln for ln in proposal["lines"] if ln["kind"] == "cushion")
+        self.assertIn("Nómina", cushion["disabled_reason"] or "")
+        self.assertIn("no se transfiere", (cushion["disabled_reason"] or "").lower())
+        self.assertTrue(cushion["enabled"])
+        self.assertFalse(cushion["accepted"])
+        self.assertTrue(cushion.get("create_cushion_account"))
+
+    def test_confirm_cushion_creates_account_and_transfer(self):
+        proposal = allocation_service.propose_allocation(
+            5_000_000, "account_001", currency="COP"
+        )
+        for ln in proposal["lines"]:
+            if ln["kind"] == "cushion":
+                ln["accepted"] = True
+            else:
+                ln["accepted"] = False
+        result = allocation_service.confirm_allocation(proposal)
+        self.assertEqual(result["applied"]["transfers"], 1)
+        self.assertEqual(result["applied"]["accounts"], 1)
+        self.assertEqual(result["moved"], 500_000)
+        data = finance_store.load_data()
+        cushion_acc = next(
+            a for a in data["accounts"] if "colchón" in (a.get("name") or "").lower()
+        )
+        self.assertEqual(cushion_acc["role"], "goal")
+        self.assertEqual(cushion_acc["type"], "savings")
+        self.assertEqual(float(cushion_acc["current_balance"]), 500_000)
+
+    def test_confirm_cushion_uses_existing_account(self):
+        finance_store.add_goal({"title": "Colchón líquido", "type": "savings", "priority": 2})
+        goals = finance_store.load_data()["goals"]
+        g = next(x for x in goals if "colchón" in (x.get("title") or "").lower())
+        finance_store.add_account(
+            {
+                "name": "Bolsa Colchón",
+                "type": "savings",
+                "currency": "COP",
+                "initial_balance": 0,
+                "goal_id": g["id"],
+                "role": "goal",
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            5_000_000, "account_001", currency="COP"
+        )
+        cushion = next(ln for ln in proposal["lines"] if ln["kind"] == "cushion")
+        self.assertFalse(cushion.get("create_cushion_account"))
+        self.assertIsNotNone(cushion.get("to_account_id"))
+        self.assertIn("Bolsa Colchón", cushion["disabled_reason"] or "")
+        for ln in proposal["lines"]:
+            ln["accepted"] = ln["kind"] == "cushion"
+        result = allocation_service.confirm_allocation(proposal)
+        self.assertEqual(result["applied"]["accounts"], 0)
+        self.assertEqual(result["applied"]["transfers"], 1)
+        self.assertEqual(result["moved"], 500_000)
+
     def test_confirm_fixed_split_does_not_exceed_income(self):
         finance_store.update_financial_profile(
             {
@@ -189,7 +308,156 @@ class AllocationAndEmergencyTests(unittest.TestCase):
         result = allocation_service.confirm_allocation(proposal)
         self.assertLessEqual(result["moved"], 600_000 + 0.01)
         self.assertEqual(result["moved"], 600_000)
-        self.assertEqual(result["applied"]["expenses"], 2)
+        self.assertEqual(result["applied"]["expenses"], 1)
+
+    def test_partial_income_scales_fixed_no_warning(self):
+        """income_is_complete=false → fijos * (ingreso / plantilla); sin shortfall."""
+        finance_store.update_financial_profile(
+            {
+                "monthly_income_fixed": 5_000_000,
+                "monthly_income_variable_avg": 0,
+                "monthly_fixed_expenses": 1_500_000,
+                "savings_target_percent": 20,
+                "investment_target_percent": 10,
+                "cushion_percent": 10,
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            600_000,
+            "account_001",
+            currency="COP",
+            income_is_complete=False,
+        )
+        fixed = next(ln for ln in proposal["lines"] if ln["kind"] == "fixed_expense")
+        # 1_500_000 * (600_000 / 5_000_000) = 180_000
+        self.assertEqual(fixed["amount"], 180_000)
+        self.assertIsNone(proposal["summary"]["warning"])
+        self.assertEqual(
+            proposal["summary"]["note"], "Propuesta proporcional al monto registrado"
+        )
+        self.assertFalse(proposal["income_is_complete"])
+        movable = sum(
+            float(ln["amount"])
+            for ln in proposal["lines"]
+            if ln["kind"] != "cushion" and float(ln.get("amount") or 0) > 0
+        )
+        self.assertLessEqual(movable, 600_000 + 0.01)
+
+    def test_complete_income_shortfall_keeps_warning(self):
+        finance_store.update_financial_profile(
+            {
+                "monthly_income_fixed": 5_000_000,
+                "monthly_fixed_expenses": 1_500_000,
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            600_000,
+            "account_001",
+            currency="COP",
+            income_is_complete=True,
+        )
+        fixed = next(ln for ln in proposal["lines"] if ln["kind"] == "fixed_expense")
+        self.assertEqual(fixed["amount"], 600_000)
+        self.assertIsNotNone(proposal["summary"]["warning"])
+        self.assertTrue(proposal["income_is_complete"])
+
+    def test_period_divisor(self):
+        self.assertEqual(allocation_service.period_divisor("monthly"), 1)
+        self.assertEqual(allocation_service.period_divisor("biweekly"), 2)
+        self.assertEqual(allocation_service.period_divisor("weekly"), 4)
+        self.assertEqual(allocation_service.period_divisor(None), 1)
+
+    def test_biweekly_complete_uses_half_fixed(self):
+        finance_store.update_financial_profile(
+            {
+                "pay_frequency": "biweekly",
+                "monthly_income_fixed": 5_000_000,
+                "monthly_fixed_expenses": 1_000_000,
+                "savings_target_percent": 20,
+                "investment_target_percent": 10,
+                "cushion_percent": 10,
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            2_500_000,
+            "account_001",
+            currency="COP",
+            income_is_complete=True,
+        )
+        fixed = next(ln for ln in proposal["lines"] if ln["kind"] == "fixed_expense")
+        self.assertEqual(fixed["amount"], 500_000)  # 1_000_000 / 2
+        self.assertEqual(proposal["period_fixed_amount"], 500_000)
+        self.assertEqual(proposal["pay_frequency"], "biweekly")
+        self.assertIsNone(proposal["summary"]["warning"])
+        self.assertEqual(proposal["summary"]["note"], "Propuesta para quincena")
+        self.assertIn("quincena", fixed["label"].lower())
+
+    def test_weekly_complete_uses_quarter_fixed(self):
+        finance_store.update_financial_profile(
+            {
+                "pay_frequency": "weekly",
+                "monthly_income_fixed": 5_000_000,
+                "monthly_fixed_expenses": 1_000_000,
+                "savings_target_percent": 20,
+                "investment_target_percent": 10,
+                "cushion_percent": 10,
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            1_250_000,
+            "account_001",
+            currency="COP",
+            income_is_complete=True,
+        )
+        fixed = next(ln for ln in proposal["lines"] if ln["kind"] == "fixed_expense")
+        self.assertEqual(fixed["amount"], 250_000)  # 1_000_000 / 4
+        self.assertEqual(proposal["period_fixed_amount"], 250_000)
+        self.assertEqual(proposal["pay_frequency"], "weekly")
+        self.assertIsNone(proposal["summary"]["warning"])
+        self.assertEqual(proposal["summary"]["note"], "Propuesta para semana")
+
+    def test_biweekly_shortfall_vs_period_fixed(self):
+        """Cheque completo menor a fijos de quincena → warning; no exige fijos del mes."""
+        finance_store.update_financial_profile(
+            {
+                "pay_frequency": "biweekly",
+                "monthly_income_fixed": 5_000_000,
+                "monthly_fixed_expenses": 1_000_000,  # periodo = 500k
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            400_000,
+            "account_001",
+            currency="COP",
+            income_is_complete=True,
+        )
+        fixed = next(ln for ln in proposal["lines"] if ln["kind"] == "fixed_expense")
+        self.assertEqual(fixed["amount"], 400_000)
+        self.assertEqual(proposal["period_fixed_amount"], 500_000)
+        self.assertIsNotNone(proposal["summary"]["warning"])
+
+    def test_biweekly_partial_scales_vs_period_expected(self):
+        finance_store.update_financial_profile(
+            {
+                "pay_frequency": "biweekly",
+                "monthly_income_fixed": 5_000_000,  # periodo esperado = 2.5M
+                "monthly_income_variable_avg": 0,
+                "monthly_fixed_expenses": 1_000_000,  # periodo = 500k
+            }
+        )
+        proposal = allocation_service.propose_allocation(
+            1_250_000,  # mitad del esperado del periodo
+            "account_001",
+            currency="COP",
+            income_is_complete=False,
+        )
+        fixed = next(ln for ln in proposal["lines"] if ln["kind"] == "fixed_expense")
+        # 500_000 * (1_250_000 / 2_500_000) = 250_000
+        self.assertEqual(fixed["amount"], 250_000)
+        self.assertIsNone(proposal["summary"]["warning"])
+        self.assertEqual(
+            proposal["summary"]["note"], "Propuesta proporcional al monto registrado"
+        )
 
 
 if __name__ == "__main__":

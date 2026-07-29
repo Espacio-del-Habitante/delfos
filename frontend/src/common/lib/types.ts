@@ -53,6 +53,13 @@ export interface Movement {
   created_at?: string;
 }
 
+export interface MovementsPage {
+  items: Movement[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface ExpenseRecord {
   id: string;
   account_id?: string | null;
@@ -171,6 +178,8 @@ export interface FixedExpenseItem {
   amount: number;
 }
 
+export type PayFrequency = 'monthly' | 'biweekly' | 'weekly';
+
 export interface FinancialProfile {
   monthly_income_fixed: number | null;
   monthly_income_variable_avg: number | null;
@@ -183,9 +192,13 @@ export interface FinancialProfile {
   /** % del ingreso no comprometido (colchón / holgura). */
   cushion_percent: number | null;
   emergency_fund_target_months: number | null;
-  /** Día del mes (1–28) en que suele llegar el salario. */
+  /** Frecuencia de cobro; montos del perfil siguen siendo totales mensuales. */
+  pay_frequency: PayFrequency | string;
+  /** Día del mes (1–28) en que suele llegar el salario (mensual/quincenal). */
   income_payday_day: number | null;
-  /** YYYY-MM si el usuario descartó el recordatorio de ingreso ese mes. */
+  /** Día de la semana del cobro (0=lun … 6=dom); solo weekly. */
+  income_payday_weekday: number | null;
+  /** Token de dismiss del banner: YYYY-MM | YYYY-MM-H1/H2 | YYYY-MM-DD. */
   income_prompt_dismissed_ym: string | null;
   risk_profile: RiskProfile | null;
   investment_horizon: InvestmentHorizon | null;
@@ -389,12 +402,24 @@ export interface AllocationLine {
   goal_id?: string | null;
   accepted: boolean;
   editable: boolean;
+  /** Opt-in colchón: al confirmar crear cuenta+meta Colchón y transferir. */
+  create_cushion_account?: boolean;
 }
 
 export interface AllocationProposal {
   income_amount: number;
   from_account_id: string;
   currency: string;
+  /** Echo del flag enviado a propose; default true en backend. */
+  income_is_complete?: boolean;
+  /** Frecuencia del perfil usada para escalar fijos del periodo. */
+  pay_frequency?: PayFrequency | string;
+  /** Gastos fijos del periodo (mensual / N). */
+  period_fixed_amount?: number;
+  /** Total = una línea agregada; desglose = una por ítem del perfil. */
+  fixed_mode?: 'total' | 'desglose' | string;
+  /** Líneas candidatas para modo desglose (vacío si no hay fixed_expenses). */
+  fixed_desglose?: AllocationLine[];
   lines: AllocationLine[];
   summary: {
     to_move: number;
@@ -402,6 +427,8 @@ export interface AllocationProposal {
     cushion: number;
     liquid_remaining: number;
     warning?: string | null;
+    /** Info suave (p. ej. propuesta proporcional); no es shortfall. */
+    note?: string | null;
   };
 }
 

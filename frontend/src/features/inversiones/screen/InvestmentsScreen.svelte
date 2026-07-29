@@ -117,7 +117,11 @@
 </script>
 
 <div class="app-shell">
-  <HeaderIsland summary={$finance?.summary ?? null} insights={portfolioInsights} />
+  <HeaderIsland
+    summary={$finance?.summary ?? null}
+    insights={portfolioInsights}
+    kpis={$finance?.assistant_kpis ?? null}
+  />
 
   <div class="investments-page-top">
     <section class="investments-hero section">

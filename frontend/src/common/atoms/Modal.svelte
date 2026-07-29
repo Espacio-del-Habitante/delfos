@@ -159,6 +159,7 @@
       class="modal"
       class:modal--narrow={narrow}
       class:modal--has-aside={asideShell.rendered}
+      class:modal--has-chrome={$$slots.chrome}
       class:is-visible={shell.visible}
       class:is-exiting={shell.exiting}
       role="dialog"
@@ -166,6 +167,11 @@
       aria-labelledby={titleId}
     >
       <div class="modal__grabber" aria-hidden="true"></div>
+      {#if $$slots.chrome}
+        <div class="modal__chrome">
+          <slot name="chrome" />
+        </div>
+      {/if}
       <div class="modal__header">
         <h2 class="modal__title" id={titleId}>{title}</h2>
         <button type="button" class="modal__close" aria-label="Cerrar" on:click={close}>&times;</button>
@@ -212,9 +218,40 @@
 {/if}
 
 <style>
+  /* Stepper / chrome tabs hang off the panel edge; body still scrolls inside .modal__body */
+  .modal--has-chrome,
   .modal--has-aside {
     position: relative;
     overflow: visible;
+  }
+
+  .modal--has-chrome {
+    /* room for absolute .modal__chrome hanging above the panel */
+    margin-top: 2.75rem;
+  }
+
+  .modal__chrome {
+    position: absolute;
+    top: 0;
+    right: 0.85rem;
+    z-index: 2;
+    /* ponytail: overlap like onboarding --on-card (-0.7rem into the shell) */
+    transform: translateY(calc(-100% + 0.7rem));
+    pointer-events: auto;
+  }
+
+  @media (max-width: 719px) {
+    .modal__chrome {
+      left: 0.65rem;
+      right: 0.65rem;
+    }
+  }
+
+  @media (max-width: 520px) {
+    /* bottom sheet: hang into the dimmed area above; don't lift the sheet off the floor */
+    .modal--has-chrome {
+      margin-top: 0;
+    }
   }
 
   .modal__aside {

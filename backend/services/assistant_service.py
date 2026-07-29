@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import config
 from integrations import registry
@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 # Cuentas que cuentan como liquidez para el colchón / emergencia.
 _LIQUID_TYPES = frozenset({"cash", "bank", "wallet", "savings", "debit_card"})
+# ponytail: UTC−5 fijo (America/Bogota sin DST). Upgrade: zoneinfo("America/Bogota") si hay tzdata.
+_BOGOTA = timezone(timedelta(hours=-5))
 _THREAD_TAIL = 12
 # Compactar historial: deja cola reciente + memory_summary (evita contexto eterno).
 _SUMMARIZE_RE = re.compile(
@@ -52,14 +54,22 @@ def _assistant_trace(event: str, **payload) -> None:
 
 
 def _month_prefix():
-    return datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m")
+    """Mes de negocio en America/Bogota (UTC−5). KPIs usan `date` del movimiento."""
+    return datetime.now(timezone.utc).astimezone(_BOGOTA).strftime("%Y-%m")
 
 
 def _sum_month(rows, currency="COP"):
+    """Suma del mes por fecha de negocio (`date`, fallback `created_at`).
+
+    Definición canónica del KPI de ahorro:
+    savings_actual_percent = (income_month − expense_month) / income_month
+    Transfers internos no entran (no son expenses). Gastos de allocation sí.
+    """
     prefix = _month_prefix()
     total = 0.0
     for row in rows:
-        if not str(row.get("date") or "").startswith(prefix):
+        day = str(row.get("date") or row.get("created_at") or "")[:10]
+        if not day.startswith(prefix):
             continue
         if (row.get("currency") or currency) != currency:
             continue
@@ -697,8 +707,8 @@ Reglas del JSON:
   omite claves que no cambian (o null). Si no hay nada que persistir en perfil, {{}}.
 - Campos válidos de profile_patch: monthly_income_fixed, monthly_income_variable_avg,
   monthly_fixed_expenses, fixed_expenses, savings_target_percent, investment_target_percent,
-  cushion_percent, emergency_fund_target_months, risk_profile, investment_horizon,
-  fiscal_country, priorities.
+  cushion_percent, emergency_fund_target_months, pay_frequency, income_payday_day,
+  income_payday_weekday, risk_profile, investment_horizon, fiscal_country, priorities.
 - movement_draft: {{}} si el mensaje NO es un registro de movimiento. Si sí lo es,
   llena expenses/incomes/investments/notes (uno por ítem). needs_clarification solo si falta dato.
 - account_draft: {{}} si no pide crear cuenta; si sí, name obligatorio.

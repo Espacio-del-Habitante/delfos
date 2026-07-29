@@ -363,7 +363,10 @@
 </script>
 
 <div class="app-shell">
-  <HeaderIsland summary={$finance?.summary ?? null} />
+  <HeaderIsland
+    summary={$finance?.summary ?? null}
+    kpis={$finance?.assistant_kpis ?? null}
+  />
 
   <section class="settings-hero section">
     <div class="hero-titlebar">

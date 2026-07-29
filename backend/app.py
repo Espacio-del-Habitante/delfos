@@ -79,6 +79,29 @@ def api_finance():
     return finance_response()
 
 
+@app.route("/api/movements")
+def api_movements():
+    """Lista paginada del ledger (filtros en servidor). Preview corto sigue en /api/finance."""
+    try:
+        page = int(request.args.get("page") or 1)
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = int(request.args.get("page_size") or 25)
+    except (TypeError, ValueError):
+        page_size = 25
+    return jsonify(
+        finance_store.list_movements(
+            date_from=request.args.get("date_from"),
+            date_to=request.args.get("date_to"),
+            kind=request.args.get("kind"),
+            q=request.args.get("q"),
+            page=page,
+            page_size=page_size,
+        )
+    )
+
+
 @app.route("/api/charts")
 def api_charts():
     return jsonify(finance_store.get_chart_data())
@@ -628,9 +651,18 @@ def allocations_propose():
         return jsonify({"error": "income_amount inválido"}), 400
     from_account_id = (body.get("from_account_id") or "").strip()
     currency = (body.get("currency") or "COP").strip() or "COP"
+    # Default true: callers legacy (sin flag) = ingreso completo del periodo.
+    raw_complete = body.get("income_is_complete", True)
+    if isinstance(raw_complete, str):
+        income_is_complete = raw_complete.strip().lower() not in ("0", "false", "no")
+    else:
+        income_is_complete = bool(raw_complete)
     try:
         proposal = allocation_service.propose_allocation(
-            amount, from_account_id, currency=currency
+            amount,
+            from_account_id,
+            currency=currency,
+            income_is_complete=income_is_complete,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
