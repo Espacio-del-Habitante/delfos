@@ -63,24 +63,80 @@
   $: profile = $finance?.financial_profile ?? null;
   $: baseCurrency =
     Object.keys($finance?.summary?.balances_by_currency ?? {})[0] || 'COP';
-  $: monthYm = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  $: today = new Date();
+  $: monthYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  $: todayDay = today.getDate();
+  $: todayIso = `${monthYm}-${String(todayDay).padStart(2, '0')}`;
+  $: payFrequency = String(profile?.pay_frequency || 'monthly').toLowerCase();
+  $: periodDivisor = payFrequency === 'biweekly' ? 2 : payFrequency === 'weekly' ? 4 : 1;
+  $: biweeklyHalf = todayDay <= 14 ? 1 : 2;
+  $: paydayDismissKey =
+    payFrequency === 'biweekly'
+      ? `${monthYm}-H${biweeklyHalf}`
+      : payFrequency === 'weekly'
+        ? todayIso
+        : monthYm;
+
+  function incomeInRange(
+    incomes: IncomeRecord[],
+    currency: string,
+    start: string,
+    end: string,
+  ): boolean {
+    return incomes.some((inc) => {
+      const d = String(inc.date || '').slice(0, 10);
+      return (
+        d >= start &&
+        d <= end &&
+        (inc.currency || currency) === currency &&
+        Number(inc.amount) > 0
+      );
+    });
+  }
+
+  $: showPaydayBanner = (() => {
+    if (!profile?.onboarding_completed) return false;
+    if (profile.income_prompt_dismissed_ym === paydayDismissKey) return false;
+    const incomes = $finance?.incomes ?? [];
+
+    if (payFrequency === 'weekly') {
+      const wd = profile.income_payday_weekday;
+      if (wd == null || wd < 0 || wd > 6) return false;
+      // perfil 0=lun…6=dom → JS getDay 0=dom…6=sáb
+      const jsDow = (Number(wd) + 1) % 7;
+      if (today.getDay() !== jsDow) return false;
+      const start = new Date(today);
+      start.setDate(start.getDate() - 6);
+      const startIso = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+      return !incomeInRange(incomes, baseCurrency, startIso, todayIso);
+    }
+
+    if (payFrequency === 'biweekly') {
+      const paydayConfigured = profile.income_payday_day;
+      const halfPayday =
+        biweeklyHalf === 1
+          ? paydayConfigured != null && paydayConfigured <= 14
+            ? paydayConfigured
+            : 1
+          : 15;
+      if (todayDay < halfPayday) return false;
+      const start = biweeklyHalf === 1 ? `${monthYm}-01` : `${monthYm}-15`;
+      const end = biweeklyHalf === 1 ? `${monthYm}-14` : `${monthYm}-31`;
+      return !incomeInRange(incomes, baseCurrency, start, end);
+    }
+
+    // monthly
+    if (profile.income_payday_day == null) return false;
+    if (todayDay < profile.income_payday_day) return false;
+    return !incomeInRange(incomes, baseCurrency, `${monthYm}-01`, `${monthYm}-31`);
   })();
-  $: todayDay = new Date().getDate();
-  $: hasIncomeThisMonth = ($finance?.incomes ?? []).some(
-    (inc) =>
-      String(inc.date || '').startsWith(monthYm) &&
-      (inc.currency || baseCurrency) === baseCurrency &&
-      Number(inc.amount) > 0,
-  );
-  $: showPaydayBanner = Boolean(
-    profile?.onboarding_completed &&
-      profile.income_payday_day != null &&
-      todayDay >= profile.income_payday_day &&
-      !hasIncomeThisMonth &&
-      profile.income_prompt_dismissed_ym !== monthYm,
-  );
+
+  $: paydayBannerCopy =
+    payFrequency === 'weekly'
+      ? 'Registra el ingreso de la semana para repartir el cheque.'
+      : payFrequency === 'biweekly'
+        ? 'Registra el ingreso de la quincena para ver el % de ahorro y repartir.'
+        : 'Registra el ingreso del mes para ver el % de ahorro real y repartir el salario.';
 
   function pickPaydayAccount(accounts: Account[], currency: string): string {
     const sameCur = (a: Account) => (a.currency || 'COP') === currency;
@@ -96,7 +152,8 @@
     const categories = $finance?.categories ?? [];
     const fixed = Number(profile?.monthly_income_fixed) || 0;
     const variable = Number(profile?.monthly_income_variable_avg) || 0;
-    const amount = fixed + variable || null;
+    const monthly = fixed + variable;
+    const amount = monthly > 0 ? Math.round((monthly / periodDivisor) * 100) / 100 : null;
     const salaryCat = findCategoryByName(categories, 'Salario', 'income');
     incomePrefill = {
       amount,
@@ -114,7 +171,7 @@
     dismissingPayday = true;
     try {
       const { profile: updated } = await updateAssistantProfile({
-        income_prompt_dismissed_ym: monthYm,
+        income_prompt_dismissed_ym: paydayDismissKey,
       });
       if ($finance) {
         applyFinancePayload({ ...$finance, financial_profile: updated });
@@ -192,7 +249,10 @@
 </script>
 
 <div class="app-shell">
-  <HeaderIsland summary={$finance?.summary ?? null} />
+  <HeaderIsland
+    summary={$finance?.summary ?? null}
+    kpis={$finance?.assistant_kpis ?? null}
+  />
 
   {#if $financeStatus === 'loading' && !$finance}
     <p class="finance-loading" role="status">Cargando finanzas…</p>
@@ -215,7 +275,7 @@
     <aside class="onboarding-banner" aria-label="Recordatorio de ingreso">
       <div>
         <strong>¿Ya te pagaron?</strong>
-        <p>Registra el ingreso del mes para ver el % de ahorro real y repartir el salario.</p>
+        <p>{paydayBannerCopy}</p>
       </div>
       <div class="onboarding-banner__actions">
         <button

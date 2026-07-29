@@ -40,6 +40,7 @@ import type {
   GoalInput,
   ImportPreviewResponse,
   InvestmentLedgerRow,
+  MovementsPage,
   OllamaHealth,
   OcrPreviewResponse,
   PortfolioInsights,
@@ -50,6 +51,25 @@ import type {
 
 export function getFinanceData(): Promise<FinancePayload> {
   return fetchJson<FinancePayload>('/api/finance');
+}
+
+export function getMovements(params: {
+  date_from?: string;
+  date_to?: string;
+  kind?: string;
+  q?: string;
+  page?: number;
+  page_size?: number;
+} = {}): Promise<MovementsPage> {
+  const qs = new URLSearchParams();
+  if (params.date_from) qs.set('date_from', params.date_from);
+  if (params.date_to) qs.set('date_to', params.date_to);
+  if (params.kind && params.kind !== 'all') qs.set('kind', params.kind);
+  if (params.q?.trim()) qs.set('q', params.q.trim());
+  if (params.page != null) qs.set('page', String(params.page));
+  if (params.page_size != null) qs.set('page_size', String(params.page_size));
+  const q = qs.toString();
+  return fetchJson<MovementsPage>(`/api/movements${q ? `?${q}` : ''}`);
 }
 
 export function getAssistantProfile(): Promise<{ profile: FinancialProfile }> {
@@ -259,6 +279,8 @@ export function proposeAllocation(body: {
   income_amount: number;
   from_account_id: string;
   currency?: string;
+  /** true = nómina/periodo completo (default); false = parcial → fijos proporcionales, sin warning */
+  income_is_complete?: boolean;
 }): Promise<{ proposal: AllocationProposal }> {
   return fetchJson('/api/allocations/propose', {
     method: 'POST',

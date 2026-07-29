@@ -1,20 +1,21 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { fetchPortfolioInsights, getOllamaHealth } from '@common/lib/api';
+  import { fetchPortfolioInsights, getAiSettings, getOllamaHealth } from '@common/lib/api';
   import { formatMultiCurrency } from '@common/lib/formatters';
-  import type { PortfolioInsights, Summary } from '@common/lib/types';
+  import type { AiProviderId, AssistantKpis, PortfolioInsights, Summary } from '@common/lib/types';
 
   export let summary: Summary | null = null;
   // Optional: parent can pass insights to avoid a duplicate fetch. When omitted,
   // the island self-fetches so it works standalone on any page.
   export let insights: PortfolioInsights | null = null;
+  // Optional: when parent already has finance payload, pass KPIs to avoid extra fetch.
+  export let kpis: AssistantKpis | null = null;
 
   let zoneEl: HTMLDivElement;
   let revealed = false;
   let isNear = false;
   let isExpanded = false;
-  let ollamaOk: boolean | null = null;
-  let ollamaModel = '';
+  let aiOk: boolean | null = null;
   let statusText = 'Delfos';
   let canHover = false;
   let rafId = 0;
@@ -25,16 +26,18 @@
 
   const PROXIMITY = 40;
 
+  type PeekChip = {
+    key: string;
+    label: string;
+    value: string;
+    sub?: string;
+    title: string;
+    tone?: 'up' | 'down' | 'neutral';
+    variant?: 'pnl' | 'loss' | 'default';
+  };
+
   // Prefer caller-provided insights; fall back to self-fetched data.
   $: portfolio = insights ?? ownInsights;
-
-  $: if (ollamaOk === true) {
-    statusText = ollamaModel ? `Ollama · ${ollamaModel}` : 'Ollama conectado';
-  } else if (ollamaOk === false) {
-    statusText = 'Ollama desconectado';
-  } else if (summary?.status) {
-    statusText = summary.status;
-  }
 
   // --- Derived finance signals (kept declarative so new signals are easy to add) ---
   $: hasPositions = !!portfolio?.has_positions;
@@ -55,6 +58,114 @@
       ? formatMultiCurrency(summary.balances_by_currency)
       : '—';
 
+  // Peek chips: actionable finance first, then portfolio. Mobile CSS keeps max ~3.
+  $: peekChips = buildPeekChips(
+    kpis,
+    hasPositions,
+    strongest,
+    strongestMissing,
+    totalPnl,
+    pnlTone,
+    hasLoss,
+    worstLoser,
+    balanceText,
+  );
+
+  function buildPeekChips(
+    kpiData: AssistantKpis | null,
+    positions: boolean,
+    strong: typeof strongest,
+    strongMissing: boolean,
+    pnl: number | null,
+    tone: 'up' | 'down' | 'neutral',
+    loss: boolean,
+    loser: typeof worstLoser,
+    balance: string,
+  ): PeekChip[] {
+    const chips: PeekChip[] = [];
+
+    if (kpiData?.savings_actual_percent != null) {
+      const actual = kpiData.savings_actual_percent;
+      const target = kpiData.savings_target_percent;
+      const delta = kpiData.savings_vs_target_delta;
+      let sub: string | undefined;
+      if (delta != null && target != null) {
+        const sign = delta > 0 ? '+' : delta < 0 ? '−' : '';
+        sub = `${sign}${Math.abs(delta)}`;
+      } else if (target != null) {
+        sub = `meta ${target}%`;
+      }
+      chips.push({
+        key: 'savings',
+        label: 'Ahorro',
+        value: `${formatPct(actual)}%`,
+        sub,
+        title: 'Ahorro del mes: (ingresos − gastos) / ingresos',
+        tone: actual > 0 ? 'up' : actual < 0 ? 'down' : 'neutral',
+        variant: 'pnl',
+      });
+    }
+
+    if (kpiData?.emergency_months_approx != null) {
+      const months = kpiData.emergency_months_approx;
+      const target = kpiData.emergency_fund_target_months;
+      chips.push({
+        key: 'emergency',
+        label: 'Emergencia',
+        value: `${formatMonths(months)} mes`,
+        sub: target != null ? `meta ${formatMonths(target)}` : undefined,
+        title: 'Meses de emergencia (cuentas enlazadas a fondo de emergencia)',
+      });
+    }
+
+    if (positions) {
+      chips.push({
+        key: 'pnl',
+        label: 'P&L',
+        value: formatPnl(pnl),
+        title: 'Ganancia/pérdida total de la cartera',
+        tone,
+        variant: 'pnl',
+      });
+      chips.push({
+        key: 'strongest',
+        label: 'Más fuerte',
+        value: strong?.asset ?? '—',
+        sub: strongMissing
+          ? formatUsd(strong?.cost_basis_usd)
+          : formatUsd(strong?.market_value_usd),
+        title: 'Activo más fuerte de tu cartera',
+      });
+      if (loss && loser) {
+        chips.push({
+          key: 'loss',
+          label: '',
+          value: loser.asset,
+          sub: formatPnl(loser.unrealized_pnl_usd),
+          title: 'Activo en pérdida',
+          variant: 'loss',
+        });
+      }
+    } else if (chips.length === 0) {
+      chips.push({
+        key: 'balance',
+        label: 'Balance',
+        value: balance,
+        title: 'Balance general',
+      });
+    }
+
+    return chips;
+  }
+
+  function formatPct(n: number): string {
+    return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  }
+
+  function formatMonths(n: number): string {
+    return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  }
+
   function formatUsd(n: number | null | undefined): string {
     if (n == null) return '—';
     const abs = Math.abs(n);
@@ -68,14 +179,45 @@
     return `${sign}${formatUsd(Math.abs(n))}`;
   }
 
-  async function checkHealth() {
+  function providerLabel(id: AiProviderId | string | undefined): string {
+    if (id === 'gemini') return 'Gemini';
+    if (id === 'compatible') return 'IA nube';
+    if (id === 'local') return 'Ollama';
+    return 'IA';
+  }
+
+  async function refreshAiStatus() {
     try {
-      const data = await getOllamaHealth();
-      ollamaOk = !!data.ok;
-      ollamaModel = data.model || '';
+      const { config } = await getAiSettings();
+      const provider = (config.effective_provider || config.provider || 'local') as AiProviderId;
+      const label = providerLabel(provider);
+      const model = (config.text_model || '').trim();
+
+      if (provider === 'local') {
+        // Solo Ollama necesita ping real; la nube no se golpea cada 30s.
+        try {
+          const data = await getOllamaHealth();
+          aiOk = !!data.ok;
+          const m = data.model || model;
+          statusText = aiOk ? (m ? `${label} · ${m}` : `${label} listo`) : `${label} desconectado`;
+        } catch {
+          aiOk = false;
+          statusText = `${label} desconectado`;
+        }
+        return;
+      }
+
+      // Cloud: estado según config (sin llamar al proveedor).
+      if (!config.has_api_key) {
+        aiOk = false;
+        statusText = `${label} · sin API key`;
+        return;
+      }
+      aiOk = true;
+      statusText = model ? `${label} · ${model}` : `${label} listo`;
     } catch {
-      ollamaOk = false;
-      ollamaModel = '';
+      aiOk = null;
+      statusText = summary?.status || 'Delfos';
     }
   }
 
@@ -112,23 +254,14 @@
     });
   }
 
-  // Quick links are now real anchors (work cross-page). On touch we still
-  // collapse the island after a tap; same-page hash links don't blur the link.
-  function collapseOnTouch() {
-    if (!canHover) {
-      isExpanded = false;
-      setRevealed(false);
-    }
-  }
-
   onMount(() => {
     canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     if (canHover) {
       document.addEventListener('mousemove', onMouseMove);
     }
-    checkHealth();
+    refreshAiStatus();
     loadInsights();
-    pollTimer = setInterval(checkHealth, 30000);
+    pollTimer = setInterval(refreshAiStatus, 30000);
     return () => {
       document.removeEventListener('mousemove', onMouseMove);
       if (pollTimer) clearInterval(pollTimer);
@@ -169,7 +302,7 @@
         class="island-shell"
         on:click={(e) => {
           if (!canHover) {
-            if ((e.target as HTMLElement).closest('.island-settings, .island-nav__link')) return;
+            if ((e.target as HTMLElement).closest('.island-settings')) return;
             isExpanded = !isExpanded;
             setRevealed(isExpanded);
           }
@@ -191,8 +324,8 @@
           <div class="island-status" title={statusText}>
             <span
               class="island-status__dot"
-              class:is-online={ollamaOk === true}
-              class:is-offline={ollamaOk === false}
+              class:is-online={aiOk === true}
+              class:is-offline={aiOk === false}
               aria-hidden="true"
             ></span>
             <span class="island-status__text">{statusText}</span>
@@ -215,58 +348,41 @@
             height="28"
             aria-hidden="true"
           />
-          {#if insightsLoading && !portfolio}
-            <span class="island-signal__muted">Cargando cartera…</span>
-          {:else if hasPositions}
-            <span class="island-chip" title="Activo más fuerte de tu cartera">
-              <span class="island-chip__label">Más fuerte</span>
-              <span class="island-chip__value">
-                {strongest?.asset ?? '—'}
-                <span class="island-chip__sub">
-                  {strongestMissing
-                    ? formatUsd(strongest?.cost_basis_usd)
-                    : formatUsd(strongest?.market_value_usd)}
+          {#if insightsLoading && !portfolio && peekChips.length === 0}
+            <span class="island-signal__muted">Cargando…</span>
+          {:else if peekChips.length}
+            <div class="island-signal__chips">
+              {#each peekChips as chip (chip.key)}
+                <span
+                  class="island-chip"
+                  class:island-chip--pnl={chip.variant === 'pnl'}
+                  class:island-chip--loss={chip.variant === 'loss'}
+                  data-tone={chip.tone ?? undefined}
+                  title={chip.title}
+                >
+                  {#if chip.variant === 'loss'}
+                    <span class="island-chip__arrow" aria-hidden="true">▼</span>
+                  {/if}
+                  {#if chip.label}
+                    <span class="island-chip__label">{chip.label}</span>
+                  {/if}
+                  <span class="island-chip__value">
+                    {chip.value}
+                    {#if chip.sub}
+                      <span class="island-chip__sub">{chip.sub}</span>
+                    {/if}
+                  </span>
                 </span>
-              </span>
-            </span>
-            <span class="island-chip island-chip--pnl" data-tone={pnlTone} title="Ganancia/pérdida total">
-              <span class="island-chip__label">P&amp;L</span>
-              <span class="island-chip__value">{formatPnl(totalPnl)}</span>
-            </span>
-            {#if hasLoss && worstLoser}
-              <span class="island-chip island-chip--loss" title="Activo en pérdida">
-                <span class="island-chip__arrow" aria-hidden="true">▼</span>
-                <span class="island-chip__value">
-                  {worstLoser.asset}
-                  <span class="island-chip__sub">{formatPnl(worstLoser.unrealized_pnl_usd)}</span>
-                </span>
-              </span>
-            {:else if hasLoss}
-              <span class="island-chip island-chip--loss" title="Resultado en rojo">
-                <span class="island-chip__arrow" aria-hidden="true">▼</span>
-                <span class="island-chip__value">En rojo</span>
-              </span>
-            {/if}
+              {/each}
+            </div>
           {:else}
-            <span class="island-chip" title="Balance general">
-              <span class="island-chip__label">Balance</span>
-              <span class="island-chip__value">{balanceText}</span>
-            </span>
-            <span class="island-signal__muted">Sin inversiones aún</span>
+            <span class="island-signal__muted">Sin señales aún</span>
           {/if}
         </div>
 
-        <!-- Detail drawer, revealed on approach -->
+        <!-- Detail drawer: KPIs only (no navigation) -->
         <div class="island-detail" aria-hidden={revealed ? 'false' : 'true'}>
           <div class="island-detail__inner">
-            <nav class="island-nav" aria-label="Accesos rápidos">
-              <a href="/#resumen" class="island-nav__link" on:click={collapseOnTouch}>Resumen</a>
-              <a href="/#registrar" class="island-nav__link" on:click={collapseOnTouch}>Registrar</a>
-              <a href="/#movimientos" class="island-nav__link" on:click={collapseOnTouch}>Movimientos</a>
-              <a href="/inversiones" class="island-nav__link" on:click={collapseOnTouch}>Inversiones</a>
-              <a href="/#cuentas" class="island-nav__link" on:click={collapseOnTouch}>Cuentas</a>
-              <a href="/configuracion" class="island-nav__link" on:click={collapseOnTouch}>Configuración</a>
-            </nav>
             <div class="island-meta">
               <div class="island-meta__item">
                 <span class="island-meta__label">Balance</span>
@@ -276,6 +392,20 @@
                 <span class="island-meta__label">Movimientos</span>
                 <span class="island-meta__value">{summary?.total_movements ?? 0}</span>
               </div>
+              {#if kpis?.savings_actual_percent != null}
+                <div class="island-meta__item">
+                  <span class="island-meta__label">Ahorro mes</span>
+                  <span class="island-meta__value">{formatPct(kpis.savings_actual_percent)}%</span>
+                </div>
+              {/if}
+              {#if kpis?.emergency_months_approx != null}
+                <div class="island-meta__item">
+                  <span class="island-meta__label">Emergencia</span>
+                  <span class="island-meta__value"
+                    >{formatMonths(kpis.emergency_months_approx)} mes</span
+                  >
+                </div>
+              {/if}
               {#if hasPositions}
                 <div class="island-meta__item">
                   <span class="island-meta__label">Realizada neta</span>
@@ -300,20 +430,5 @@
         </div>
       </div>
     </div>
-    <p class="island-tagline--mobile">Tu copiloto financiero — registra, analiza y entiende.</p>
   </header>
 </div>
-
-<style>
-  .island-nav__link {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font: inherit;
-    text-align: left;
-    color: inherit;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-  }
-</style>

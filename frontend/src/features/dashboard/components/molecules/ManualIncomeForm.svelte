@@ -3,11 +3,11 @@
   import CategorySelector from '@common/molecules/CategorySelector.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
   import MoneyInput from '@common/molecules/MoneyInput.svelte';
-  import { createCategory, createIncome, proposeAllocation } from '@common/lib/api';
+  import { createCategory, createIncome } from '@common/lib/api';
   import { findCategoryByName } from '@common/lib/categories';
   import { applyFinancePayload } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
-  import type { Account, AllocationProposal, Category } from '@common/lib/types';
+  import type { Account, Category } from '@common/lib/types';
 
   export let accounts: Account[] = [];
   export let categories: Category[] = [];
@@ -24,9 +24,8 @@
   } | null = null;
 
   const dispatch = createEventDispatcher<{
-    success: void;
+    saved: { amount: number; accountId: string; currency: string; category: string };
     requestCreate: { text: string };
-    proposeAllocation: { proposal: AllocationProposal };
   }>();
 
   let accountId = '';
@@ -37,6 +36,7 @@
   let description = '';
   let incomeSource = '';
   let appliedPrefillKey = '';
+  let submitting = false;
 
   $: if (selected?.name) {
     category = selected.name;
@@ -64,11 +64,6 @@
     ...accounts.map((a) => ({ value: a.id, label: `${a.emoji} ${a.name}` })),
   ];
 
-  function isSalaryCategory(name: string) {
-    const n = (name || '').trim().toLowerCase();
-    return n === 'salario' || n.includes('salario');
-  }
-
   async function ensureCategory(name: string, emoji: string, kind: string) {
     if (!findCategoryByName(categories, name, kind)) {
       const data = await createCategory({ name, emoji, kind });
@@ -79,6 +74,8 @@
 
   async function submitIncome(e: Event) {
     e.preventDefault();
+    if (submitting) return;
+    submitting = true;
     try {
       const categoryName = category || 'General';
       const parsedAmount = amount ?? 0;
@@ -93,34 +90,22 @@
         income_source: incomeSource,
       });
       applyFinancePayload(data);
-      const savedAccountId = accountId;
-      const savedCurrency = currency;
-      const savedAmount = parsedAmount;
-      const wasSalary = isSalaryCategory(categoryName);
+      const saved = {
+        amount: parsedAmount,
+        accountId,
+        currency,
+        category: categoryName,
+      };
       amount = null;
       description = '';
       incomeSource = '';
       appliedPrefillKey = '';
       showToast('Ingreso guardado', { type: 'success' });
-      dispatch('success');
-
-      if (wasSalary && savedAccountId && Number.isFinite(savedAmount) && savedAmount > 0) {
-        try {
-          const { proposal } = await proposeAllocation({
-            income_amount: savedAmount,
-            from_account_id: savedAccountId,
-            currency: savedCurrency,
-          });
-          dispatch('proposeAllocation', { proposal });
-        } catch (err) {
-          showToast(
-            err instanceof Error ? err.message : 'No se pudo proponer la distribución',
-            { type: 'error' },
-          );
-        }
-      }
+      dispatch('saved', saved);
     } catch {
       showToast('Error al guardar ingreso', { type: 'error' });
+    } finally {
+      submitting = false;
     }
   }
 </script>

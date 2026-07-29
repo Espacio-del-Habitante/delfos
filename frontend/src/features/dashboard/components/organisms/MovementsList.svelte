@@ -1,14 +1,19 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import SearchFilterBar from '@common/molecules/SearchFilterBar.svelte';
-  import { filterMovements, type MovementFilterState } from '@common/lib/filters';
+  import TablePagination from '@common/molecules/TablePagination.svelte';
+  import { getMovements } from '@common/lib/api';
+  import type { MovementFilterState } from '@common/lib/filters';
   import { formatMovementDate } from '@common/lib/formatters';
+  import { finance } from '@common/stores/finance';
   import type { Movement, MovementFilterOption } from '@common/lib/types';
 
+  /** Preview de /api/finance; la lista paginada usa GET /api/movements. */
   export let movements: Movement[] = [];
   export let movementFilters: MovementFilterOption[] = [];
 
   const dispatch = createEventDispatcher<{ edit: { type: string; id: string }; delete: { type: string; id: string } }>();
+  const PAGE_SIZE = 25;
 
   let filters: MovementFilterState = {
     search: '',
@@ -17,14 +22,66 @@
     dateTo: '',
   };
 
+  let page = 1;
+  let items: Movement[] = [];
+  let total = 0;
+  let loading = false;
+  let loadError = '';
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let prevFilterSig = '';
+
   $: typeOptions = movementFilters.map((f) => ({ value: f.id, label: f.label }));
 
-  $: filtered = filterMovements(movements, filters);
   $: hasFilters =
     filters.search.trim() !== '' ||
     filters.type !== 'all' ||
     filters.dateFrom !== '' ||
     filters.dateTo !== '';
+
+  $: filterSig = `${filters.search}|${filters.type}|${filters.dateFrom}|${filters.dateTo}`;
+  $: if (filterSig !== prevFilterSig) {
+    prevFilterSig = filterSig;
+    if (page !== 1) page = 1;
+  }
+
+  // total_movements cambia tras create/delete → refetch sin perder filtros.
+  $: loadKey = `${filterSig}|${page}|${$finance?.summary?.total_movements ?? 0}`;
+  $: {
+    loadKey;
+    scheduleLoad();
+  }
+
+  function scheduleLoad() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    const delay = filters.search.trim() ? 250 : 0;
+    debounceTimer = setTimeout(() => {
+      void load();
+    }, delay);
+  }
+
+  async function load() {
+    loading = true;
+    loadError = '';
+    try {
+      const res = await getMovements({
+        date_from: filters.dateFrom || undefined,
+        date_to: filters.dateTo || undefined,
+        kind: filters.type !== 'all' ? filters.type : undefined,
+        q: filters.search || undefined,
+        page,
+        page_size: PAGE_SIZE,
+      });
+      items = res.items;
+      total = res.total;
+      if (res.page !== page) page = res.page;
+    } catch (err) {
+      loadError = err instanceof Error ? err.message : 'No se pudieron cargar movimientos';
+      items = movements.slice(0, PAGE_SIZE);
+      total = movements.length;
+    } finally {
+      loading = false;
+    }
+  }
 </script>
 
 <section class="full-width-section section movements-section" id="movimientos" aria-label="Movimientos recientes">
@@ -37,13 +94,17 @@
     bind:selectedType={filters.type}
     bind:dateFrom={filters.dateFrom}
     bind:dateTo={filters.dateTo}
-    resultCount={filtered.length}
-    totalCount={movements.length}
+    resultCount={items.length}
+    totalCount={total}
   />
 
-  {#if filtered.length}
-    <ul class="timeline-list">
-      {#each filtered as m (m.id)}
+  {#if loadError}
+    <p class="muted" role="alert">{loadError}</p>
+  {/if}
+
+  {#if items.length}
+    <ul class="timeline-list" class:is-loading={loading} aria-busy={loading}>
+      {#each items as m (m.id)}
         <li class="timeline-item" data-movement-type={m.type} data-movement-id={m.id}>
           <div class="timeline-item__icon timeline-item__icon--{m.icon || m.type}" aria-hidden="true">
             {#if m.category_emoji}
@@ -85,6 +146,11 @@
         </li>
       {/each}
     </ul>
+    <TablePagination bind:page pageSize={PAGE_SIZE} totalItems={total} />
+  {:else if loading}
+    <div class="empty-state">
+      <p class="empty-state__title">Cargando movimientos…</p>
+    </div>
   {:else if hasFilters}
     <div class="empty-state">
       <p class="empty-state__icon" aria-hidden="true">🔍</p>
@@ -101,8 +167,6 @@
 </section>
 
 <style>
-  /* Cohesive rhythm for header → filtros → lista/empty state (antes dependía de
-     margins sueltos de .card-title y .filter-bar que no calzaban entre sí). */
   .movements-section {
     display: flex;
     flex-direction: column;
@@ -115,5 +179,9 @@
 
   .movements-section :global(.filter-bar) {
     margin-bottom: 0;
+  }
+
+  .timeline-list.is-loading {
+    opacity: 0.65;
   }
 </style>

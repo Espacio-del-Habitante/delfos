@@ -39,8 +39,10 @@ DEFAULT_FINANCIAL_PROFILE = {
     "investment_target_percent": None,
     "cushion_percent": None,  # holgura / colchón del ingreso (no comprometida)
     "emergency_fund_target_months": None,
-    "income_payday_day": None,  # día del mes 1–28 (evita feb/31)
-    "income_prompt_dismissed_ym": None,  # "YYYY-MM" si el usuario dijo "Ahora no"
+    "pay_frequency": "monthly",  # monthly | biweekly | weekly
+    "income_payday_day": None,  # día del mes 1–28 (evita feb/31); mensual/quincenal
+    "income_payday_weekday": None,  # 0=lun … 6=dom; solo weekly
+    "income_prompt_dismissed_ym": None,  # token de dismiss del banner payday
     "risk_profile": None,
     "investment_horizon": None,
     "fiscal_country": "CO",
@@ -60,7 +62,9 @@ PROFILE_PATCH_KEYS = frozenset(
         "investment_target_percent",
         "cushion_percent",
         "emergency_fund_target_months",
+        "pay_frequency",
         "income_payday_day",
+        "income_payday_weekday",
         "risk_profile",
         "investment_horizon",
         "fiscal_country",
@@ -75,6 +79,7 @@ GOAL_TYPES = frozenset(
 ACCOUNT_ROLES = frozenset({"operating", "goal", "general"})
 RISK_PROFILES = frozenset({"conservative", "moderate", "aggressive"})
 INVESTMENT_HORIZONS = frozenset({"short", "medium", "long"})
+PAY_FREQUENCIES = frozenset({"monthly", "biweekly", "weekly"})
 
 DEFAULT_DATA = {
     "settings": {"currency": "COP"},
@@ -1451,8 +1456,7 @@ def _record_day(row):
     return raw[:10] if len(raw) >= 10 else _today()
 
 
-def get_movements(limit=12, data=None):
-    data = data if data is not None else load_data()
+def _build_movement_items(data):
     accounts_by_id = {a["id"]: a for a in data["accounts"]}
     items = []
 
@@ -1529,8 +1533,79 @@ def get_movements(limit=12, data=None):
             }
         )
 
-    items.sort(key=lambda x: x["created_at"], reverse=True)
-    return items[:limit]
+    items.sort(key=lambda x: (x["date"], x["created_at"]), reverse=True)
+    return items
+
+
+def get_movements(limit=12, data=None):
+    """Preview corto para /api/finance (dashboard). Lista filtrable → list_movements."""
+    data = data if data is not None else load_data()
+    return _build_movement_items(data)[:limit]
+
+
+def list_movements(
+    *,
+    date_from=None,
+    date_to=None,
+    kind=None,
+    q=None,
+    page=1,
+    page_size=25,
+    data=None,
+):
+    """Ledger completo con filtros de servidor y paginación."""
+    data = data if data is not None else load_data()
+    items = _build_movement_items(data)
+
+    date_from = (str(date_from).strip()[:10] if date_from else "") or ""
+    date_to = (str(date_to).strip()[:10] if date_to else "") or ""
+    kind = (str(kind).strip().lower() if kind else "") or ""
+    q = (str(q).strip().lower() if q else "") or ""
+
+    if kind and kind != "all":
+        items = [m for m in items if m.get("type") == kind]
+    if date_from:
+        items = [m for m in items if (m.get("date") or "") >= date_from]
+    if date_to:
+        items = [m for m in items if (m.get("date") or "") <= date_to]
+    if q:
+        items = [
+            m
+            for m in items
+            if q
+            in " ".join(
+                [
+                    str(m.get("description") or ""),
+                    str(m.get("category") or ""),
+                    str(m.get("account_name") or ""),
+                    str(m.get("type_label") or ""),
+                ]
+            ).lower()
+        ]
+
+    try:
+        page_size = int(page_size)
+    except (TypeError, ValueError):
+        page_size = 25
+    page_size = max(1, min(page_size, 100))
+    try:
+        page = int(page)
+    except (TypeError, ValueError):
+        page = 1
+    page = max(1, page)
+
+    total = len(items)
+    start = (page - 1) * page_size
+    if start >= total and total > 0:
+        page = max(1, (total + page_size - 1) // page_size)
+        start = (page - 1) * page_size
+    page_items = items[start : start + page_size]
+    return {
+        "items": page_items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 def _parse_expense_date(exp):
@@ -1675,11 +1750,47 @@ def _optional_payday_day(value):
     return n
 
 
+def _optional_pay_frequency(value):
+    if value is None or value == "":
+        return "monthly"
+    s = str(value).strip().lower()
+    if s not in PAY_FREQUENCIES:
+        raise ValueError("pay_frequency debe ser monthly, biweekly o weekly")
+    return s
+
+
+def _optional_payday_weekday(value):
+    """0=lunes … 6=domingo, o null."""
+    if value is None or value == "":
+        return None
+    n = int(float(value))
+    if n < 0 or n > 6:
+        raise ValueError("income_payday_weekday debe ser un entero entre 0 y 6")
+    return n
+
+
 def _optional_ym(value):
-    """YYYY-MM o null."""
+    """Token de dismiss: YYYY-MM | YYYY-MM-H1/H2 | YYYY-MM-DD, o null."""
     if value is None or value == "":
         return None
     s = str(value).strip()
+    # YYYY-MM-H1 / YYYY-MM-H2 (quincena)
+    if len(s) == 10 and s[7] == "-" and s[8] == "H" and s[9] in ("1", "2"):
+        ym = s[:7]
+        if len(ym) == 7 and ym[4] == "-" and ym[:4].isdigit() and ym[5:].isdigit():
+            month = int(ym[5:])
+            if 1 <= month <= 12:
+                return s
+        raise ValueError("income_prompt_dismissed_ym inválido")
+    # YYYY-MM-DD (semana)
+    if len(s) == 10 and s[4] == "-" and s[7] == "-":
+        y, m, d = s[:4], s[5:7], s[8:10]
+        if y.isdigit() and m.isdigit() and d.isdigit():
+            month, day = int(m), int(d)
+            if 1 <= month <= 12 and 1 <= day <= 31:
+                return s
+        raise ValueError("income_prompt_dismissed_ym inválido")
+    # YYYY-MM (mes)
     if len(s) != 7 or s[4] != "-" or not (s[:4].isdigit() and s[5:].isdigit()):
         raise ValueError("income_prompt_dismissed_ym debe ser YYYY-MM")
     month = int(s[5:])
@@ -1751,8 +1862,14 @@ def sanitize_profile_patch(raw):
         result["emergency_fund_target_months"] = _optional_float(
             patch["emergency_fund_target_months"]
         )
+    if "pay_frequency" in patch:
+        result["pay_frequency"] = _optional_pay_frequency(patch["pay_frequency"])
     if "income_payday_day" in patch:
         result["income_payday_day"] = _optional_payday_day(patch["income_payday_day"])
+    if "income_payday_weekday" in patch:
+        result["income_payday_weekday"] = _optional_payday_weekday(
+            patch["income_payday_weekday"]
+        )
     if "risk_profile" in patch:
         raw_r = patch["risk_profile"]
         if raw_r in (None, ""):
@@ -1818,8 +1935,14 @@ def update_financial_profile(updates):
         profile["emergency_fund_target_months"] = _optional_float(
             updates["emergency_fund_target_months"]
         )
+    if "pay_frequency" in updates:
+        profile["pay_frequency"] = _optional_pay_frequency(updates["pay_frequency"])
     if "income_payday_day" in updates:
         profile["income_payday_day"] = _optional_payday_day(updates["income_payday_day"])
+    if "income_payday_weekday" in updates:
+        profile["income_payday_weekday"] = _optional_payday_weekday(
+            updates["income_payday_weekday"]
+        )
     if "income_prompt_dismissed_ym" in updates:
         profile["income_prompt_dismissed_ym"] = _optional_ym(
             updates["income_prompt_dismissed_ym"]
