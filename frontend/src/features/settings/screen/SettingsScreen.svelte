@@ -538,7 +538,8 @@
           />
           <span class="ai-field__help">
             {#if localWhisperStatus?.installed === false}
-              No instalado. En backend: <code>uv sync --group stt</code>
+              {localWhisperStatus?.hint ||
+                'No instalado. En desarrollo: cd backend && uv sync --group stt. En la app instalada: usa “Preparar Whisper local” o dictado en la nube.'}
             {:else if localWhisperStatus?.loaded}
               Modelo cargado ({localWhisperStatus.model || localWhisperModel}).
             {:else}

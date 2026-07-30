@@ -72,5 +72,8 @@ El pipeline hace:
 - El backend sigue siendo la API Flask oficial y mantiene capas `app.py -> services -> integrations`.
 - En app empaquetada, Electron arranca `backend/delfos-backend` desde `resources/`.
 - El dictado en Electron usa Whisper local por defecto (`faster-whisper`, grupo `stt`).
-  En Configuración puedes activar “dictado mejorado” para preferir la nube (Gemini/Groq).
-  Primera carga: `POST /api/settings/stt/warmup` o el botón “Preparar Whisper local”.
+  El build de escritorio **incluye** el grupo `stt` en el binario PyInstaller.
+  El instalador NSIS pregunta si preparar dictado local; si aceptas, al primer
+  arranque se descarga el modelo (`POST /api/settings/stt/warmup`).
+  En Configuración puedes activar “dictado mejorado” para preferir la nube (Gemini/Groq)
+  o pulsar “Preparar Whisper local” manualmente.

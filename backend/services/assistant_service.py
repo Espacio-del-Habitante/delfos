@@ -252,9 +252,36 @@ def _accounts_for_prompt():
             "name": a.get("name"),
             "type": a.get("type"),
             "currency": a.get("currency"),
+            "current_balance": a.get("current_balance"),
+            "role": a.get("role"),
+            "goal_title": a.get("goal_title"),
         }
-        for a in finance_store.get_accounts()[:24]
+        for a in finance_store.get_accounts_view()[:24]
     ]
+
+
+def _goals_for_prompt(goals):
+    out = []
+    for g in (goals or [])[:8]:
+        target = g.get("target_amount")
+        current = g.get("current_amount")
+        remaining = None
+        if target is not None and current is not None:
+            remaining = round(float(target) - float(current), 2)
+        out.append(
+            {
+                "title": g.get("title"),
+                "type": g.get("type"),
+                "target_amount": target,
+                "current_amount": current,
+                "remaining": remaining,
+                "linked_account_names": g.get("linked_account_names") or [],
+                "target_date": g.get("target_date"),
+                "monthly_target": g.get("monthly_target"),
+                "status": g.get("status"),
+            }
+        )
+    return out
 
 
 def _movement_draft_from_parsed(parsed: dict) -> dict | None:
@@ -346,6 +373,8 @@ def format_lookup_reply(result: dict) -> str:
 _PORTFOLIO_METRICS = frozenset(
     {"summary", "largest_position", "highest_gain", "highest_return", "asset_detail"}
 )
+_GOAL_METRICS = frozenset({"summary", "progress"})
+_ACCOUNT_METRICS = frozenset({"summary", "balance", "liquid"})
 _SLIM_POS_KEYS = (
     "asset",
     "quantity",
@@ -370,13 +399,41 @@ def _position_market_or_cost(pos: dict) -> float:
     return float(pos.get("cost_basis_usd") or 0)
 
 
-def resolve_finance_query(
-    domain: str, metric: str, asset: str | None = None
-) -> dict | None:
-    """Resuelve una consulta financiera bajo demanda (MVP: solo portfolio)."""
-    if (domain or "").strip().lower() != "portfolio":
-        return None
-    metric = (metric or "").strip().lower()
+def _match_name(haystack: str | None, needle: str) -> bool:
+    return needle.lower() in (haystack or "").lower()
+
+
+def _slim_goal(goal: dict) -> dict:
+    target = goal.get("target_amount")
+    current = goal.get("current_amount")
+    remaining = None
+    if target is not None and current is not None:
+        remaining = round(float(target) - float(current), 2)
+    return {
+        "title": goal.get("title"),
+        "type": goal.get("type"),
+        "status": goal.get("status"),
+        "target_amount": target,
+        "current_amount": current,
+        "remaining": remaining,
+        "linked_account_names": goal.get("linked_account_names") or [],
+        "target_date": goal.get("target_date"),
+        "monthly_target": goal.get("monthly_target"),
+    }
+
+
+def _slim_account(acc: dict) -> dict:
+    return {
+        "name": acc.get("name"),
+        "type": acc.get("type"),
+        "currency": acc.get("currency"),
+        "current_balance": acc.get("current_balance"),
+        "role": acc.get("role"),
+        "goal_title": acc.get("goal_title"),
+    }
+
+
+def _resolve_portfolio_query(metric: str, asset: str | None) -> dict | None:
     if metric not in _PORTFOLIO_METRICS:
         return None
 
@@ -439,6 +496,72 @@ def resolve_finance_query(
     return {**base, "position": _slim_position(best)}
 
 
+def _resolve_goals_query(metric: str, name: str | None) -> dict | None:
+    if metric not in _GOAL_METRICS:
+        return None
+    goals = [
+        g
+        for g in finance_store.get_goals()
+        if g.get("status") in (None, "active", "paused")
+    ]
+    base = {"domain": "goals", "metric": metric}
+
+    if metric == "summary":
+        return {**base, "goals": [_slim_goal(g) for g in goals], "count": len(goals)}
+
+    needle = (name or "").strip()
+    if not needle:
+        return None
+    match = next((g for g in goals if _match_name(g.get("title"), needle)), None)
+    if not match:
+        return {**base, "name": needle, "found": False, "goal": None}
+    return {**base, "name": needle, "found": True, "goal": _slim_goal(match)}
+
+
+def _resolve_accounts_query(metric: str, name: str | None) -> dict | None:
+    if metric not in _ACCOUNT_METRICS:
+        return None
+    views = finance_store.get_accounts_view()
+    base = {"domain": "accounts", "metric": metric}
+
+    if metric == "summary":
+        return {
+            **base,
+            "accounts": [_slim_account(a) for a in views],
+            "count": len(views),
+        }
+
+    if metric == "liquid":
+        liquid = _liquid_balance_cop(finance_store.get_accounts())
+        return {**base, "liquid_balance_cop": round(liquid, 2)}
+
+    needle = (name or "").strip()
+    if not needle:
+        return None
+    match = next((a for a in views if _match_name(a.get("name"), needle)), None)
+    if not match:
+        return {**base, "name": needle, "found": False, "account": None}
+    return {**base, "name": needle, "found": True, "account": _slim_account(match)}
+
+
+def resolve_finance_query(
+    domain: str,
+    metric: str,
+    asset: str | None = None,
+    name: str | None = None,
+) -> dict | None:
+    """Resuelve consulta financiera bajo demanda (portfolio | goals | accounts)."""
+    domain = (domain or "").strip().lower()
+    metric = (metric or "").strip().lower()
+    if domain == "portfolio":
+        return _resolve_portfolio_query(metric, asset)
+    if domain == "goals":
+        return _resolve_goals_query(metric, name)
+    if domain == "accounts":
+        return _resolve_accounts_query(metric, name)
+    return None
+
+
 def _finance_query_from_parsed(parsed: dict) -> dict | None:
     raw = parsed.get("finance_query")
     if not isinstance(raw, dict):
@@ -449,10 +572,12 @@ def _finance_query_from_parsed(parsed: dict) -> dict | None:
         return None
     asset = raw.get("asset")
     asset_s = str(asset).strip() if asset not in (None, "") else None
-    return resolve_finance_query(domain, metric, asset_s)
+    name = raw.get("name")
+    name_s = str(name).strip() if name not in (None, "") else None
+    return resolve_finance_query(domain, metric, asset_s, name_s)
 
 
-def format_finance_query_reply(result: dict) -> str:
+def _format_portfolio_reply(result: dict) -> str:
     metric = result.get("metric")
     partial = " (cotizaciones parciales)" if result.get("quotes_partial") else ""
 
@@ -506,6 +631,75 @@ def format_finance_query_reply(result: dict) -> str:
     return "\n".join(lines)
 
 
+def _format_goal_line(goal: dict) -> str:
+    title = goal.get("title") or "?"
+    current = goal.get("current_amount")
+    target = goal.get("target_amount")
+    remaining = goal.get("remaining")
+    names = goal.get("linked_account_names") or []
+    bits = [f"Meta {title}: {current}"]
+    if target is not None:
+        bits[0] = f"Meta {title}: {current} / {target}"
+    if remaining is not None:
+        bits.append(f"faltan {remaining}")
+    if names:
+        bits.append(f"cuentas: {', '.join(names)}")
+    return " · ".join(bits)
+
+
+def _format_account_line(acc: dict) -> str:
+    name = acc.get("name") or "?"
+    bal = acc.get("current_balance")
+    cur = acc.get("currency") or "COP"
+    role = acc.get("role") or "general"
+    bits = [f"Cuenta {name}: {bal} {cur}", f"role {role}"]
+    if acc.get("goal_title"):
+        bits.append(f"Meta {acc['goal_title']}")
+    return " · ".join(bits)
+
+
+def _format_goals_reply(result: dict) -> str:
+    metric = result.get("metric")
+    if metric == "summary":
+        goals = result.get("goals") or []
+        if not goals:
+            return "No tienes metas activas o en pausa."
+        lines = [f"Metas ({result.get('count') or len(goals)}):"]
+        lines.extend(f"- {_format_goal_line(g)}" for g in goals)
+        return "\n".join(lines)
+
+    if not result.get("found"):
+        return f'No encontré una meta que coincida con "{result.get("name")}".'
+    return _format_goal_line(result.get("goal") or {})
+
+
+def _format_accounts_reply(result: dict) -> str:
+    metric = result.get("metric")
+    if metric == "liquid":
+        return f"Líquido COP: {result.get('liquid_balance_cop')}"
+
+    if metric == "summary":
+        accounts = result.get("accounts") or []
+        if not accounts:
+            return "No tienes cuentas registradas."
+        lines = [f"Cuentas ({result.get('count') or len(accounts)}):"]
+        lines.extend(f"- {_format_account_line(a)}" for a in accounts)
+        return "\n".join(lines)
+
+    if not result.get("found"):
+        return f'No encontré una cuenta que coincida con "{result.get("name")}".'
+    return _format_account_line(result.get("account") or {})
+
+
+def format_finance_query_reply(result: dict) -> str:
+    domain = result.get("domain")
+    if domain == "goals":
+        return _format_goals_reply(result)
+    if domain == "accounts":
+        return _format_accounts_reply(result)
+    return _format_portfolio_reply(result)
+
+
 def build_chat_prompt(user_message: str, pack: dict) -> str:
     profile = pack.get("profile") or {}
     kpis = pack.get("kpis") or {}
@@ -531,15 +725,7 @@ def build_chat_prompt(user_message: str, pack: dict) -> str:
         },
         "kpis": kpis,
         "accounts": _accounts_for_prompt(),
-        "goals": [
-            {
-                "title": g.get("title"),
-                "type": g.get("type"),
-                "target_amount": g.get("target_amount"),
-                "status": g.get("status"),
-            }
-            for g in goals[:8]
-        ],
+        "goals": _goals_for_prompt(goals),
         "memory_summary": pack.get("memory_summary"),
         "memory_facts": [f.get("fact") for f in facts[:8]],
     }
@@ -559,6 +745,9 @@ ALCANCE OBLIGATORIO (no negociable):
 Estilo:
 - Conversacional y fluido. Respuestas cortas o medias; nada de listas de examen.
 - Usa SOLO los números del CONTEXT PACK. Si falta un dato, dilo y pregunta con naturalidad.
+- Para saldos de cuenta o progreso de meta, PREFIERE los números del CONTEXT PACK
+  (accounts.current_balance, goals.current_amount / remaining). Si el pack no alcanza
+  (meta no listada, ranking, agregado que no esté), usa finance_query.
 - No inventes saldos, KPIs ni transacciones.
 - No des asesoría fiscal definitiva ni garantías de inversión. Puedes orientar y explicar.
 - No pidas completar un formulario; si necesitas un dato, una pregunta suave basta.
@@ -589,13 +778,20 @@ Buscar / consultar registros:
 - kind: expense|income|investment|note o null. period: month|year|all.
 - El backend completa los números reales; reply puede ser corto ("Revisé tus movimientos").
 
-Consultas de portafolio (P&L, rankings, detalle de ticker):
-- Si pregunta por el portafolio ("¿activo más grande?", "mayor ganancia", "cómo va VOO?",
-  "rendimiento del portafolio", "mejor retorno"), llena "finance_query" y NO inventes P&L.
-- domain: solo "portfolio" por ahora.
-- metric: summary | largest_position | highest_gain | highest_return | asset_detail.
-- asset: ticker obligatorio solo para asset_detail (ej. "VOO"); null en el resto.
-- El backend calcula con cotizaciones; reply puede ser corto ("Revisé tu portafolio").
+Consultas financieras (portafolio / metas / cuentas):
+- Si pregunta por números factuales de portafolio, metas o cuentas, llena "finance_query"
+  y NO inventes montos/P&L.
+- domain: "portfolio" | "goals" | "accounts".
+- portfolio metrics: summary | largest_position | highest_gain | highest_return | asset_detail.
+  asset: ticker obligatorio solo para asset_detail (ej. "VOO"); null en el resto.
+- goals metrics: summary | progress.
+  name: filtro de título (substring) obligatorio en progress
+  (ej. "¿cuánto me falta para la maestría?" → domain=goals, metric=progress, name="maestría").
+- accounts metrics: summary | balance | liquid.
+  name: filtro de nombre obligatorio en balance
+  (ej. "¿saldo de Nequi?" → domain=accounts, metric=balance, name="Nequi").
+  liquid = total líquido COP.
+- El backend calcula; reply puede ser corto ("Revisé tus metas").
 - kpis.portfolio del CONTEXT PACK es un snapshot barato (cash/concentración por costo);
   para números de mercado usa finance_query.
 
@@ -693,7 +889,8 @@ Devuelve SOLO JSON válido (sin markdown fuera del JSON):
   "finance_query": {{
     "domain": null,
     "metric": null,
-    "asset": null
+    "asset": null,
+    "name": null
   }}
 }}
 
@@ -713,8 +910,9 @@ Reglas del JSON:
   llena expenses/incomes/investments/notes (uno por ítem). needs_clarification solo si falta dato.
 - account_draft: {{}} si no pide crear cuenta; si sí, name obligatorio.
 - lookup: {{}} si no busca historial; si sí, q obligatorio. No inventes cifras de lookup.
-- finance_query: {{}} si no consulta portafolio; si sí, domain+metric obligatorios.
-  No inventes P&L ni precios: el backend completa el bloque factual.
+- finance_query: {{}} si no consulta portafolio/metas/cuentas; si sí, domain+metric
+  obligatorios. asset solo portfolio; name para goals/accounts. No inventes montos:
+  el backend completa el bloque factual.
 - No mezcles intenciones: o registras, o buscas/consultas, o creas cuenta (prioridad:
   registro > finance_query/lookup > cuenta si el mensaje es ambiguo pero claro en una).
 """.strip()

@@ -153,6 +153,86 @@ function stopBackend() {
   backendProcess.kill("SIGTERM");
 }
 
+const STT_WARMUP_FLAG = "stt-warmup.flag";
+
+function consumeSttWarmupFlag() {
+  const flagPath = path.join(app.getPath("userData"), STT_WARMUP_FLAG);
+  if (!fs.existsSync(flagPath)) {
+    return false;
+  }
+  try {
+    fs.unlinkSync(flagPath);
+  } catch (error) {
+    process.stderr.write(
+      `[stt] No se pudo borrar ${flagPath}: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+  }
+  return true;
+}
+
+function showAppBox(options) {
+  return mainWindow
+    ? dialog.showMessageBox(mainWindow, options)
+    : dialog.showMessageBox(options);
+}
+
+/**
+ * Si el instalador NSIS dejó el flag, descarga el modelo Whisper en segundo plano.
+ * (El .exe ya trae faster-whisper; esto es la parte “pesada” de red.)
+ */
+function maybeWarmupSttFromInstaller(backendUrl) {
+  if (!app.isPackaged || !consumeSttWarmupFlag()) {
+    return;
+  }
+
+  void showAppBox({
+    type: "info",
+    title: "Delfos",
+    message: "Preparando dictado local…",
+    detail:
+      "Descargando el modelo Whisper (~75–150 MB). Puedes usar Delfos mientras tanto; te avisamos al terminar.",
+    buttons: ["Entendido"],
+  });
+
+  void (async () => {
+    try {
+      const response = await fetch(`${backendUrl}/api/settings/stt/warmup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.ok) {
+        await showAppBox({
+          type: "info",
+          title: "Delfos",
+          message: "Dictado local listo",
+          detail: "Ya puedes usar “Dictar movimiento” en el dashboard.",
+          buttons: ["OK"],
+        });
+        return;
+      }
+      await showAppBox({
+        type: "warning",
+        title: "Delfos",
+        message: "No se pudo preparar Whisper",
+        detail:
+          (data && (data.error || data.hint)) ||
+          "Reintenta en Configuración → Preparar Whisper local.",
+        buttons: ["OK"],
+      });
+    } catch (error) {
+      await showAppBox({
+        type: "warning",
+        title: "Delfos",
+        message: "No se pudo preparar Whisper",
+        detail: `${error instanceof Error ? error.message : String(error)}\n\nReintenta en Configuración → Preparar Whisper local.`,
+        buttons: ["OK"],
+      });
+    }
+  })();
+}
+
 function createMainWindow(url) {
   // ponytail: icono de ventana en dev; electron-builder (icon/.ico empaquetado) queda pendiente.
   mainWindow = new BrowserWindow({
@@ -209,6 +289,7 @@ async function bootstrap() {
   const rendererUrl = RENDERER_URL_OVERRIDE || backendUrl;
   currentRendererUrl = rendererUrl;
   await createMainWindow(rendererUrl);
+  maybeWarmupSttFromInstaller(backendUrl);
 }
 
 app.whenReady().then(async () => {

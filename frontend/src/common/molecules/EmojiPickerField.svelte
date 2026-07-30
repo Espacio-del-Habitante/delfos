@@ -471,25 +471,6 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-modal) var(--scrollbar-track-modal);
-  }
-
-  .emoji-field__body::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  .emoji-field__body::-webkit-scrollbar-track {
-    background: var(--scrollbar-track-modal);
-    border-radius: 999px;
-  }
-
-  .emoji-field__body::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb-modal);
-    border-radius: 999px;
-    border: 1px solid transparent;
-    background-clip: padding-box;
   }
 
   .emoji-field__heading {

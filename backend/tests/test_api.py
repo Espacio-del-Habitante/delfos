@@ -2131,6 +2131,152 @@ class AssistantProfileTestCase(unittest.TestCase):
         self.assertIn("VOO", content)
         self.assertIn("1000", content)
 
+    def test_finance_query_goals_and_accounts(self):
+        from services import assistant_service
+
+        goal = finance_store.add_goal(
+            {"title": "Maestría", "type": "custom", "target_amount": 12000000}
+        )
+        finance_store.add_account(
+            {
+                "name": "Nequi Meta",
+                "type": "wallet",
+                "currency": "COP",
+                "initial_balance": 2500000,
+                "goal_id": goal["id"],
+            }
+        )
+        finance_store.add_account(
+            {
+                "name": "Ahorros Meta",
+                "type": "savings",
+                "currency": "COP",
+                "initial_balance": 1700000,
+                "goal_id": goal["id"],
+            }
+        )
+        finance_store.add_account(
+            {
+                "name": "Efectivo",
+                "type": "cash",
+                "currency": "COP",
+                "initial_balance": 500000,
+            }
+        )
+
+        progress = assistant_service.resolve_finance_query(
+            "goals", "progress", name="maestría"
+        )
+        self.assertTrue(progress["found"])
+        self.assertEqual(progress["goal"]["title"], "Maestría")
+        self.assertAlmostEqual(progress["goal"]["current_amount"], 4200000.0)
+        self.assertAlmostEqual(progress["goal"]["remaining"], 7800000.0)
+        self.assertEqual(
+            set(progress["goal"]["linked_account_names"]),
+            {"Nequi Meta", "Ahorros Meta"},
+        )
+
+        missing = assistant_service.resolve_finance_query(
+            "goals", "progress", name="inexistente"
+        )
+        self.assertFalse(missing["found"])
+
+        bal = assistant_service.resolve_finance_query(
+            "accounts", "balance", name="nequi"
+        )
+        self.assertTrue(bal["found"])
+        self.assertEqual(bal["account"]["name"], "Nequi Meta")
+        self.assertAlmostEqual(bal["account"]["current_balance"], 2500000.0)
+
+        liquid = assistant_service.resolve_finance_query("accounts", "liquid")
+        self.assertAlmostEqual(liquid["liquid_balance_cop"], 4700000.0)
+
+        factual_goal = assistant_service.format_finance_query_reply(progress)
+        self.assertIn("Maestría", factual_goal)
+        self.assertIn("4200000", factual_goal)
+        self.assertIn("7800000", factual_goal)
+        self.assertIn("Nequi Meta", factual_goal)
+
+        factual_acc = assistant_service.format_finance_query_reply(bal)
+        self.assertIn("Nequi Meta", factual_acc)
+        self.assertIn("2500000", factual_acc)
+
+    def test_chat_finance_query_goals_appends_factual(self):
+        goal = finance_store.add_goal(
+            {"title": "Maestría", "type": "custom", "target_amount": 12000000}
+        )
+        finance_store.add_account(
+            {
+                "name": "Nequi Meta",
+                "type": "wallet",
+                "currency": "COP",
+                "initial_balance": 4200000,
+                "goal_id": goal["id"],
+            }
+        )
+
+        class _Fake:
+            def complete_json(self, prompt):
+                return json.dumps(
+                    {
+                        "reply": "Revisé tu meta.",
+                        "off_topic": False,
+                        "follow_ups": [],
+                        "profile_patch": {},
+                        "movement_draft": {},
+                        "finance_query": {
+                            "domain": "goals",
+                            "metric": "progress",
+                            "asset": None,
+                            "name": "maestría",
+                        },
+                    }
+                )
+
+        with patch("integrations.registry.get_active_integration", return_value=_Fake()):
+            res = self.client.post(
+                "/api/assistant/chat",
+                json={"message": "¿Cuánto me falta para la maestría?"},
+            )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertIsNotNone(body.get("finance_query"))
+        self.assertEqual(body["finance_query"]["metric"], "progress")
+        self.assertTrue(body["finance_query"]["found"])
+        content = body["assistant_message"]["content"]
+        self.assertIn("Revisé tu meta", content)
+        self.assertIn("Maestría", content)
+        self.assertIn("4200000", content)
+        self.assertIn("7800000", content)
+
+    def test_goals_for_prompt_includes_current_amount(self):
+        from services import assistant_service
+
+        goal = finance_store.add_goal(
+            {"title": "Maestría", "type": "custom", "target_amount": 12000000}
+        )
+        finance_store.add_account(
+            {
+                "name": "Nequi Meta",
+                "type": "wallet",
+                "currency": "COP",
+                "initial_balance": 3000000,
+                "goal_id": goal["id"],
+            }
+        )
+        packed = assistant_service._goals_for_prompt(finance_store.get_goals())
+        self.assertEqual(len(packed), 1)
+        self.assertIn("current_amount", packed[0])
+        self.assertAlmostEqual(packed[0]["current_amount"], 3000000.0)
+        self.assertAlmostEqual(packed[0]["remaining"], 9000000.0)
+        self.assertEqual(packed[0]["linked_account_names"], ["Nequi Meta"])
+
+        accounts = assistant_service._accounts_for_prompt()
+        self.assertTrue(any(a.get("name") == "Nequi Meta" for a in accounts))
+        nequi = next(a for a in accounts if a["name"] == "Nequi Meta")
+        self.assertAlmostEqual(nequi["current_balance"], 3000000.0)
+        self.assertEqual(nequi["goal_title"], "Maestría")
+
     def test_assistant_debug_payload_when_enabled(self):
         class _Fake:
             def complete_json(self, prompt):

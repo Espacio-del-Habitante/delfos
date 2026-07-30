@@ -20,6 +20,19 @@ def test_extract_text_json():
     assert speech_service._extract_text("solo texto") == "solo texto"
 
 
+def test_missing_whisper_hints_dev_vs_frozen(monkeypatch):
+    from services import local_whisper
+
+    monkeypatch.setattr(local_whisper, "FROZEN", False)
+    assert "uv sync" in local_whisper._missing_hint()
+    assert "uv sync" in local_whisper._missing_message()
+
+    monkeypatch.setattr(local_whisper, "FROZEN", True)
+    assert "uv sync" not in local_whisper._missing_hint()
+    assert "nube" in local_whisper._missing_hint().lower()
+    assert "uv sync" not in local_whisper._missing_message()
+
+
 def test_prefer_local_without_cloud(monkeypatch):
     """Sin prefer_cloud_stt y sin whisper instalado → error claro, no nube obligatoria."""
     from integrations import settings as ai_settings

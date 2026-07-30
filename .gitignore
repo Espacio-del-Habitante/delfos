@@ -20,3 +20,7 @@ build/
 dist/
 *.spec
 
+# electron-builder resources (NSIS script, icons) — no artefactos
+!desktop/build/
+!desktop/build/**
+

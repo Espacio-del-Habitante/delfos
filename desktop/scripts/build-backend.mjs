@@ -70,8 +70,11 @@ if (!existsSync(frontendDist)) {
   throw new Error("No existe frontend/dist. Ejecuta `npm --prefix frontend run build`.");
 }
 
-console.log("==> Sincronizando backend (uv sync --group dev)...");
-runUv(["sync", "--group", "dev"]);
+console.log("==> Sincronizando backend (uv sync --group dev --group stt)...");
+// stt = faster-whisper para dictado local en el .exe (sin uv en la máquina del usuario).
+runUv(["sync", "--group", "dev", "--group", "stt"]);
+
+const pyiHooksDir = path.join(__dirname, "pyi-hooks");
 
 console.log("==> Generando binario backend (PyInstaller onefile)...");
 runUv([
@@ -82,10 +85,18 @@ runUv([
   "--onefile",
   "--name",
   backendName,
+  "--additional-hooks-dir",
+  pyiHooksDir,
   "--add-data",
   `../frontend/dist${addDataSeparator}frontend_dist`,
   "--collect-all",
   "yfinance",
+  "--collect-all",
+  "faster_whisper",
+  "--collect-all",
+  "ctranslate2",
+  "--collect-all",
+  "onnxruntime",
   "app.py",
 ]);
 

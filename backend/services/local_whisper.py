@@ -12,6 +12,8 @@ import tempfile
 import threading
 from pathlib import Path
 
+from config import FROZEN
+
 logger = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
@@ -32,6 +34,25 @@ _MIME_EXT = {
     "audio/flac": ".flac",
 }
 
+_MISSING_HINT_DEV = "Instala el grupo stt: cd backend && uv sync --group stt"
+_MISSING_HINT_FROZEN = (
+    "Whisper no viene en este build. Reinstala Delfos marcando "
+    "“Preparar dictado local”, o usa dictado en la nube (Gemini/Groq) en Configuración."
+)
+_MISSING_MSG_DEV = "Whisper local no instalado. Ejecuta: uv sync --group stt"
+_MISSING_MSG_FROZEN = (
+    "Whisper local no disponible en este instalador. "
+    "Reinstala con dictado local o activa dictado en la nube (Gemini/Groq)."
+)
+
+
+def _missing_hint() -> str:
+    return _MISSING_HINT_FROZEN if FROZEN else _MISSING_HINT_DEV
+
+
+def _missing_message() -> str:
+    return _MISSING_MSG_FROZEN if FROZEN else _MISSING_MSG_DEV
+
 
 def whisper_available() -> dict:
     """Estado para la UI: instalado / listo / error de import."""
@@ -42,7 +63,7 @@ def whisper_available() -> dict:
             "available": False,
             "installed": False,
             "error": str(exc),
-            "hint": "Instala el grupo stt: cd backend && uv sync --group stt",
+            "hint": _missing_hint(),
         }
     return {
         "available": True,
@@ -66,9 +87,7 @@ def _load_model(model_name: str):
             from faster_whisper import WhisperModel
         except ImportError as exc:
             _IMPORT_ERROR = str(exc)
-            raise RuntimeError(
-                "Whisper local no instalado. Ejecuta: uv sync --group stt"
-            ) from exc
+            raise RuntimeError(_missing_message()) from exc
 
         # CPU int8: funciona en laptops sin GPU; descarga el modelo la primera vez.
         device = os.getenv("DELFOS_WHISPER_DEVICE", "cpu")

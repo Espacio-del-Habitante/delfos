@@ -5,6 +5,23 @@ Todos los cambios notables de Delfos se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el versionado [SemVer](https://semver.org/lang/es/).
 
+## [1.3.1] — 2026-07-30
+
+### Añadido
+- Instalador NSIS: pregunta si preparar dictado local (Whisper); al primer arranque descarga el modelo.
+- Build de escritorio incluye el grupo `stt` (`faster-whisper`) en el binario PyInstaller.
+
+### Cambiado
+- Scrollbars globales más minimalistas: thumb fino, sin flechas ni track de Windows; integrado en toda la app.
+- Mensajes de Whisper en app empaquetada ya no piden `uv sync` (comando solo de desarrollo).
+
+## [1.3.0] — 2026-07-30
+
+### Añadido
+- Chat: consultas factuales de metas y cuentas (`finance_query` domains `goals` / `accounts`) además de portafolio.
+- Context pack del asistente con progreso de meta (`current_amount`, remaining, cuentas enlazadas) y saldos/rol de cuentas.
+- Titlebar Electron: control de arrastre a la izquierda (espejo del cerrar).
+
 ## [1.2.0] — 2026-07-30
 
 ### Añadido
@@ -42,6 +59,8 @@ y el versionado [SemVer](https://semver.org/lang/es/).
 ### Añadido
 - Primera versión pública de Delfos.
 
+[1.3.1]: https://github.com/Espacio-del-Habitante/delfos/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/Espacio-del-Habitante/delfos/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/Espacio-del-Habitante/delfos/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/Espacio-del-Habitante/delfos/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Espacio-del-Habitante/delfos/compare/v1.0.0...v1.1.0
