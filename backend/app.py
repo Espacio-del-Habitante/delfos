@@ -551,6 +551,13 @@ def test_ai_settings():
     return jsonify(status), code
 
 
+@app.route("/api/settings/ai/models", methods=["POST"])
+def list_ai_models():
+    """Catálogo de modelos del proveedor (draft de config OK). Fallback curado si la API falla."""
+    body = request.get_json(silent=True) or {}
+    return jsonify(registry.list_models_for_config(body))
+
+
 @app.route("/api/settings/stt/warmup", methods=["POST"])
 def warmup_local_stt():
     """Descarga/carga Whisper local (puede tardar la primera vez)."""
@@ -691,13 +698,18 @@ def allocations_confirm():
 
 @app.route("/api/assistant/threads", methods=["GET"])
 def assistant_list_threads():
-    thread = finance_store.get_or_create_main_thread()
-    return jsonify({"threads": finance_store.list_chat_threads(), "main": thread})
+    main = finance_store.get_or_create_main_thread()
+    return jsonify({"threads": finance_store.list_chat_threads(), "main": main})
 
 
 @app.route("/api/assistant/threads", methods=["POST"])
-def assistant_ensure_thread():
-    """Idempotente: devuelve el thread principal (chat único fluido)."""
+def assistant_create_or_ensure_thread():
+    """Sin body.new → asegura el main. Con new:true → crea hilo nuevo (memoria global compartida)."""
+    body = request.get_json(silent=True) or {}
+    if body.get("new") is True or str(body.get("action") or "").lower() == "create":
+        title = (body.get("title") or "").strip() or None
+        thread = finance_store.create_chat_thread(title)
+        return jsonify({"thread": thread}), 201
     thread = finance_store.get_or_create_main_thread()
     return jsonify({"thread": thread})
 
@@ -706,6 +718,31 @@ def assistant_ensure_thread():
 def assistant_thread_messages(thread_id):
     msgs = finance_store.list_chat_messages(thread_id, limit=80)
     return jsonify({"messages": msgs, "thread_id": thread_id})
+
+
+@app.route("/api/assistant/memory", methods=["GET"])
+def assistant_get_memory():
+    """Memoria compartida entre chats: summary + facts activos."""
+    return jsonify(finance_store.get_memory_payload())
+
+
+@app.route("/api/assistant/memory/<fact_id>", methods=["PATCH"])
+def assistant_patch_memory_fact(fact_id):
+    body = request.get_json(silent=True) or {}
+    if "active" not in body:
+        return jsonify({"error": "active is required"}), 400
+    ok = finance_store.set_memory_fact_active(fact_id, bool(body.get("active")))
+    if not ok:
+        return jsonify({"error": "Fact not found"}), 404
+    return jsonify(finance_store.get_memory_payload())
+
+
+@app.route("/api/assistant/memory/<fact_id>", methods=["DELETE"])
+def assistant_delete_memory_fact(fact_id):
+    ok = finance_store.delete_memory_fact(fact_id)
+    if not ok:
+        return jsonify({"error": "Fact not found"}), 404
+    return jsonify(finance_store.get_memory_payload())
 
 
 @app.route("/api/assistant/chat", methods=["POST"])

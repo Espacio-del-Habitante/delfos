@@ -100,6 +100,16 @@ class OllamaIntegration(AIIntegration):
         message = body.get("message") or {}
         return message.get("content") or body.get("response") or ""
 
+    def list_models(self) -> list[str]:
+        try:
+            req = urllib.request.Request(f"{self.base_url}/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+            names = [m.get("name") for m in (body.get("models") or []) if m.get("name")]
+            return sorted({str(n) for n in names})
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, TypeError):
+            return []
+
     def health(self) -> dict:
         try:
             req = urllib.request.Request(f"{self.base_url}/api/tags", method="GET")

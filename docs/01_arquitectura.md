@@ -113,6 +113,7 @@ estado en una sola respuesta tras cada mutación.
 | GET | `/api/ai/health` | health del proveedor activo |
 | GET/POST | `/api/settings/ai` | leer / guardar config de IA |
 | POST | `/api/settings/ai/test` | probar conexión con config aún no guardada |
+| POST | `/api/settings/ai/models` | listar modelos del proveedor (fallback curado) |
 | GET/POST | `/api/settings/quotes` | leer / guardar config de cotizaciones |
 | POST | `/api/settings/quotes/test` | probar conexión con proveedores de cotización |
 | GET/PATCH | `/api/assistant/profile` | leer / actualizar `financial_profile` |
@@ -121,8 +122,10 @@ estado en una sola respuesta tras cada mutación.
 | GET | `/api/assistant/context` | context pack (perfil + KPIs + metas; sin LLM) |
 | POST | `/api/allocations/propose` | `allocation_service.propose_allocation()` (preview) |
 | POST | `/api/allocations/confirm` | `allocation_service.confirm_allocation()` → transfers/expenses |
-| GET/POST | `/api/assistant/threads` | listar / asegurar thread principal |
+| GET/POST | `/api/assistant/threads` | listar / asegurar main; `POST {new:true}` crea hilo |
 | GET | `/api/assistant/threads/<id>/messages` | historial del hilo |
+| GET | `/api/assistant/memory` | summary + facts activos (memoria global compartida) |
+| PATCH/DELETE | `/api/assistant/memory/<fact_id>` | desactivar / borrar un fact |
 | POST | `/api/assistant/chat` | mensaje → pack → LLM → guarda turno |
 
 ### 3.2 Services — `backend/services/*` (lógica de negocio + persistencia JSON)

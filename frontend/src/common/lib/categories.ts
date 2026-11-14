@@ -8,6 +8,7 @@ export const FREQUENT_EMOJIS = [
 
 export const KIND_LABELS: Record<string, string> = {
   expense: 'Gasto',
+  income: 'Ingreso',
   investment: 'Inversión',
   note: 'Nota',
   general: 'General',

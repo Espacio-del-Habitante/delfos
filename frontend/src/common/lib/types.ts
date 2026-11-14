@@ -288,6 +288,20 @@ export interface ChatThread {
   updated_at?: string;
 }
 
+export interface MemoryFact {
+  id: string;
+  fact: string;
+  category?: string;
+  source?: string;
+  active?: boolean;
+  created_at?: string;
+}
+
+export interface MemoryPayload {
+  summary: string | null;
+  facts: MemoryFact[];
+}
+
 export interface ChatMessage {
   id: string;
   thread_id: string;

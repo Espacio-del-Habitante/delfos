@@ -4,6 +4,7 @@
   import Modal from '@common/atoms/Modal.svelte';
   import EmojiPickerField from '@common/molecules/EmojiPickerField.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import ModelPicker from '@common/molecules/ModelPicker.svelte';
   import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
   import IconChevron from '@common/atoms/icons/IconChevron.svelte';
@@ -13,6 +14,7 @@
     downloadBackup,
     getAiSettings,
     getQuoteSettings,
+    listAiModels,
     resetData,
     restoreBackup,
     saveAiSettings,
@@ -58,6 +60,10 @@
   let localWhisperModel = 'base';
   let localWhisperStatus: AiSettings['local_whisper'] | null = null;
   let sttWarming = false;
+  let modelCatalog: string[] = [];
+  let modelCatalogSource: string = '';
+  let modelCatalogLoading = false;
+  let modelCatalogError: string | null = null;
 
   let quoteLoaded = false;
   let quoteLoading = false;
@@ -88,6 +94,7 @@
 
   const kindOptions = [
     { value: 'expense', label: 'Gasto' },
+    { value: 'income', label: 'Ingreso' },
     { value: 'investment', label: 'Inversión' },
     { value: 'note', label: 'Nota' },
     { value: 'general', label: 'General' },
@@ -121,10 +128,37 @@
       aiProviders = data.providers;
       applyAiConfig(data.config);
       aiLoaded = true;
+      void refreshModelCatalog();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'No se pudo cargar la configuración de IA', { type: 'error' });
     } finally {
       aiLoading = false;
+    }
+  }
+
+  async function refreshModelCatalog() {
+    modelCatalogLoading = true;
+    modelCatalogError = null;
+    try {
+      const data = await listAiModels(buildAiPatch());
+      modelCatalog = data.models || [];
+      modelCatalogSource = data.source || '';
+      modelCatalogError = data.error || null;
+      const meta = aiProviders.find((p) => p.id === aiProvider);
+      if (!aiTextModel.trim() && meta?.suggested_text_model) aiTextModel = meta.suggested_text_model;
+      if (!aiVisionModel.trim() && meta?.suggested_vision_model) aiVisionModel = meta.suggested_vision_model;
+      if (aiTextModel && !modelCatalog.includes(aiTextModel)) {
+        modelCatalog = [aiTextModel, ...modelCatalog];
+      }
+      if (aiVisionModel && !modelCatalog.includes(aiVisionModel)) {
+        modelCatalog = [aiVisionModel, ...modelCatalog];
+      }
+    } catch (err) {
+      modelCatalog = [];
+      modelCatalogSource = 'fallback';
+      modelCatalogError = err instanceof Error ? err.message : 'No se pudo listar modelos';
+    } finally {
+      modelCatalogLoading = false;
     }
   }
 
@@ -133,9 +167,10 @@
     aiTestStatus = null;
     const meta = aiProviders.find((p) => p.id === aiProvider);
     if (meta) {
-      if (!aiTextModel.trim() && meta.suggested_text_model) aiTextModel = meta.suggested_text_model;
-      if (!aiVisionModel.trim() && meta.suggested_vision_model) aiVisionModel = meta.suggested_vision_model;
+      if (meta.suggested_text_model) aiTextModel = meta.suggested_text_model;
+      if (meta.suggested_vision_model) aiVisionModel = meta.suggested_vision_model;
     }
+    void refreshModelCatalog();
   }
 
   function buildAiPatch(): AiSettingsPatch {
@@ -374,12 +409,13 @@
       <h1 class="settings-hero__title">Configuración</h1>
     </div>
     <p class="settings-hero__subtitle">
-      Ajusta categorías, el motor de inteligencia artificial y administra tus datos. Las cuentas y
-      movimientos se editan desde sus propias tarjetas.
+      Motor de IA, categorías y respaldos. Las cuentas y movimientos se editan desde el dashboard.
     </p>
-    <p class="settings-hero__subtitle">
-      <a href="/perfil">Perfil financiero</a> — ingresos, metas y preferencias del asistente.
-    </p>
+    <a class="settings-nav-card" href="/perfil">
+      <span class="settings-nav-card__eyebrow">Copiloto</span>
+      <span class="settings-nav-card__title">Perfil financiero</span>
+      <span class="settings-nav-card__hint">Ingresos, colchón, metas y preferencias del asistente</span>
+    </a>
   </section>
 
   <div class="settings-layout">
@@ -429,30 +465,37 @@
         </p>
       </header>
 
-      <div class="settings-tip" role="note">
-        <span class="settings-tip__icon" aria-hidden="true">💡</span>
-        <p class="settings-tip__text">
-          <strong>¿Local o nube?</strong> Ollama local es privado y gratis, pero exige un equipo capaz. Si el OCR
-          va lento o falla, activa un modelo en la nube.
-        </p>
-      </div>
-
       {#if aiLoading && !aiLoaded}
         <p class="muted" style="font-size:0.85rem;margin:0;">Cargando configuración…</p>
       {:else}
         <label class="ai-switch">
-          <input type="checkbox" bind:checked={aiCloudEnabled} on:change={() => (aiTestStatus = null)} />
+          <input
+            type="checkbox"
+            bind:checked={aiCloudEnabled}
+            on:change={() => {
+              aiTestStatus = null;
+              if (aiCloudEnabled && (aiProvider === 'local' || !aiProvider)) {
+                onProviderChange('gemini');
+              } else {
+                void refreshModelCatalog();
+              }
+            }}
+          />
           <span class="ai-switch__track" aria-hidden="true"><span class="ai-switch__thumb"></span></span>
           <span class="ai-switch__label">
-            Habilitar modelo en la nube
-            <span class="ai-switch__hint">Apagado = se usa Ollama local.</span>
+            Usar nube
+            <span class="ai-switch__hint">Apagado = Ollama local en este equipo.</span>
           </span>
         </label>
 
         {#if aiCloudEnabled}
           <div class="ai-field">
             <span class="ai-field__label">Proveedor</span>
-            <CustomSelect options={providerOptions} value={aiProvider} on:change={(e) => onProviderChange(e.detail.value)} />
+            <CustomSelect
+              options={providerOptions.filter((p) => p.value !== 'local')}
+              value={aiProvider === 'local' ? 'gemini' : aiProvider}
+              on:change={(e) => onProviderChange(e.detail.value)}
+            />
           </div>
 
           {#if providerMeta?.needs_api_key}
@@ -463,9 +506,11 @@
                 class="form-control"
                 bind:value={aiApiKey}
                 autocomplete="off"
-                placeholder={aiHasKey ? `Guardada (${aiMaskedKey}). Pegar nueva key para reemplazar` : 'Pegar nueva key'}
+                placeholder={aiHasKey ? `Guardada (${aiMaskedKey}). Pegar nueva key para reemplazar` : 'Pegar API key'}
+                on:change={() => void refreshModelCatalog()}
+                on:blur={() => void refreshModelCatalog()}
               />
-              <span class="ai-field__help">La key se guarda en el backend y nunca se muestra completa. Formato típico: <code>sk-...</code> u <code>sk-or-...</code> según el proveedor.</span>
+              <span class="ai-field__help">Se guarda solo en el backend. Nunca se muestra completa.</span>
             </div>
           {/if}
 
@@ -478,39 +523,70 @@
                 bind:value={aiBaseUrl}
                 autocomplete="off"
                 placeholder="https://openrouter.ai/api/v1"
+                on:blur={() => void refreshModelCatalog()}
               />
             </div>
           {/if}
 
-          <div class="ai-field">
-            <span class="ai-field__label">Modelo de texto</span>
-            <input
-              type="text"
-              class="form-control"
-              bind:value={aiTextModel}
-              autocomplete="off"
-              placeholder={providerMeta?.suggested_text_model || 'Modelo de texto'}
-            />
+          <div class="ai-catalog-meta">
+            {#if modelCatalogSource === 'provider'}
+              <span class="ai-catalog-pill is-live">Catálogo del proveedor</span>
+            {:else}
+              <span class="ai-catalog-pill">Lista sugerida</span>
+            {/if}
+            <button type="button" class="ai-catalog-refresh" on:click={() => void refreshModelCatalog()} disabled={modelCatalogLoading}>
+              {modelCatalogLoading ? 'Actualizando…' : 'Actualizar modelos'}
+            </button>
           </div>
+          {#if modelCatalogError && modelCatalogSource !== 'provider'}
+            <p class="ai-status-hint">No se pudo consultar la API del proveedor; usando sugerencias. {modelCatalogError}</p>
+          {/if}
 
-          <div class="ai-field">
-            <span class="ai-field__label">Modelo de visión (OCR)</span>
-            <input
-              type="text"
-              class="form-control"
-              bind:value={aiVisionModel}
-              autocomplete="off"
-              placeholder={providerMeta?.suggested_vision_model || 'Modelo de visión'}
-            />
-            <span class="ai-field__help">Debe ser un modelo <strong>multimodal</strong> (que acepte imágenes); si no, el OCR de capturas fallará.</span>
-          </div>
+          <ModelPicker
+            label="Modelo de texto"
+            models={modelCatalog}
+            bind:value={aiTextModel}
+            loading={modelCatalogLoading}
+            placeholder={providerMeta?.suggested_text_model || 'id-del-modelo'}
+            on:change={(e) => (aiTextModel = e.detail)}
+          />
+
+          <ModelPicker
+            label="Modelo de visión (OCR)"
+            models={modelCatalog}
+            bind:value={aiVisionModel}
+            loading={modelCatalogLoading}
+            placeholder={providerMeta?.suggested_vision_model || 'id-del-modelo'}
+            help="Elige un modelo multimodal (con imágenes). Si no, el OCR de capturas fallará."
+            on:change={(e) => (aiVisionModel = e.detail)}
+          />
+        {:else}
+          <ModelPicker
+            label="Modelo Ollama (texto)"
+            models={modelCatalog}
+            bind:value={aiTextModel}
+            loading={modelCatalogLoading}
+            placeholder="llama3.2"
+            on:change={(e) => (aiTextModel = e.detail)}
+          />
+          <ModelPicker
+            label="Modelo Ollama (visión / OCR)"
+            models={modelCatalog}
+            bind:value={aiVisionModel}
+            loading={modelCatalogLoading}
+            placeholder="llava"
+            help="Necesitas un modelo de visión instalado (p. ej. ollama pull llava)."
+            on:change={(e) => (aiVisionModel = e.detail)}
+          />
+          <button type="button" class="ai-catalog-refresh" on:click={() => void refreshModelCatalog()} disabled={modelCatalogLoading}>
+            {modelCatalogLoading ? 'Consultando Ollama…' : 'Actualizar modelos de Ollama'}
+          </button>
         {/if}
 
-        <div class="settings-tip" role="note" style="margin-top:1rem;">
-          <span class="settings-tip__icon" aria-hidden="true">🎤</span>
+        <div class="settings-tip" role="note">
           <p class="settings-tip__text">
-            <strong>Dictado en escritorio.</strong> Por defecto usa Whisper local (sin internet). Activa
-            “dictado mejorado” para preferir Gemini/Groq cuando la nube esté configurada.
+            <strong>Dictado en escritorio.</strong> Whisper local por defecto. Activa dictado mejorado
+            para preferir la nube cuando esté configurada.
           </p>
         </div>
 
@@ -703,7 +779,10 @@
 
 <style>
   .settings-hero {
-    margin-bottom: 24px;
+    margin-bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
 
   .settings-hero__title {
@@ -718,14 +797,52 @@
     margin: 0;
     color: var(--text-muted);
     font-size: 0.95rem;
-    line-height: 1.45;
-    max-width: 52ch;
+    line-height: 1.5;
+    max-width: 48ch;
+  }
+
+  .settings-nav-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 1rem 1.1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    text-decoration: none;
+    color: inherit;
+    box-shadow: var(--shadow-soft);
+    transition: transform 160ms var(--ease-out);
+  }
+
+  .settings-nav-card:active {
+    transform: scale(0.985);
+  }
+
+  .settings-nav-card__eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .settings-nav-card__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-strong);
+  }
+
+  .settings-nav-card__hint {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+    line-height: 1.4;
   }
 
   .settings-layout {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-    gap: 20px;
+    gap: 22px;
     align-items: start;
   }
 
@@ -766,23 +883,63 @@
     display: flex;
     gap: 10px;
     padding: 12px 14px;
-    margin-bottom: 16px;
+    margin: 16px 0 14px;
     border-radius: var(--radius-sm);
-    background: rgba(79, 70, 229, 0.06);
-    border: 1px solid rgba(79, 70, 229, 0.16);
-  }
-
-  .settings-tip__icon {
-    flex-shrink: 0;
-    font-size: 1rem;
-    line-height: 1.4;
+    background: color-mix(in srgb, var(--soft-blue) 40%, var(--surface));
+    border: 1px solid var(--border-soft);
   }
 
   .settings-tip__text {
     margin: 0;
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     line-height: 1.5;
     color: var(--text-strong);
+  }
+
+  .ai-catalog-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 12px;
+  }
+
+  .ai-catalog-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(15, 23, 42, 0.06);
+    color: var(--text-muted);
+  }
+
+  .ai-catalog-pill.is-live {
+    background: rgba(52, 199, 89, 0.16);
+    color: #1a7f37;
+  }
+
+  .ai-catalog-refresh {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.35rem 0;
+    min-height: 36px;
+    transition: transform 140ms var(--ease-out), color 140ms ease;
+  }
+
+  .ai-catalog-refresh:active {
+    transform: scale(0.97);
+  }
+
+  .ai-catalog-refresh:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   .ai-field__help {
@@ -928,5 +1085,35 @@
     border: none;
     background: transparent;
     padding: 0;
+  }
+
+  @media (max-width: 860px) {
+    .settings-layout {
+      gap: 16px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .settings-hero {
+      margin-bottom: 0.75rem;
+    }
+
+    .settings-card {
+      padding: 16px;
+    }
+
+    .settings-nav-card {
+      padding: 14px 16px;
+    }
+
+    .ai-actions {
+      flex-wrap: wrap;
+    }
+
+    .ai-actions :global(.primary-button),
+    .ai-actions :global(.secondary-button) {
+      flex: 1 1 auto;
+      min-width: 8rem;
+    }
   }
 </style>

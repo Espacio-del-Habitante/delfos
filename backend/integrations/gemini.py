@@ -11,7 +11,7 @@ import urllib.request
 from integrations.base import AIIntegration, IntegrationError
 
 API_ROOT = "https://generativelanguage.googleapis.com/v1beta/models"
-DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 TIMEOUT = 120
 
 
@@ -85,6 +85,47 @@ class GeminiIntegration(AIIntegration):
             {"inline_data": {"mime_type": mime, "data": audio_b64}},
         ]
         return self._post(self.text_model, parts)
+
+    def list_models(self) -> list[str]:
+        if not self.api_key:
+            return []
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
+        req = urllib.request.Request(url, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+            return []
+        # Skip specialist APIs; Delfos solo usa texto + visión.
+        skip = (
+            "embedding",
+            "tts",
+            "lyria",
+            "robotics",
+            "deep-research",
+            "antigravity",
+            "computer-use",
+            "transcribe",
+            "imagen",
+            "nano-banana",
+        )
+        out: list[str] = []
+        for raw in body.get("models") or []:
+            if not isinstance(raw, dict):
+                continue
+            methods = raw.get("supportedGenerationMethods") or []
+            if "generateContent" not in methods:
+                continue
+            name = str(raw.get("name") or "")
+            if name.startswith("models/"):
+                name = name[len("models/") :]
+            lower = name.lower()
+            if not name or any(s in lower for s in skip):
+                continue
+            out.append(name)
+        # Prefer flash/lite first for the picker.
+        out = sorted(set(out), key=lambda m: (0 if "flash" in m else 1, m))
+        return out
 
     def health(self) -> dict:
         base = {

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 _LIQUID_TYPES = frozenset({"cash", "bank", "wallet", "savings", "debit_card"})
 # ponytail: UTC−5 fijo (America/Bogota sin DST). Upgrade: zoneinfo("America/Bogota") si hay tzdata.
 _BOGOTA = timezone(timedelta(hours=-5))
-_THREAD_TAIL = 12
+_THREAD_TAIL = 10
 # Compactar historial: deja cola reciente + memory_summary (evita contexto eterno).
 _SUMMARIZE_RE = re.compile(
     r"^/(?:sumari[zs]e|summarize|resumir)(?:\s.*)?$",
@@ -29,6 +29,8 @@ _BUSCAR_RE = re.compile(r"^/(?:buscar|search)\s+(.+)$", re.IGNORECASE)
 _SUMMARIZE_KEEP_RECENT = 6
 _SUMMARIZE_MIN_MESSAGES = 10
 _SUMMARIZE_MAX_CHARS = 400
+# Auto-compacta el hilo antes del LLM para no quemar tokens en colas largas.
+_AUTO_SUMMARIZE_AT = 22
 _KIND_ES = {
     "expense": "Gasto",
     "income": "Ingreso",
@@ -927,6 +929,74 @@ def _resolve_thread(thread_id: str | None):
     return thread
 
 
+def _active_thread_messages(thread_id: str) -> list:
+    return [
+        m
+        for m in finance_store.list_chat_messages(thread_id, limit=None)
+        if (m.get("meta") or {}).get("command") != "summarize"
+    ]
+
+
+def _compact_old_messages(thread_id: str) -> int:
+    """Condensa mensajes viejos del hilo en memory_summary global. Sin mensajes UI."""
+    active = _active_thread_messages(thread_id)
+    if len(active) < _SUMMARIZE_MIN_MESSAGES:
+        return 0
+    keep = active[-_SUMMARIZE_KEEP_RECENT:]
+    to_compact = active[:-_SUMMARIZE_KEEP_RECENT]
+    if not to_compact:
+        return 0
+    keep_ids = {m["id"] for m in keep}
+    payload = [
+        {
+            "role": m.get("role"),
+            "content": str(m.get("content") or "")[:_SUMMARIZE_MAX_CHARS],
+        }
+        for m in to_compact[-60:]
+    ]
+    prev = finance_store.get_memory_summary() or ""
+    prompt = f"""
+Eres Delfos. Condensa SOLO el historial financiero en un resumen estable y corto.
+No inventes números. Conserva decisiones, metas, fijos, preferencias y acuerdos.
+Si hay resumen previo, intégralo sin repetir de más.
+
+Resumen previo:
+{prev or "(vacío)"}
+
+Mensajes a condensar:
+{json.dumps(payload, ensure_ascii=False)}
+
+Devuelve SOLO JSON:
+{{
+  "summary": "párrafo denso, max ~900 chars",
+  "memory_updates": [{{"fact": "hecho estable", "category": "preference|goal|habit|constraint|general"}}]
+}}
+""".strip()
+    integration = registry.get_active_integration()
+    raw = integration.complete_json(prompt)
+    parsed = _extract_json(raw)
+    summary = (parsed.get("summary") or "").strip()
+    if not summary:
+        summary = prev or "Conversación financiera previa condensada."
+    finance_store.touch_memory_summary(summary, max_len=1200)
+    memory_updates = parsed.get("memory_updates") or []
+    if isinstance(memory_updates, list) and memory_updates:
+        finance_store.upsert_memory_facts(memory_updates)
+    compacted_ids = [m["id"] for m in to_compact if m.get("id") not in keep_ids]
+    return finance_store.mark_chat_messages_compacted(thread_id, compacted_ids)
+
+
+def maybe_auto_summarize(thread_id: str) -> bool:
+    """Si el hilo creció de más, compacta a memory_summary global (compartida)."""
+    if len(_active_thread_messages(thread_id)) < _AUTO_SUMMARIZE_AT:
+        return False
+    try:
+        return _compact_old_messages(thread_id) > 0
+    except Exception as exc:  # ponytail: no bloquear el turno si falla la compactación
+        logger.warning("auto_summarize failed: %s", exc)
+        return False
+
+
 def summarize_thread(thread_id: str | None = None) -> dict:
     """
     /sumarize — condensa historial viejo en memory_summary y archiva esos mensajes.
@@ -1137,6 +1207,7 @@ def chat(message: str, thread_id: str | None = None) -> dict:
     debug: dict = {"enabled": bool(config.ASSISTANT_DEBUG), "thread_id": tid, "message": text}
 
     finance_store.append_chat_message(tid, "user", text)
+    maybe_auto_summarize(tid)
     pack = build_context_pack(tid)
     prompt = build_chat_prompt(text, pack)
     if config.ASSISTANT_DEBUG:
@@ -1193,7 +1264,7 @@ def chat(message: str, thread_id: str | None = None) -> dict:
             tid, "assistant", fallback, meta={"parse_error": True}
         )
         out = {
-            "thread": finance_store.get_or_create_main_thread(),
+            "thread": next(t for t in finance_store.list_chat_threads() if t["id"] == tid),
             "assistant_message": assistant_msg,
             "follow_ups": ["¿Cómo voy de ahorro este mes?", "¿Cómo está mi emergencia?"],
             "ai_available": True,

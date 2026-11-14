@@ -34,6 +34,7 @@ import type {
   ChatMessage,
   ChatResponse,
   ChatThread,
+  MemoryPayload,
   FinancialProfile,
   FinancialProfilePatch,
   Goal,
@@ -121,8 +122,39 @@ export function ensureAssistantThread(): Promise<{ thread: ChatThread }> {
   return fetchJson('/api/assistant/threads', { method: 'POST' });
 }
 
+export function listAssistantThreads(): Promise<{ threads: ChatThread[]; main: ChatThread }> {
+  return fetchJson('/api/assistant/threads');
+}
+
+export function createAssistantThread(title?: string): Promise<{ thread: ChatThread }> {
+  return fetchJson('/api/assistant/threads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new: true, title: title || undefined }),
+  });
+}
+
 export function getAssistantMessages(threadId: string): Promise<{ messages: ChatMessage[] }> {
   return fetchJson(`/api/assistant/threads/${threadId}/messages`);
+}
+
+export function getAssistantMemory(): Promise<MemoryPayload> {
+  return fetchJson('/api/assistant/memory');
+}
+
+export function setAssistantMemoryFactActive(
+  factId: string,
+  active: boolean,
+): Promise<MemoryPayload> {
+  return fetchJson(`/api/assistant/memory/${factId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ active }),
+  });
+}
+
+export function deleteAssistantMemoryFact(factId: string): Promise<MemoryPayload> {
+  return fetchJson(`/api/assistant/memory/${factId}`, { method: 'DELETE' });
 }
 
 export function sendAssistantChat(
@@ -185,6 +217,20 @@ export function saveAiSettings(patch: AiSettingsPatch): Promise<AiSettingsRespon
 
 export function testAiConnection(patch: AiSettingsPatch): Promise<AiHealthStatus> {
   return fetchJson<AiHealthStatus>('/api/settings/ai/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export function listAiModels(patch: AiSettingsPatch): Promise<{
+  provider: string;
+  source: 'provider' | 'fallback' | string;
+  models: string[];
+  allow_custom?: boolean;
+  error?: string | null;
+}> {
+  return fetchJson('/api/settings/ai/models', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),

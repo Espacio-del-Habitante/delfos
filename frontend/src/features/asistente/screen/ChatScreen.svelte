@@ -1,16 +1,22 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import HeaderIsland from '@common/molecules/HeaderIsland.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
+  import Modal from '@common/atoms/Modal.svelte';
   import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import {
     ApiError,
     applyAssistantAccountSuggestion,
     applyAssistantProfileSuggestion,
     confirmAnalysis,
+    createAssistantThread,
+    deleteAssistantMemoryFact,
     ensureAssistantThread,
+    getAssistantMemory,
     getAssistantMessages,
+    listAssistantThreads,
     sendAssistantChat,
+    setAssistantMemoryFactActive,
   } from '@common/lib/api';
   import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
@@ -18,12 +24,18 @@
     AccountDraft,
     AnalysisPreview,
     ChatMessage,
+    ChatThread,
     FinancialProfilePatch,
     FixedExpenseItem,
+    MemoryFact,
     PreviewItem,
   } from '@common/lib/types';
 
+  const THREAD_KEY = 'delfos_active_thread_id';
+
   let threadId: string | null = null;
+  let threadTitle = 'Conversación';
+  let threads: ChatThread[] = [];
   let messages: ChatMessage[] = [];
   let followUps: string[] = [];
   let profileSuggestion: FinancialProfilePatch | null = null;
@@ -35,8 +47,23 @@
   let applyingProfile = false;
   let applyingMovements = false;
   let applyingAccount = false;
+  type SheetView = null | 'menu' | 'threads' | 'memory';
+  let sheet: SheetView = null;
+  let memorySummary: string | null = null;
+  let memoryFacts: MemoryFact[] = [];
+  let memoryLoading = false;
+
+  $: sheetTitle =
+    sheet === 'threads' ? 'Conversaciones' : sheet === 'memory' ? 'Memoria compartida' : 'Asistente';
+  $: sheetOpen = sheet != null;
   let scroller: HTMLElement | undefined;
   let inputEl: HTMLTextAreaElement | undefined;
+  let composerFocused = false;
+  /** Pixels the software keyboard covers at the bottom of the layout viewport. */
+  let kbInset = 0;
+  let blurTimer: ReturnType<typeof setTimeout> | null = null;
+
+  $: typing = composerFocused && kbInset > 48;
 
   const starters = [
     'Gasté 12 mil en café, 45 mil en almuerzo y 18 mil en Uber',
@@ -166,20 +193,37 @@
     return lines;
   }
 
-  onMount(async () => {
+  function rememberThread(id: string) {
     try {
-      await refreshFinanceData().catch(() => undefined);
-      const { thread } = await ensureAssistantThread();
-      threadId = thread.id;
+      localStorage.setItem(THREAD_KEY, id);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function applyThreadState(msgs: ChatMessage[]) {
+    messages = msgs;
+    const lastAssistant = [...msgs].reverse().find((m) => m.role === 'assistant');
+    followUps = lastAssistant?.meta?.follow_ups?.length ? lastAssistant.meta.follow_ups : [];
+    profileSuggestion = suggestionFromMessage(lastAssistant);
+    setMovementDraft(movementFromMessage(lastAssistant));
+    accountDraft = accountFromMessage(lastAssistant);
+  }
+
+  async function refreshThreads() {
+    const data = await listAssistantThreads();
+    threads = data.threads || [];
+  }
+
+  async function openThread(thread: ChatThread) {
+    threadId = thread.id;
+    threadTitle = thread.title || 'Conversación';
+    rememberThread(thread.id);
+    loading = true;
+    sheet = null;
+    try {
       const { messages: msgs } = await getAssistantMessages(thread.id);
-      messages = msgs;
-      const lastAssistant = [...msgs].reverse().find((m) => m.role === 'assistant');
-      followUps = lastAssistant?.meta?.follow_ups?.length
-        ? lastAssistant.meta.follow_ups
-        : [];
-      profileSuggestion = suggestionFromMessage(lastAssistant);
-      setMovementDraft(movementFromMessage(lastAssistant));
-      accountDraft = accountFromMessage(lastAssistant);
+      applyThreadState(msgs);
       await scrollBottom();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'No se pudo abrir el chat', {
@@ -190,6 +234,150 @@
       await tick();
       inputEl?.focus();
     }
+  }
+
+  async function startNewChat() {
+    try {
+      const { thread } = await createAssistantThread();
+      await refreshThreads();
+      await openThread(thread);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo crear el chat', {
+        type: 'error',
+      });
+    }
+  }
+
+  async function openMemoryPanel() {
+    sheet = 'memory';
+    memoryLoading = true;
+    try {
+      const data = await getAssistantMemory();
+      memorySummary = data.summary || null;
+      memoryFacts = data.facts || [];
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo cargar la memoria', {
+        type: 'error',
+      });
+    } finally {
+      memoryLoading = false;
+    }
+  }
+
+  async function openThreadsPanel() {
+    try {
+      await refreshThreads();
+    } catch {
+      /* ignore */
+    }
+    sheet = 'threads';
+  }
+
+  async function startNewChatFromHeader() {
+    sheet = null;
+    await startNewChat();
+  }
+
+  async function deactivateFact(id: string) {
+    try {
+      const data = await setAssistantMemoryFactActive(id, false);
+      memorySummary = data.summary || null;
+      memoryFacts = data.facts || [];
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo desactivar', { type: 'error' });
+    }
+  }
+
+  async function removeFact(id: string) {
+    try {
+      const data = await deleteAssistantMemoryFact(id);
+      memorySummary = data.summary || null;
+      memoryFacts = data.facts || [];
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo borrar', { type: 'error' });
+    }
+  }
+
+  function syncKeyboardInset() {
+    if (typeof window === 'undefined') {
+      kbInset = 0;
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) {
+      kbInset = 0;
+      return;
+    }
+    // Gap between layout bottom and visual viewport bottom (keyboard / browser chrome).
+    kbInset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  }
+
+  function onComposerFocus() {
+    if (blurTimer) {
+      clearTimeout(blurTimer);
+      blurTimer = null;
+    }
+    composerFocused = true;
+    syncKeyboardInset();
+    void tick().then(() => {
+      resizeComposer();
+      void scrollBottom();
+    });
+  }
+
+  function onComposerBlur() {
+    // Delay so tapping Enviar doesn't flash the nav back mid-click.
+    blurTimer = setTimeout(() => {
+      composerFocused = false;
+      blurTimer = null;
+    }, 180);
+  }
+
+  function resizeComposer() {
+    if (!inputEl) return;
+    inputEl.style.height = 'auto';
+    inputEl.style.height = `${Math.min(inputEl.scrollHeight, 120)}px`;
+  }
+
+  onMount(async () => {
+    syncKeyboardInset();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', syncKeyboardInset);
+    vv?.addEventListener('scroll', syncKeyboardInset);
+    window.addEventListener('resize', syncKeyboardInset);
+
+    try {
+      await refreshFinanceData().catch(() => undefined);
+      await refreshThreads();
+      let saved: string | null = null;
+      try {
+        saved = localStorage.getItem(THREAD_KEY);
+      } catch {
+        saved = null;
+      }
+      const existing = saved ? threads.find((t) => t.id === saved) : null;
+      if (existing) {
+        await openThread(existing);
+      } else {
+        const { thread } = await ensureAssistantThread();
+        await refreshThreads();
+        await openThread(thread);
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo abrir el chat', {
+        type: 'error',
+      });
+      loading = false;
+    }
+  });
+
+  onDestroy(() => {
+    if (blurTimer) clearTimeout(blurTimer);
+    if (typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    vv?.removeEventListener('resize', syncKeyboardInset);
+    vv?.removeEventListener('scroll', syncKeyboardInset);
+    window.removeEventListener('resize', syncKeyboardInset);
   });
 
   async function scrollBottom() {
@@ -220,6 +408,9 @@
     try {
       const res = await sendAssistantChat(content, threadId);
       threadId = res.thread?.id || threadId;
+      if (res.thread?.title) threadTitle = res.thread.title;
+      rememberThread(threadId || '');
+      void refreshThreads().catch(() => undefined);
       if (res.messages?.length) {
         messages = res.messages;
       } else if (res.assistant_message) {
@@ -347,7 +538,11 @@
   $: canSummarize = !loading && messages.length >= SUMMARIZE_HINT_MIN;
 </script>
 
-<div class="app-shell chat-shell">
+<div
+  class="app-shell chat-shell"
+  class:is-typing={typing}
+  style={`--kb-inset: ${kbInset}px`}
+>
   <HeaderIsland
     summary={$finance?.summary ?? null}
     kpis={$finance?.assistant_kpis ?? null}
@@ -356,12 +551,25 @@
   <header class="chat-head">
     <div class="hero-titlebar">
       <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
-      <div>
+      <div class="chat-head__titles">
         <h1>Delfos</h1>
-        <p>Tu copiloto — habla con naturalidad</p>
+        <p title={threadTitle}>{threadTitle}</p>
       </div>
     </div>
-    <a class="chat-head__link" href="/perfil">Perfil</a>
+    <div class="chat-head__actions">
+      <button type="button" class="chat-head__btn chat-head__btn--primary" on:click={startNewChatFromHeader}>
+        Nuevo
+      </button>
+      <button
+        type="button"
+        class="chat-head__btn"
+        aria-haspopup="dialog"
+        aria-expanded={sheetOpen}
+        on:click={() => (sheet = 'menu')}
+      >
+        Más
+      </button>
+    </div>
   </header>
 
   <div class="chat-panel" bind:this={scroller} aria-live="polite">
@@ -371,8 +579,8 @@
       <div class="welcome">
         <p class="welcome__title">¿En qué te ayudo?</p>
         <p class="welcome__hint">
-          Registra varios gastos, busca con /buscar Uber, o crea una cuenta. Todo con
-          confirmación. Si el chat crece, /sumarize.
+          Pregunta por metas, ahorro o gastos. Cada chat tiene su historial; la memoria
+          compartida viaja entre conversaciones. Si el hilo crece, /sumarize.
         </p>
         <div class="chips">
           {#each starters as s}
@@ -551,11 +759,85 @@
       placeholder="Cuéntame… /buscar Uber · /sumarize"
       disabled={sending || loading}
       on:keydown={onKeydown}
+      on:focus={onComposerFocus}
+      on:blur={onComposerBlur}
+      on:input={resizeComposer}
     ></textarea>
     <button type="submit" class="send" disabled={sending || loading || !draft.trim()} aria-label="Enviar">
       ↑
     </button>
   </form>
+
+  <Modal open={sheetOpen} title={sheetTitle} narrow onClose={() => (sheet = null)}>
+    <div class="sheet-stack">
+      {#if sheet === 'menu'}
+        <button type="button" class="sheet-nav" on:click={openThreadsPanel}>
+          <span class="sheet-nav__title">Conversaciones</span>
+          <span class="sheet-nav__hint">Cambiar de chat sin mezclar contextos</span>
+        </button>
+        <button type="button" class="sheet-nav" on:click={openMemoryPanel}>
+          <span class="sheet-nav__title">Memoria compartida</span>
+          <span class="sheet-nav__hint">Hechos que viajan entre todos los chats</span>
+        </button>
+        <a class="sheet-nav sheet-nav--link" href="/perfil" on:click={() => (sheet = null)}>
+          <span class="sheet-nav__title">Perfil financiero</span>
+          <span class="sheet-nav__hint">Ingresos, colchón y metas</span>
+        </a>
+      {:else if sheet === 'threads'}
+        <button type="button" class="chip sheet-back" on:click={() => (sheet = 'menu')}>← Menú</button>
+        <button type="button" class="primary-button sheet-stack__cta" on:click={startNewChat}>
+          Nuevo chat
+        </button>
+        <ul class="sheet-list">
+          {#each threads as t (t.id)}
+            <li>
+              <button
+                type="button"
+                class="sheet-list__item"
+                class:is-active={t.id === threadId}
+                on:click={() => openThread(t)}
+              >
+                <span class="sheet-list__title">{t.title || 'Conversación'}</span>
+                <span class="sheet-list__meta">{t.kind === 'main' ? 'Principal' : 'Chat'}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else if sheet === 'memory'}
+        <button type="button" class="chip sheet-back" on:click={() => (sheet = 'menu')}>← Menú</button>
+        <p class="sheet-hint">
+          Hechos y resumen que Delfos reutiliza en todos tus chats. No reenvía el historial completo.
+        </p>
+        {#if memoryLoading}
+          <p class="muted">Cargando…</p>
+        {:else}
+          {#if memorySummary}
+            <div class="memory-summary">
+              <p class="memory-summary__label">Resumen</p>
+              <p>{memorySummary}</p>
+            </div>
+          {/if}
+          {#if memoryFacts.length}
+            <ul class="sheet-list">
+              {#each memoryFacts as fact (fact.id)}
+                <li class="memory-fact">
+                  <p class="memory-fact__text">{fact.fact}</p>
+                  <div class="memory-fact__actions">
+                    <button type="button" class="chip" on:click={() => deactivateFact(fact.id)}>
+                      Desactivar
+                    </button>
+                    <button type="button" class="chip" on:click={() => removeFact(fact.id)}>Borrar</button>
+                  </div>
+                </li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="muted">Todavía no hay hechos guardados. Aparecerán al conversar.</p>
+          {/if}
+        {/if}
+      {/if}
+    </div>
+  </Modal>
 
   <BottomNav active="chat" />
 </div>
@@ -564,87 +846,267 @@
   .chat-shell {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
-    padding-bottom: 120px;
+    min-height: 100dvh;
+    /* BottomNav (~56) + safe area; composer is sticky inside the flow */
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (min-width: 861px) {
+    .chat-shell {
+      padding-bottom: 24px;
+    }
   }
 
   .chat-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
-    margin: 0.25rem 0 0.75rem;
+    gap: 0.85rem;
+    margin: 0.35rem 0 1rem;
+  }
+
+  .chat-head :global(.hero-titlebar) {
+    min-width: 0;
+    flex: 1;
+    gap: 0.35rem;
+  }
+
+  .chat-head__titles {
+    min-width: 0;
   }
 
   .chat-head h1 {
     margin: 0;
-    font-size: 1.35rem;
+    font-size: 1.28rem;
     letter-spacing: -0.02em;
   }
 
   .chat-head p {
-    margin: 0.2rem 0 0;
+    margin: 0.25rem 0 0;
     color: var(--text-muted);
-    font-size: 0.88rem;
+    font-size: 0.84rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .chat-head__link {
+  .chat-head__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
     flex-shrink: 0;
-    padding: 0.4rem 0.8rem;
+  }
+
+  .chat-head__btn {
+    min-height: 40px;
+    padding: 0.45rem 0.9rem;
     border-radius: 999px;
     border: 1px solid var(--border-soft);
     background: var(--surface);
     color: var(--text-strong);
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 700;
+    cursor: pointer;
+    transition: transform 140ms var(--ease-out);
+  }
+
+  .chat-head__btn--primary {
+    background: var(--text-strong);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .chat-head__btn:active {
+    transform: scale(0.97);
+  }
+
+  .sheet-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding-bottom: 0.35rem;
+  }
+
+  .sheet-stack__cta {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .sheet-back {
+    align-self: flex-start;
+  }
+
+  .sheet-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.95rem 1rem;
+    border-radius: var(--radius-md, 14px);
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
     text-decoration: none;
     transition: transform 140ms var(--ease-out);
   }
 
-  .chat-head__link:active {
-    transform: scale(0.97);
+  .sheet-nav--link {
+    display: flex;
+  }
+
+  .sheet-nav:active {
+    transform: scale(0.98);
+  }
+
+  .sheet-nav__title {
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .sheet-nav__hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+  }
+
+  .sheet-hint {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+
+  .sheet-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    max-height: min(52dvh, 380px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sheet-list__item {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.75rem 0.85rem;
+    border-radius: var(--radius-md, 14px);
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    cursor: pointer;
+    transition: transform 140ms var(--ease-out);
+  }
+
+  .sheet-list__item.is-active {
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--border-soft));
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  }
+
+  .sheet-list__item:active {
+    transform: scale(0.98);
+  }
+
+  .sheet-list__title {
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+
+  .sheet-list__meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .memory-summary {
+    padding: 0.75rem 0.85rem;
+    border-radius: var(--radius-md, 14px);
+    background: color-mix(in srgb, var(--soft-blue) 35%, var(--surface));
+    border: 1px solid var(--border-soft);
+  }
+
+  .memory-summary__label {
+    margin: 0 0 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .memory-summary p:last-child {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .memory-fact {
+    padding: 0.75rem 0.85rem;
+    border-radius: var(--radius-md, 14px);
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+  }
+
+  .memory-fact__text {
+    margin: 0 0 0.55rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .memory-fact__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
   }
 
   .chat-panel {
-    flex: 1;
-    min-height: 42vh;
-    max-height: calc(100vh - 280px);
+    flex: 1 1 auto;
+    min-height: 0;
+    /* Fill leftover viewport instead of fragile 100vh - Npx math */
+    max-height: none;
     overflow-y: auto;
-    padding: 4px 2px 12px;
+    padding: 8px 4px 16px;
     -webkit-overflow-scrolling: touch;
   }
 
   .center {
     text-align: center;
-    padding: 2rem 0;
+    padding: 2.5rem 0;
   }
 
   .welcome {
-    padding: 1.25rem 0.25rem;
+    padding: 1.75rem 0.35rem 1rem;
   }
 
   .welcome__title {
-    margin: 0 0 0.4rem;
-    font-size: 1.2rem;
+    margin: 0 0 0.55rem;
+    font-size: 1.28rem;
     font-weight: 700;
   }
 
   .welcome__hint {
-    margin: 0 0 1rem;
+    margin: 0 0 1.25rem;
     color: var(--text-muted);
-    font-size: 0.9rem;
-    line-height: 1.45;
-    max-width: 36ch;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    max-width: 34ch;
   }
 
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
   }
 
   .chips--follow {
-    margin: 0 0 10px;
+    margin: 0 0 14px;
   }
 
   .chip {
@@ -787,14 +1249,14 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 10px;
+    gap: 14px;
   }
 
   .bubble {
     max-width: min(92%, 420px);
-    padding: 12px 14px;
+    padding: 14px 16px;
     border-radius: 18px;
-    font-size: 0.95rem;
+    font-size: 0.96rem;
     line-height: 1.45;
     box-shadow: var(--shadow-soft);
   }
@@ -858,16 +1320,71 @@
 
   .composer {
     position: sticky;
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
     display: flex;
     align-items: flex-end;
-    gap: 8px;
-    padding: 10px;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: auto;
+    padding: 12px 14px;
     border-radius: var(--radius-md);
     background: var(--surface);
     border: 1px solid var(--border-soft);
     box-shadow: var(--shadow-soft);
     z-index: 40;
+    transition: bottom 160ms var(--ease-out);
+  }
+
+  .chat-shell.is-typing {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-shell.is-typing .composer {
+    bottom: max(8px, var(--kb-inset, 0px));
+  }
+
+  .chat-shell.is-typing :global(.bottom-nav) {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 140%);
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out);
+  }
+
+  @media (min-width: 861px) {
+    .composer {
+      bottom: 0;
+    }
+
+    .chat-shell.is-typing .composer {
+      bottom: 0;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .chat-head {
+      gap: 0.55rem;
+      margin: 0.15rem 0 0.75rem;
+    }
+
+    .chat-head__btn {
+      padding: 0.4rem 0.7rem;
+      font-size: 0.78rem;
+    }
+
+    .composer {
+      bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+      padding: 10px 12px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .composer,
+    .chat-shell.is-typing :global(.bottom-nav) {
+      transition: none;
+    }
   }
 
   .composer textarea {
@@ -876,7 +1393,7 @@
     border: none;
     outline: none;
     font: inherit;
-    font-size: 0.95rem;
+    font-size: 16px; /* evita zoom iOS al enfocar */
     line-height: 1.4;
     max-height: 120px;
     background: transparent;

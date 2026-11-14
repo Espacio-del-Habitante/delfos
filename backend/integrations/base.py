@@ -49,3 +49,7 @@ class AIIntegration(ABC):
     @abstractmethod
     def health(self) -> dict:
         """Devuelve un dict con al menos {'ok': bool, ...} describiendo la conexion."""
+
+    def list_models(self) -> list[str]:
+        """Catálogo de ids de modelo del proveedor. Vacío = UI usa fallback curado."""
+        return []
