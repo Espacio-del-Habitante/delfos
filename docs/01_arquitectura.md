@@ -362,3 +362,6 @@ añade su caso en `registry._build()` y un entry en `available_providers()`. Nad
 > Describe lo que **realmente** existe en el código. Cualquier cambio que introduzca capas o
 > patrones ajenos (Clean Architecture, IoC, ORM) será rechazado salvo que se pida explícitamente.
 > Debe leerse junto con `docs/00_vision.md`.
+>
+> Experimento en rama (PWA móvil + hub LAN): ver `docs/02_mobile_lan_sync.md`. No altera las
+> capas de este documento; añade `/api/hub`, settings de LAN y cola offline en el cliente.

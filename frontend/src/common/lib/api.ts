@@ -1,24 +1,4 @@
-const API_BASE = import.meta.env.PUBLIC_API_BASE_URL ?? '';
-
-export class ApiError extends Error {
-  status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-  }
-}
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new ApiError((data as { error?: string }).error || res.statusText, res.status);
-  }
-  return data as T;
-}
-
+import { enqueueMutation, resolveApiBase } from './hub';
 import type {
   AiHealthStatus,
   AiSettingsPatch,
@@ -35,6 +15,49 @@ import type {
   PortfolioInsights,
 } from './types';
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+function apiBase(): string {
+  return resolveApiBase();
+}
+
+function isMutating(method?: string): boolean {
+  const m = (method || 'GET').toUpperCase();
+  return m !== 'GET' && m !== 'HEAD';
+}
+
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  try {
+    const res = await fetch(`${apiBase()}${path}`, init);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new ApiError((data as { error?: string }).error || res.statusText, res.status);
+    }
+    return data as T;
+  } catch (err) {
+    // Offline / hub caído: encola mutaciones JSON para sync manual.
+    if (err instanceof ApiError) throw err;
+    if (isMutating(init?.method) && typeof init?.body === 'string') {
+      enqueueMutation({
+        method: init?.method || 'POST',
+        path,
+        body: init.body,
+        contentType: 'application/json',
+      });
+      throw new ApiError('Sin conexión al hub. Guardado en cola para sincronizar.', 0);
+    }
+    throw err;
+  }
+}
+
 export function getFinanceData(): Promise<FinancePayload> {
   return fetchJson<FinancePayload>('/api/finance');
 }
@@ -49,7 +72,7 @@ export function getCategories(kind?: string): Promise<{ categories: Category[] }
 }
 
 export function getOllamaHealth(): Promise<OllamaHealth> {
-  return fetch(`${API_BASE}/api/ollama/health`)
+  return fetch(`${apiBase()}/api/ollama/health`)
     .then((r) => r.json())
     .then((data) => data as OllamaHealth);
 }
@@ -203,7 +226,7 @@ export function deleteCategory(id: string): Promise<FinancePayload> {
 }
 
 export function analyzeText(text: string): Promise<AnalysisPreview> {
-  return fetch(`${API_BASE}/api/analyze`, {
+  return fetch(`${apiBase()}/api/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),
@@ -233,7 +256,7 @@ export function resetData(): Promise<FinancePayload> {
 }
 
 async function fetchBlob(path: string): Promise<Blob> {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(`${apiBase()}${path}`);
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new ApiError((data as { error?: string }).error || res.statusText, res.status);
@@ -269,7 +292,7 @@ export function importCsvBulk(
   const form = new FormData();
   form.append('file', file);
   const q = confirm ? '?confirm=true' : '';
-  return fetch(`${API_BASE}${IMPORT_PATHS[kind]}${q}`, {
+  return fetch(`${apiBase()}${IMPORT_PATHS[kind]}${q}`, {
     method: 'POST',
     body: form,
   }).then(async (res) => {
@@ -296,7 +319,7 @@ export function importNotesCsv(file: File, confirm = false): Promise<ImportPrevi
 export function ocrInvestmentImage(file: File): Promise<OcrPreviewResponse> {
   const form = new FormData();
   form.append('image', file);
-  return fetch(`${API_BASE}/api/investments/ocr`, {
+  return fetch(`${apiBase()}/api/investments/ocr`, {
     method: 'POST',
     body: form,
   }).then(async (res) => {

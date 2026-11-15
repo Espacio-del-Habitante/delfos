@@ -15,6 +15,15 @@
     testAiConnection,
     updateCategory,
   } from '@common/lib/api';
+  import {
+    fetchHubInfo,
+    getHubBaseUrl,
+    queueCount,
+    saveHubLanEnabled,
+    setHubBaseUrl,
+    syncQueue,
+    type HubInfo,
+  } from '@common/lib/hub';
   import { KIND_LABELS } from '@common/lib/categories';
   import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
@@ -54,6 +63,14 @@
   let newKind = 'expense';
   let newEmoji = '🏷️';
 
+  let hubInfo: HubInfo | null = null;
+  let hubLoading = false;
+  let hubSaving = false;
+  let hubSyncing = false;
+  let hubLanEnabled = false;
+  let hubBaseDraft = '';
+  let pendingSync = 0;
+
   const kindOptions = [
     { value: 'expense', label: 'Gasto' },
     { value: 'investment', label: 'Inversión' },
@@ -64,7 +81,68 @@
   onMount(() => {
     refreshFinanceData().catch(() => showToast('No se pudo cargar los datos', { type: 'error' }));
     void loadAiSettings();
+    hubBaseDraft = getHubBaseUrl();
+    pendingSync = queueCount();
+    void loadHub();
   });
+
+  async function loadHub() {
+    hubLoading = true;
+    try {
+      hubInfo = await fetchHubInfo();
+      hubLanEnabled = hubInfo.lan_enabled;
+    } catch {
+      hubInfo = null;
+    } finally {
+      hubLoading = false;
+      pendingSync = queueCount();
+    }
+  }
+
+  async function saveHubLan() {
+    hubSaving = true;
+    try {
+      hubInfo = await saveHubLanEnabled(hubLanEnabled);
+      showToast(
+        hubInfo.needs_restart
+          ? 'Guardado. Reinicia Delfos en el PC para activar la red local.'
+          : 'Preferencia de hub actualizada',
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo guardar el hub', { type: 'error' });
+    } finally {
+      hubSaving = false;
+    }
+  }
+
+  function saveHubBase() {
+    setHubBaseUrl(hubBaseDraft);
+    showToast(hubBaseDraft.trim() ? 'URL del hub guardada en este dispositivo' : 'Usando origen actual');
+    void loadHub();
+  }
+
+  async function runSync() {
+    hubSyncing = true;
+    try {
+      const result = await syncQueue();
+      pendingSync = result.remaining;
+      if (result.ok) {
+        await refreshFinanceData();
+      }
+      if (result.failed) {
+        showToast(result.lastError || 'Sync incompleto', { type: 'error' });
+      } else if (result.ok === 0) {
+        showToast('No hay cambios pendientes');
+      } else {
+        showToast(`Sincronizados ${result.ok} cambio(s)`);
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al sincronizar', { type: 'error' });
+    } finally {
+      hubSyncing = false;
+      pendingSync = queueCount();
+    }
+  }
 
   function applyAiConfig(cfg: AiSettings) {
     aiCloudEnabled = cfg.cloud_enabled;
@@ -353,6 +431,83 @@
       {/if}
     </section>
 
+    <section class="settings-card" aria-label="Móvil y red local">
+      <header class="settings-card__head">
+        <h2 class="settings-card__title">Móvil y red local</h2>
+        <p class="settings-card__hint">
+          El PC es la fuente central. Instala la PWA en el celular desde la URL LAN y sincroniza cuando quieras.
+        </p>
+      </header>
+
+      <div class="settings-tip" role="note">
+        <span class="settings-tip__icon" aria-hidden="true">📱</span>
+        <p class="settings-tip__text">
+          Misma Wi‑Fi → activa compartir → abre la URL en el celular → “Añadir a inicio”. Sin red, los
+          registros quedan en cola hasta que pulses Sincronizar.
+        </p>
+      </div>
+
+      {#if hubLoading && !hubInfo}
+        <p class="muted" style="font-size:0.85rem;margin:0;">Cargando hub…</p>
+      {:else}
+        <label class="ai-switch">
+          <input type="checkbox" bind:checked={hubLanEnabled} />
+          <span class="ai-switch__track" aria-hidden="true"><span class="ai-switch__thumb"></span></span>
+          <span class="ai-switch__label">
+            Compartir en red local (PC hub)
+            <span class="ai-switch__hint">
+              {hubInfo?.lan_active
+                ? 'Activo: el API escucha en la LAN.'
+                : 'Requiere reiniciar Delfos en el PC tras guardar.'}
+            </span>
+          </span>
+        </label>
+
+        <div class="ai-actions" style="margin-bottom:12px;">
+          <button type="button" class="secondary-button" on:click={saveHubLan} disabled={hubSaving}>
+            {hubSaving ? 'Guardando…' : 'Guardar hub'}
+          </button>
+          {#if hubInfo}
+            <span class="ai-status-pill" class:is-ok={hubInfo.lan_active} class:is-error={!hubInfo.lan_active}>
+              {hubInfo.lan_active ? 'LAN activa' : hubInfo.needs_restart ? 'Reinicio pendiente' : 'LAN apagada'}
+            </span>
+          {/if}
+        </div>
+
+        {#if hubInfo?.urls?.length}
+          <div class="ai-field">
+            <span class="ai-field__label">URL para el celular</span>
+            {#each hubInfo.urls as url}
+              <code class="hub-url">{url}</code>
+            {/each}
+          </div>
+        {/if}
+
+        <div class="ai-field">
+          <span class="ai-field__label">URL del hub en este dispositivo (opcional)</span>
+          <input
+            type="url"
+            class="form-control"
+            bind:value={hubBaseDraft}
+            placeholder="http://192.168.x.x:5000"
+            autocomplete="off"
+          />
+          <span class="ai-field__help">Déjalo vacío si abriste Delfos desde la misma URL del PC.</span>
+        </div>
+
+        <div class="ai-actions">
+          <button type="button" class="secondary-button" on:click={saveHubBase}>Guardar URL</button>
+          <button type="button" class="secondary-button" on:click={runSync} disabled={hubSyncing}>
+            {hubSyncing ? 'Sincronizando…' : pendingSync ? `Sincronizar (${pendingSync})` : 'Sincronizar'}
+          </button>
+          <button type="button" class="secondary-button" on:click={loadHub} disabled={hubLoading}>Probar hub</button>
+        </div>
+        {#if hubInfo?.hint}
+          <p class="ai-status-hint">{hubInfo.hint}</p>
+        {/if}
+      {/if}
+    </section>
+
     <section class="settings-card settings-card--danger" aria-label="Zona de riesgo">
       <div class="danger-zone">
         <p class="danger-zone__label">Zona de riesgo</p>
@@ -587,5 +742,14 @@
     border: none;
     background: transparent;
     padding: 0;
+  }
+
+  .hub-url {
+    display: block;
+    font-size: 0.82rem;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.06);
+    word-break: break-all;
   }
 </style>
