@@ -365,4 +365,5 @@ añade su caso en `registry._build()` y un entry en `available_providers()`. Nad
 >
 > Experimento en rama (Electron hub + PWA móvil, mismo monorepo): ver
 > `docs/02_mobile_lan_sync.md`. No altera las capas de este documento; añade `desktop/`
-> (Electron empaqueta FE+BE), `/api/hub`, settings de LAN y cola offline en el cliente.
+> (Electron empaqueta FE+BE), `/api/hub`, settings de LAN, cola offline y estados/conflictos
+> de sync (`hub_wins_queue_fifo`) en el cliente.

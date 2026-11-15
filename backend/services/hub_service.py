@@ -10,6 +10,8 @@ import config
 
 SETTINGS_PATH = config.DATA_DIR / "hub_settings.json"
 PROTOCOL_VERSION = 1
+# hub_wins_queue_fifo: el JSON del PC gana; el móvil empuja cola FIFO y resuelve conflictos a mano.
+SYNC_POLICY = "hub_wins_queue_fifo"
 
 
 def _default() -> dict:
@@ -67,6 +69,7 @@ def hub_payload() -> dict:
     return {
         "protocol_version": PROTOCOL_VERSION,
         "service": "delfos-hub",
+        "sync_policy": SYNC_POLICY,
         "lan_enabled": settings["lan_enabled"],
         "lan_active": active,
         "needs_restart": settings["lan_enabled"] != active,
@@ -87,9 +90,10 @@ def _self_check() -> None:
     p = hub_payload()
     assert p["service"] == "delfos-hub"
     assert p["protocol_version"] == PROTOCOL_VERSION
+    assert p["sync_policy"] == SYNC_POLICY
     assert "lan_enabled" in p and "lan_active" in p
     assert isinstance(p["urls"], list)
-    print("hub_service self-check OK", {"addresses": p["addresses"], "lan_active": p["lan_active"]})
+    print("hub_service self-check OK", {"addresses": p["addresses"], "lan_active": p["lan_active"], "sync_policy": p["sync_policy"]})
 
 
 if __name__ == "__main__":

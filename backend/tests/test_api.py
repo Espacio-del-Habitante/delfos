@@ -693,6 +693,7 @@ class ApiTestCase(unittest.TestCase):
             self.assertEqual(get_res.status_code, 200)
             payload = get_res.get_json()
             self.assertEqual(payload["service"], "delfos-hub")
+            self.assertEqual(payload["sync_policy"], "hub_wins_queue_fifo")
             self.assertIn("urls", payload)
             self.assertIn("lan_enabled", payload)
 

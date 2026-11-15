@@ -308,6 +308,8 @@ de visión extrae filas del ledger que el usuario revisa antes de guardar.
 - Si y cómo exponer en UI el endpoint de charts adicional.
 - Estrategia de migración del esquema JSON a medida que crecen los campos.
 - Soporte multi-SO del ejecutable de escritorio.
+- Sync móvil: hoy `hub_wins_queue_fifo` (ver `docs/02_mobile_lan_sync.md`). Pendiente decidir
+  si algún día habrá merge bidireccional o “preferir móvil” explícito.
 
 ---
 
@@ -344,6 +346,8 @@ Consolidar Delfos como un **copiloto financiero personal** confiable y privado:
 | Adapter | Implementación concreta de un proveedor bajo el contrato común `AIIntegration` |
 | Vista previa | Resultado propuesto por la IA antes de persistir; siempre requiere confirmación |
 | P&L | Ganancia/pérdida; realizada (ventas/dividendos) y no realizada (posición abierta) |
+| Hub | PC (Electron/Flask) que guarda el JSON; fuente de verdad para sync LAN |
+| Sync `hub_wins_queue_fifo` | El móvil encola mutaciones; el hub gana; conflictos se resuelven a mano |
 
 ---
 

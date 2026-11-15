@@ -16,13 +16,18 @@
     updateCategory,
   } from '@common/lib/api';
   import {
+    discardAllConflicts,
+    discardQueuedMutation,
     fetchHubInfo,
     getHubBaseUrl,
-    queueCount,
+    getSyncSnapshot,
+    retryConflict,
     saveHubLanEnabled,
     setHubBaseUrl,
+    SYNC_STATE_LABELS,
     syncQueue,
     type HubInfo,
+    type SyncSnapshot,
   } from '@common/lib/hub';
   import { KIND_LABELS } from '@common/lib/categories';
   import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
@@ -69,7 +74,7 @@
   let hubSyncing = false;
   let hubLanEnabled = false;
   let hubBaseDraft = '';
-  let pendingSync = 0;
+  let syncSnap: SyncSnapshot = getSyncSnapshot();
 
   const kindOptions = [
     { value: 'expense', label: 'Gasto' },
@@ -78,11 +83,15 @@
     { value: 'general', label: 'General' },
   ];
 
+  function refreshSyncSnap() {
+    syncSnap = getSyncSnapshot();
+  }
+
   onMount(() => {
     refreshFinanceData().catch(() => showToast('No se pudo cargar los datos', { type: 'error' }));
     void loadAiSettings();
     hubBaseDraft = getHubBaseUrl();
-    pendingSync = queueCount();
+    refreshSyncSnap();
     void loadHub();
   });
 
@@ -95,7 +104,7 @@
       hubInfo = null;
     } finally {
       hubLoading = false;
-      pendingSync = queueCount();
+      refreshSyncSnap();
     }
   }
 
@@ -105,7 +114,7 @@
       hubInfo = await saveHubLanEnabled(hubLanEnabled);
       showToast(
         hubInfo.needs_restart
-          ? 'Guardado. Reinicia Delfos en el PC para activar la red local.'
+          ? 'Guardado. Reinicia Delfos Desktop para activar la red local.'
           : 'Preferencia de hub actualizada',
       );
     } catch (err) {
@@ -125,12 +134,14 @@
     hubSyncing = true;
     try {
       const result = await syncQueue();
-      pendingSync = result.remaining;
+      refreshSyncSnap();
       if (result.ok) {
-        await refreshFinanceData();
+        await refreshFinanceData().catch(() => undefined);
       }
-      if (result.failed) {
-        showToast(result.lastError || 'Sync incompleto', { type: 'error' });
+      if (result.state === 'conflict') {
+        showToast(result.lastError || 'Conflicto: el hub rechazó un cambio. Revisa abajo.', { type: 'error' });
+      } else if (result.state === 'partial' || result.state === 'error') {
+        showToast(result.lastError || 'Sync incompleto — puedes reintentar', { type: 'error' });
       } else if (result.ok === 0) {
         showToast('No hay cambios pendientes');
       } else {
@@ -140,8 +151,26 @@
       showToast(err instanceof Error ? err.message : 'Error al sincronizar', { type: 'error' });
     } finally {
       hubSyncing = false;
-      pendingSync = queueCount();
+      refreshSyncSnap();
     }
+  }
+
+  function onDiscardConflict(id: string) {
+    discardQueuedMutation(id);
+    refreshSyncSnap();
+    showToast('Cambio descartado (el hub conserva su versión)');
+  }
+
+  function onRetryConflict(id: string) {
+    retryConflict(id);
+    refreshSyncSnap();
+    showToast('Marcado para reintentar en el próximo sync');
+  }
+
+  function onDiscardAllConflicts() {
+    discardAllConflicts();
+    refreshSyncSnap();
+    showToast('Conflictos descartados');
   }
 
   function applyAiConfig(cfg: AiSettings) {
@@ -496,13 +525,75 @@
           <span class="ai-field__help">Déjalo vacío si abriste Delfos desde la misma URL del PC.</span>
         </div>
 
+        <div class="ai-field">
+          <span class="ai-field__label">Estado de sincronización</span>
+          <span
+            class="ai-status-pill"
+            class:is-ok={syncSnap.state === 'synced' || syncSnap.state === 'idle'}
+            class:is-error={syncSnap.state === 'conflict' || syncSnap.state === 'error'}
+            class:is-warn={syncSnap.state === 'pending' || syncSnap.state === 'partial' || syncSnap.state === 'syncing'}
+          >
+            {SYNC_STATE_LABELS[syncSnap.state]}
+            {#if syncSnap.pending} · {syncSnap.pending} pending{/if}
+            {#if syncSnap.conflicts} · {syncSnap.conflicts} conflicto(s){/if}
+          </span>
+          <span class="ai-field__help">
+            Política: <code>hub_wins_queue_fifo</code> — el PC gana; la cola del móvil es FIFO y se detiene al
+            primer fallo. Detalle en <code>docs/02_mobile_lan_sync.md</code>.
+          </span>
+          {#if syncSnap.lastError}
+            <p class="ai-status-hint">Último error: {syncSnap.lastError}</p>
+          {/if}
+        </div>
+
         <div class="ai-actions">
           <button type="button" class="secondary-button" on:click={saveHubBase}>Guardar URL</button>
-          <button type="button" class="secondary-button" on:click={runSync} disabled={hubSyncing}>
-            {hubSyncing ? 'Sincronizando…' : pendingSync ? `Sincronizar (${pendingSync})` : 'Sincronizar'}
+          <button
+            type="button"
+            class="secondary-button"
+            on:click={runSync}
+            disabled={hubSyncing || syncSnap.pending === 0}
+          >
+            {hubSyncing
+              ? 'Sincronizando…'
+              : syncSnap.pending
+                ? `Sincronizar (${syncSnap.pending})`
+                : 'Sincronizar'}
           </button>
           <button type="button" class="secondary-button" on:click={loadHub} disabled={hubLoading}>Probar hub</button>
         </div>
+
+        {#if syncSnap.conflicts}
+          <div class="sync-conflicts" aria-label="Conflictos de sincronización">
+            <div class="sync-conflicts__head">
+              <p class="ai-field__label">Conflictos (requieren acción)</p>
+              <button type="button" class="card-action-btn card-action-btn--danger" on:click={onDiscardAllConflicts}>
+                Descartar todos
+              </button>
+            </div>
+            <ul class="sync-conflicts__list">
+              {#each syncSnap.items.filter((i) => i.status === 'conflict') as item (item.id)}
+                <li class="sync-conflicts__item">
+                  <code class="sync-conflicts__op">{item.method} {item.path}</code>
+                  <p class="sync-conflicts__err">{item.lastError || 'Rechazado por el hub'}</p>
+                  <div class="sync-conflicts__actions">
+                    <button type="button" class="card-action-btn" on:click={() => onRetryConflict(item.id)}>
+                      Reintentar
+                    </button>
+                    <button
+                      type="button"
+                      class="card-action-btn card-action-btn--danger"
+                      on:click={() => onDiscardConflict(item.id)}
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
         {#if hubInfo?.hint}
           <p class="ai-status-hint">{hubInfo.hint}</p>
         {/if}
@@ -731,6 +822,60 @@
   .ai-status-pill.is-error {
     background: rgba(255, 59, 48, 0.14);
     color: #c0392b;
+  }
+
+  .ai-status-pill.is-warn {
+    background: rgba(245, 158, 11, 0.16);
+    color: #92400e;
+  }
+
+  .sync-conflicts {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .sync-conflicts__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .sync-conflicts__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sync-conflicts__item {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.16);
+  }
+
+  .sync-conflicts__op {
+    display: block;
+    font-size: 0.78rem;
+    word-break: break-all;
+  }
+
+  .sync-conflicts__err {
+    margin: 6px 0 8px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .sync-conflicts__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .ai-status-hint {
