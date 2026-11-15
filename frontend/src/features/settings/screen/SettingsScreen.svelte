@@ -435,15 +435,16 @@
       <header class="settings-card__head">
         <h2 class="settings-card__title">Móvil y red local</h2>
         <p class="settings-card__hint">
-          El PC es la fuente central. Instala la PWA en el celular desde la URL LAN y sincroniza cuando quieras.
+          Electron en el PC es el hub (FE+BE empaquetados). La PWA del mismo frontend se instala en el
+          celular y sincroniza por LAN cuando tú lo pidas.
         </p>
       </header>
 
       <div class="settings-tip" role="note">
         <span class="settings-tip__icon" aria-hidden="true">📱</span>
         <p class="settings-tip__text">
-          Misma Wi‑Fi → activa compartir → abre la URL en el celular → “Añadir a inicio”. Sin red, los
-          registros quedan en cola hasta que pulses Sincronizar.
+          Misma Wi‑Fi → activa compartir → reinicia Delfos Desktop → abre la URL en el celular →
+          “Añadir a inicio”. Sin red, los registros quedan en cola hasta Sincronizar.
         </p>
       </div>
 

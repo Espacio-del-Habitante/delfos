@@ -29,8 +29,10 @@ La solución se compone de:
 - **IA intercambiable:** proveedor **local** (Ollama) o **nube** (Gemini / compatible
   OpenAI como OpenRouter o Groq), seleccionable desde Configuración. La app funciona sin IA
   para el registro manual.
-- **App de escritorio:** un `.exe` portátil de Windows que sirve frontend + API en un solo
-  proceso, con datos persistentes locales.
+- **App de escritorio:** Electron (monorepo `desktop/`) empaqueta frontend + backend como hub
+  local; también existe un `.exe` portátil vía PyInstaller. Datos persistentes en el PC.
+- **PWA móvil (experimental):** el mismo frontend instalable en el celular, sincroniza a
+  demanda con el hub del PC en la red local (`docs/02_mobile_lan_sync.md`).
 
 La visión es mantener el control financiero **rápido, privado y propio**: los datos viven en
 archivos locales del usuario, y la IA es un acelerador opcional, no un requisito.

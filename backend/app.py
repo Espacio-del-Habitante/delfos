@@ -1,6 +1,7 @@
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 import io
+import os
 
 import config
 from integrations import registry, settings as ai_settings
@@ -504,14 +505,17 @@ def api_settings_hub():
 
 
 def _serve_packaged():
-    """Servidor de producción para el .exe: waitress + abrir el navegador."""
+    """Servidor empaquetado (PyInstaller / hijo de Electron): waitress."""
     import threading
     import webbrowser
 
     from waitress import serve
 
     url = f"http://localhost:{config.FLASK_PORT}"
-    threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+    # Electron define DELFOS_OPEN_BROWSER=false; el .exe suelto sí abre el navegador.
+    open_browser = os.getenv("DELFOS_OPEN_BROWSER", "true").lower() in ("1", "true", "yes")
+    if open_browser:
+        threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     host = config.FLASK_HOST
     print(f"Delfos corriendo en {url} (cierra esta ventana para detenerlo)")
     if config.LAN_SYNC:

@@ -171,7 +171,8 @@ sequenceDiagram
 | IA — local | Ollama (texto + visión) |
 | IA — nube | Google Gemini · OpenAI-compatible (OpenRouter, Groq) |
 | Cotizaciones | yfinance (Yahoo Finance) con cache TTL en memoria |
-| Empaquetado | PyInstaller + waitress → `.exe` de Windows |
+| Empaquetado desktop | Electron (`desktop/`) empaqueta FE+BE · también PyInstaller `.exe` |
+| Móvil (experimental) | PWA del mismo `frontend/` · sync LAN con el hub del PC |
 | Docker | nginx (frontend) + Flask (API), mismo origen sin CORS |
 
 ---
@@ -189,8 +190,9 @@ delfos/
 │   │   ├── vision_service.py    # OCR de inversiones (preview)
 │   │   ├── investment_ledger.py # export/import + refinado OCR
 │   │   ├── bulk_import.py       # import CSV genérico
-│   │   ├── portfolio_service.py # posiciones y P&L
-│   │   └── quote_service.py     # cotizaciones (yfinance)
+│   │   │   ├── portfolio_service.py # posiciones y P&L
+│   │   ├── quote_service.py     # cotizaciones (yfinance)
+│   │   └── hub_service.py       # hub LAN (IPs + flag compartir)
 │   ├── integrations/        # Proveedores de IA intercambiables
 │   │   ├── base.py              # AIIntegration + IntegrationError
 │   │   ├── settings.py          # config + secretos (api_key)
@@ -200,12 +202,16 @@ delfos/
 │   │   └── openai_compatible.py # adapter nube (OpenRouter / Groq)
 │   ├── data/                # JSON store (gitignored)
 │   └── tests/               # unittest
-├── frontend/                # Astro + Svelte
+├── frontend/                # Astro + Svelte (UI de Electron y de la PWA)
+│   ├── public/              # manifest PWA + service worker
 │   └── src/
 │       ├── pages/           # index · inversiones · configuracion (.astro)
 │       ├── features/        # dashboard · inversiones · settings
-│       └── common/          # atoms/molecules/organisms · lib/api.ts · stores · styles
-├── docs/                    # Fuente de verdad (visión + arquitectura)
+│       └── common/          # atoms/molecules/organisms · lib/api.ts · hub.ts · stores
+├── desktop/                 # Electron: empaqueta FE+BE = hub del PC
+│   ├── main.js              # Arranca Flask + ventana; LAN opcional para la PWA
+│   └── package.json         # scripts dev / dist
+├── docs/                    # Fuente de verdad (visión + arquitectura + sync móvil)
 ├── .cursor/                 # Reglas y skills para trabajar con agentes
 ├── agentic-framework/       # Método de trabajo agéntico (portable)
 ├── legacy/                  # Plantillas Jinja originales (referencia)
@@ -257,16 +263,28 @@ docker compose up --build
 - API proxeada en `/api/*` (mismo origen, sin CORS) · Datos en `./backend/data`
 - Ollama visible en `http://host.docker.internal:11434` desde el contenedor.
 
-### Opción C — App de escritorio (`.exe` portátil)
+### Opción C — App de escritorio con Electron (hub recomendado)
+
+```bash
+npm --prefix frontend install && npm --prefix frontend run build
+cd backend && uv sync && cd ..
+npm --prefix desktop install
+npm --prefix desktop run dev
+```
+
+- Electron empaqueta / arranca **frontend + backend** y abre una ventana nativa.
+- Datos en la carpeta `userData` del SO (`.../Delfos/data`).
+- Empaquetado: `npm --prefix desktop run dist:linux` (AppImage) o `dist:mac` (DMG).
+- Con **Compartir en red local** (o `DELFOS_LAN_SYNC=1`), el celular instala la **misma** UI como PWA desde `http://<IP>:5000` y sincroniza a demanda. Ver `docs/02_mobile_lan_sync.md`.
+
+### Opción D — `.exe` portátil (PyInstaller, Windows)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build_exe.ps1
 ```
 
-- Resultado: `backend\dist\Delfos.exe` (~38 MB). Doble clic → arranca en `http://localhost:5000` y abre el navegador.
-- Datos persistentes en `%LOCALAPPDATA%\Delfos\data` (sobreviven a cierres y reinstalaciones).
-- Para IA sin instalar Ollama, configura un proveedor en la nube (Gemini / OpenRouter) desde **Configuración**. El registro manual funciona sin IA.
-- El `.exe` es específico de Windows; para Mac/Linux hay que compilar en cada SO.
+- Resultado: `backend\dist\Delfos.exe` (~38 MB). Doble clic → `http://localhost:5000` y abre el navegador.
+- Datos en `%LOCALAPPDATA%\Delfos\data`. También puede actuar de hub LAN con `DELFOS_LAN_SYNC=1`.
 
 ---
 
