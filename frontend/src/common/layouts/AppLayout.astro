@@ -32,7 +32,13 @@ const { title = 'Delfos' } = Astro.props;
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then((reg) => {
+              // Fuerza tomar sw.js v2 (network-first) tras el crash por caché vieja en iOS.
+              reg.update().catch(() => {});
+            })
+            .catch(() => {});
         });
       }
     </script>

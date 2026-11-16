@@ -4,20 +4,36 @@ from __future__ import annotations
 
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from datetime import datetime, timezone
-from typing import Any
 
 import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
 _CACHE_TTL_SECONDS = 15 * 60
+# ponytail: tope por ticker; en móvil un portfolio lento tumba Safari. Subir si hay red estable.
+_FETCH_TIMEOUT_SECONDS = 3.0
 _cache: dict[str, tuple[float, float]] = {}
 _cache_as_of: str | None = None
+
+# yfinance usa BTC-USD / ETH-USD; en el ledger a veces viene BTCUSD.
+_YF_ALIASES = {
+    "BTCUSD": "BTC-USD",
+    "ETHUSD": "ETH-USD",
+    "BNBUSD": "BNB-USD",
+    "SOLUSD": "SOL-USD",
+    "ADAUSD": "ADA-USD",
+    "XRPUSD": "XRP-USD",
+}
 
 
 def _normalize_ticker(symbol: str) -> str:
     return symbol.strip().upper()
+
+
+def _yahoo_symbol(symbol: str) -> str:
+    return _YF_ALIASES.get(symbol, symbol)
 
 
 def _price_from_ticker(ticker: yf.Ticker) -> float | None:
@@ -32,7 +48,7 @@ def _price_from_ticker(ticker: yf.Ticker) -> float | None:
         pass
 
     try:
-        hist = ticker.history(period="1d", auto_adjust=False)
+        hist = ticker.history(period="5d", auto_adjust=False)
         if hist is not None and not hist.empty:
             close = hist["Close"].iloc[-1]
             if close and float(close) > 0:
@@ -43,13 +59,27 @@ def _price_from_ticker(ticker: yf.Ticker) -> float | None:
     return None
 
 
-def _fetch_single_price(symbol: str) -> float | None:
+def _fetch_single_price_raw(symbol: str) -> float | None:
     try:
-        ticker = yf.Ticker(symbol)
+        ticker = yf.Ticker(_yahoo_symbol(symbol))
         return _price_from_ticker(ticker)
     except Exception as exc:
         logger.warning("Quote fetch failed for %s: %s", symbol, exc)
         return None
+
+
+def _fetch_single_price(symbol: str) -> float | None:
+    """Fetch con timeout duro para no bloquear /api/investments/portfolio en el celular."""
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(_fetch_single_price_raw, symbol)
+        try:
+            return future.result(timeout=_FETCH_TIMEOUT_SECONDS)
+        except FuturesTimeout:
+            logger.warning("Quote timeout (%ss) for %s", _FETCH_TIMEOUT_SECONDS, symbol)
+            return None
+        except Exception as exc:
+            logger.warning("Quote worker failed for %s: %s", symbol, exc)
+            return None
 
 
 def get_quotes(tickers: list[str]) -> tuple[dict[str, float | None], str | None, bool]:

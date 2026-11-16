@@ -70,7 +70,16 @@ function blankMeta(): SyncMeta {
 }
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined';
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    const k = '__delfos_probe';
+    localStorage.setItem(k, '1');
+    localStorage.removeItem(k);
+    return true;
+  } catch {
+    // iOS modo privado / storage bloqueado: no tumbar la PWA.
+    return false;
+  }
 }
 
 export function getHubBaseUrl(): string {
@@ -79,9 +88,14 @@ export function getHubBaseUrl(): string {
 }
 
 export function setHubBaseUrl(url: string): void {
+  if (!canUseStorage()) return;
   const cleaned = url.trim().replace(/\/$/, '');
-  if (!cleaned) localStorage.removeItem(HUB_BASE_KEY);
-  else localStorage.setItem(HUB_BASE_KEY, cleaned);
+  try {
+    if (!cleaned) localStorage.removeItem(HUB_BASE_KEY);
+    else localStorage.setItem(HUB_BASE_KEY, cleaned);
+  } catch {
+    /* private mode */
+  }
 }
 
 /** Base efectiva: override del hub, o PUBLIC_API_BASE_URL, o mismo origen. */
@@ -120,7 +134,12 @@ export function loadQueue(): QueuedMutation[] {
 }
 
 function saveQueue(items: QueuedMutation[]): void {
-  localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
+  if (!canUseStorage()) return;
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
+  } catch {
+    /* quota / private mode */
+  }
 }
 
 export function loadSyncMeta(): SyncMeta {
@@ -141,7 +160,12 @@ export function loadSyncMeta(): SyncMeta {
 }
 
 function saveSyncMeta(meta: SyncMeta): void {
-  localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta));
+  if (!canUseStorage()) return;
+  try {
+    localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta));
+  } catch {
+    /* quota / private mode */
+  }
 }
 
 export function queueCount(): number {

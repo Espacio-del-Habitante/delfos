@@ -63,7 +63,17 @@ export function getFinanceData(): Promise<FinancePayload> {
 }
 
 export function fetchPortfolioInsights(): Promise<PortfolioInsights> {
-  return fetchJson<PortfolioInsights>('/api/investments/portfolio');
+  // iOS Safari mata la página si el portfolio (yfinance) se cuelga sin tope.
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer =
+    ctrl && typeof setTimeout !== 'undefined'
+      ? setTimeout(() => ctrl.abort(), 12000)
+      : null;
+  return fetchJson<PortfolioInsights>('/api/investments/portfolio', ctrl ? { signal: ctrl.signal } : undefined).finally(
+    () => {
+      if (timer) clearTimeout(timer);
+    },
+  );
 }
 
 export function getCategories(kind?: string): Promise<{ categories: Category[] }> {
