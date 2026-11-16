@@ -12,7 +12,7 @@ from integrations.base import IntegrationError
 from integrations.gemini import GeminiIntegration
 from integrations.ollama import OllamaIntegration
 from integrations.openai_compatible import OpenAICompatibleIntegration
-from services import ai_service, finance_store, quote_service, quote_settings, vision_service
+from services import ai_service, finance_store, hub_service, quote_service, quote_settings, vision_service
 from services.investment_ledger import parse_date, refine_ocr_row
 
 
@@ -1061,6 +1061,26 @@ class ApiTestCase(unittest.TestCase):
         self.assertAlmostEqual(data["total_assets_value_usd"], 250.0)
         self.assertAlmostEqual(data["cash_available_usd"], 940.0)
         self.assertAlmostEqual(data["total_portfolio_value_usd"], 1190.0)
+
+    def test_hub_info_and_settings(self):
+        hub_path = Path(self.tmp.name) / "hub_settings.json"
+        with patch.object(hub_service, "SETTINGS_PATH", hub_path):
+            get_res = self.client.get("/api/hub")
+            self.assertEqual(get_res.status_code, 200)
+            payload = get_res.get_json()
+            self.assertEqual(payload["service"], "delfos-hub")
+            self.assertEqual(payload["sync_policy"], "hub_wins_queue_fifo")
+            self.assertIn("urls", payload)
+            self.assertIn("lan_enabled", payload)
+
+            bad = self.client.post("/api/settings/hub", json={})
+            self.assertEqual(bad.status_code, 400)
+
+            post = self.client.post("/api/settings/hub", json={"lan_enabled": True})
+            self.assertEqual(post.status_code, 200)
+            self.assertTrue(post.get_json()["lan_enabled"])
+            stored = json.loads(hub_path.read_text(encoding="utf-8"))
+            self.assertTrue(stored["lan_enabled"])
 
 
 class AiSettingsTestCase(unittest.TestCase):
