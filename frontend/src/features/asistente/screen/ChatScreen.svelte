@@ -2,6 +2,7 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import HeaderIsland from '@common/molecules/HeaderIsland.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
+  import SkeletonLayout from '@common/molecules/SkeletonLayout.svelte';
   import Modal from '@common/atoms/Modal.svelte';
   import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import {
@@ -574,7 +575,7 @@
 
   <div class="chat-panel" bind:this={scroller} aria-live="polite">
     {#if loading}
-      <p class="muted center">Abriendo conversación…</p>
+      <SkeletonLayout variant="chat" />
     {:else if empty}
       <div class="welcome">
         <p class="welcome__title">¿En qué te ayudo?</p>
@@ -809,7 +810,7 @@
           Hechos y resumen que Delfos reutiliza en todos tus chats. No reenvía el historial completo.
         </p>
         {#if memoryLoading}
-          <p class="muted">Cargando…</p>
+          <SkeletonLayout variant="movements" />
         {:else}
           {#if memorySummary}
             <div class="memory-summary">

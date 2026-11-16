@@ -3,6 +3,7 @@
   import BottomNav from '@common/molecules/BottomNav.svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
   import MoneyInput from '@common/molecules/MoneyInput.svelte';
+  import SkeletonLayout from '@common/molecules/SkeletonLayout.svelte';
   import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import OnboardingWizard from '@features/asistente/components/organisms/OnboardingWizard.svelte';
   import {
@@ -254,7 +255,7 @@
       </div>
       <p>Contexto, colchón y metas que usa el asistente. Sin cuenta ni login.</p>
     </section>
-    <p class="muted">Cargando…</p>
+    <SkeletonLayout variant="profile" />
   {:else if showWizard}
     <section class="onboarding-shell section" aria-label="Configuración inicial">
       <OnboardingWizard on:completed={onCompleted}>

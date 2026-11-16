@@ -10,7 +10,7 @@
   let listening = false;
   let busy = false;
   let status = 'Listo para escuchar';
-  let hint = 'Habla naturalmente — Delfos entiende gastos, inversiones y notas.';
+  let hint = 'Habla y suelta: Delfos transcribe y analiza con IA enseguida.';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let recognition: any = null;
   let mediaRecorder: MediaRecorder | null = null;
@@ -95,8 +95,8 @@
         status = 'No se detectó texto. Intenta de nuevo.';
       } else {
         text = cleaned;
+        status = 'Transcripción lista — analizando…';
         dispatch('transcript', cleaned);
-        status = 'Transcripción lista';
       }
     } catch (err) {
       status = err instanceof Error ? err.message : 'No se pudo transcribir el audio.';
@@ -123,7 +123,7 @@
         status = 'Este entorno no puede grabar audio.';
         return;
       }
-      hint = 'Dictado local con Whisper (o nube si activaste dictado mejorado).';
+      hint = 'Dictado local (Whisper o nube). Al soltar, se analiza con IA.';
       status = 'Listo para escuchar';
       return;
     }
@@ -136,7 +136,7 @@
       // Fallback: misma ruta que Electron si hay grabación.
       if (navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined') {
         useBackendStt = true;
-        hint = 'Dictado vía IA (tu navegador no trae reconocimiento nativo).';
+        hint = 'Dictado vía IA. Al soltar, se analiza enseguida.';
         status = 'Listo para escuchar';
         return;
       }
@@ -173,12 +173,19 @@
     };
     recognition.onresult = (event) => {
       let transcript = '';
+      let isFinal = false;
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
+        const result = event.results[i] as { isFinal?: boolean; 0: { transcript: string } };
+        transcript += result[0].transcript;
+        if (result.isFinal) isFinal = true;
       }
-      text = transcript.trim();
-      dispatch('transcript', text);
-      status = 'Transcripción lista';
+      const cleaned = transcript.trim();
+      if (cleaned) text = cleaned;
+      // Interim updates fill the textarea; only finals trigger auto-analyze.
+      if (isFinal && cleaned) {
+        status = 'Transcripción lista — analizando…';
+        dispatch('transcript', cleaned);
+      }
     };
     recognition.onerror = (event) => {
       const err = event.error ?? '';
@@ -186,7 +193,7 @@
         // Auto-fallback a STT backend (mismo path que Electron).
         useBackendStt = true;
         recognition = null;
-        hint = 'Dictado vía IA (reconocimiento nativo no disponible).';
+        hint = 'Dictado vía IA. Al soltar, se analiza enseguida.';
         status = 'Listo para escuchar — pulsa de nuevo para grabar.';
         return;
       }
@@ -246,7 +253,7 @@
     {#if busy}
       Transcribiendo…
     {:else if listening}
-      Detener y transcribir
+      Detener
     {:else}
       Dictar movimiento
     {/if}

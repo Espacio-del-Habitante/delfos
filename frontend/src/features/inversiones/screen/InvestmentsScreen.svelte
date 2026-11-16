@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import HeaderIsland from '@common/molecules/HeaderIsland.svelte';
+  import SkeletonLayout from '@common/molecules/SkeletonLayout.svelte';
   import InvestmentActionBar from '@features/inversiones/components/molecules/InvestmentActionBar.svelte';
   import InvestmentInsights from '@features/inversiones/components/molecules/InvestmentInsights.svelte';
   import InvestmentCharts from '@features/inversiones/components/organisms/InvestmentCharts.svelte';
@@ -13,7 +14,7 @@
   import BottomNav from '@common/molecules/BottomNav.svelte';
   import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import { deleteInvestment, fetchPortfolioInsights } from '@common/lib/api';
-  import { applyFinancePayload, finance, refreshFinanceData } from '@common/stores/finance';
+  import { applyFinancePayload, finance, financeStatus, refreshFinanceData } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
   import type {
     Account,
@@ -123,35 +124,46 @@
     kpis={$finance?.assistant_kpis ?? null}
   />
 
-  <div class="investments-page-top">
+  {#if $financeStatus === 'loading' && !$finance}
     <section class="investments-hero section">
       <div class="hero-titlebar">
         <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
         <h1 class="investments-hero__title">Inversiones</h1>
       </div>
       <p class="investments-hero__subtitle">Libro de operaciones, análisis visual e importación rápida.</p>
-      <InvestmentInsights insights={portfolioInsights} loading={portfolioLoading} />
+      <SkeletonLayout variant="investments" />
     </section>
+  {:else}
+    <div class="investments-page-top">
+      <section class="investments-hero section">
+        <div class="hero-titlebar">
+          <a href="/" class="hero-back" aria-label="Volver al inicio"><IconChevron size={24} direction="left" /></a>
+          <h1 class="investments-hero__title">Inversiones</h1>
+        </div>
+        <p class="investments-hero__subtitle">Libro de operaciones, análisis visual e importación rápida.</p>
+        <InvestmentInsights insights={portfolioInsights} loading={portfolioLoading} />
+      </section>
 
-    <InvestmentActionBar
-      on:importCsv={() => (csvModalOpen = true)}
-      on:ocr={() => (ocrModalOpen = true)}
-      on:export={() => (exportModalOpen = true)}
-      on:newRow={openNewRow}
-    />
-  </div>
+      <InvestmentActionBar
+        on:importCsv={() => (csvModalOpen = true)}
+        on:ocr={() => (ocrModalOpen = true)}
+        on:export={() => (exportModalOpen = true)}
+        on:newRow={openNewRow}
+      />
+    </div>
 
-  <div class="investments-layout">
-    <InvestmentCharts {investments} portfolioInsights={portfolioInsights} on:filterAsset={onChartFilter} />
+    <div class="investments-layout">
+      <InvestmentCharts {investments} portfolioInsights={portfolioInsights} on:filterAsset={onChartFilter} />
 
-    <InvestmentLedger
-      {investments}
-      assetFilter={chartAssetFilter}
-      on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
-      on:newRow={openNewRow}
-      on:refreshed={onDataRefreshed}
-    />
-  </div>
+      <InvestmentLedger
+        {investments}
+        assetFilter={chartAssetFilter}
+        on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
+        on:newRow={openNewRow}
+        on:refreshed={onDataRefreshed}
+      />
+    </div>
+  {/if}
 
   <BottomNav active="inversiones" />
 </div>

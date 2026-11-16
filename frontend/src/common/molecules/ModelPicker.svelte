@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import CustomSelect from '@common/molecules/CustomSelect.svelte';
+  import Skeleton from '@common/atoms/Skeleton.svelte';
   import type { SelectOption } from '@common/lib/types';
 
   export let label = 'Modelo';
@@ -69,7 +70,7 @@
 <div class="model-picker">
   <span class="model-picker__label">{label}</span>
   {#if loading}
-    <p class="model-picker__loading">Consultando catálogo…</p>
+    <Skeleton height={44} radius="12px" label="Consultando catálogo" />
   {:else}
     <CustomSelect
       options={options}
@@ -108,12 +109,6 @@
   .model-picker__label {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--text-muted);
-  }
-
-  .model-picker__loading {
-    margin: 0;
-    font-size: 0.85rem;
     color: var(--text-muted);
   }
 

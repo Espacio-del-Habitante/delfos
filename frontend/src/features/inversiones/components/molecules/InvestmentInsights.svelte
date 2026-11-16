@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Skeleton from '@common/atoms/Skeleton.svelte';
   import type { PortfolioInsights, QuoteConfidence } from '@common/lib/types';
   import { assetTypeLabel } from '@common/lib/investmentTypes';
 
@@ -76,7 +77,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">Valor total del portafolio</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
       <span class="investments-hero__stat-hint">Importa operaciones para ver tu cartera</span>
@@ -94,7 +95,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">Aportes netos</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
     {:else}
@@ -110,7 +111,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">Rentabilidad neta</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
     {:else}
@@ -124,7 +125,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">Rentabilidad vs aportes</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
     {:else}
@@ -141,7 +142,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">Realizada neta</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
     {:else}
@@ -155,7 +156,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">No realizada</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
     {:else}
@@ -169,7 +170,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">Dividendos cobrados</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
     {:else}
@@ -182,7 +183,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">Comisiones pagadas</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
     {:else}
@@ -195,7 +196,7 @@
   <div class="investments-hero__stat investments-hero__stat--highlight">
     <span class="investments-hero__stat-label">Efectivo disponible</span>
     {#if loading}
-      <span class="investments-hero__stat-value investments-hero__stat-value--loading">…</span>
+      <span class="investments-hero__stat-value"><Skeleton height={28} width="70%" /></span>
     {:else if empty}
       <span class="investments-hero__stat-value">—</span>
     {:else}
@@ -226,7 +227,17 @@
   </div>
 
   {#if loading}
-    <p class="investments-audit__empty">Cargando posiciones…</p>
+    <div class="investments-audit__skel" aria-busy="true" aria-label="Cargando posiciones">
+      {#each [1, 2, 3] as _}
+        <div class="investments-audit__skel-row">
+          <Skeleton height={12} width="14%" />
+          <Skeleton height={12} width="12%" />
+          <Skeleton height={12} width="16%" />
+          <Skeleton height={12} width="18%" />
+          <Skeleton height={12} width="20%" />
+        </div>
+      {/each}
+    </div>
   {:else if !positions.length}
     <p class="investments-audit__empty">No hay posiciones abiertas para mostrar.</p>
   {:else}
@@ -354,5 +365,17 @@
   .investments-audit__broker-row {
     margin: 0;
     font-size: 0.9rem;
+  }
+
+  .investments-audit__skel {
+    display: grid;
+    gap: 12px;
+    padding: 8px 0;
+  }
+
+  .investments-audit__skel-row {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
   }
 </style>

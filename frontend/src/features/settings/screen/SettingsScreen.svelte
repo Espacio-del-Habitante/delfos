@@ -7,6 +7,7 @@
   import ModelPicker from '@common/molecules/ModelPicker.svelte';
   import MoneyInput from '@common/molecules/MoneyInput.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
+  import SkeletonLayout from '@common/molecules/SkeletonLayout.svelte';
   import IconChevron from '@common/atoms/icons/IconChevron.svelte';
   import {
     createCategory,
@@ -466,7 +467,9 @@
       </header>
 
       {#if aiLoading && !aiLoaded}
-        <p class="muted" style="font-size:0.85rem;margin:0;">Cargando configuración…</p>
+        <SkeletonLayout variant="field" />
+        <SkeletonLayout variant="field" />
+        <SkeletonLayout variant="field" />
       {:else}
         <label class="ai-switch">
           <input
@@ -655,7 +658,9 @@
       </header>
 
       {#if quoteLoading && !quoteLoaded}
-        <p class="muted" style="font-size:0.85rem;margin:0;">Cargando configuración…</p>
+        <SkeletonLayout variant="field" />
+        <SkeletonLayout variant="field" />
+        <SkeletonLayout variant="field" />
       {:else}
         <div class="ai-field">
           <span class="ai-field__label">Twelve Data API key</span>

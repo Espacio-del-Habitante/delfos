@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
+  import Skeleton from '@common/atoms/Skeleton.svelte';
   import { fetchPortfolioInsights, getAiSettings, getOllamaHealth } from '@common/lib/api';
   import { formatMultiCurrency } from '@common/lib/formatters';
   import type { AiProviderId, AssistantKpis, PortfolioInsights, Summary } from '@common/lib/types';
@@ -349,7 +350,11 @@
             aria-hidden="true"
           />
           {#if insightsLoading && !portfolio && peekChips.length === 0}
-            <span class="island-signal__muted">Cargando…</span>
+            <div class="island-signal__chips" aria-busy="true" aria-label="Cargando">
+              <Skeleton height={22} width={72} radius="999px" tone="light" />
+              <Skeleton height={22} width={64} radius="999px" tone="light" />
+              <Skeleton height={22} width={80} radius="999px" tone="light" />
+            </div>
           {:else if peekChips.length}
             <div class="island-signal__chips">
               {#each peekChips as chip (chip.key)}
