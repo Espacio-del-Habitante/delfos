@@ -9,7 +9,12 @@
   let isElectron = false;
 
   onMount(() => {
-    isElectron = navigator.userAgent.includes('Electron');
+    // Cursor/IDE embeben Chromium con UA "Electron"; no son la app Delfos.
+    const ua = navigator.userAgent;
+    isElectron =
+      ua.includes('Electron') &&
+      !ua.includes('Cursor') &&
+      !ua.includes('VSCode');
   });
 
   function closeApp() {

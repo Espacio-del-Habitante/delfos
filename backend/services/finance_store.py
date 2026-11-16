@@ -2098,6 +2098,38 @@ def get_or_create_main_thread():
     return deepcopy(thread)
 
 
+def create_chat_thread(title: str | None = None):
+    """Nuevo hilo de chat. Memoria facts/summaries es global (compartida)."""
+    data = load_data()
+    threads = data.setdefault("chat_threads", [])
+    now = _now_iso()
+    clean_title = (title or "").strip()[:80] or "Nueva conversación"
+    thread = {
+        "id": _next_id("thread", threads),
+        "title": clean_title,
+        "kind": "chat",
+        "created_at": now,
+        "updated_at": now,
+    }
+    threads.append(thread)
+    save_data(data)
+    return deepcopy(thread)
+
+
+def rename_chat_thread(thread_id: str, title: str):
+    clean = (title or "").strip()[:80]
+    if not clean:
+        raise ValueError("Título vacío")
+    data = load_data()
+    thread = next((t for t in (data.get("chat_threads") or []) if t.get("id") == thread_id), None)
+    if not thread:
+        raise ValueError("Thread no encontrado")
+    thread["title"] = clean
+    thread["updated_at"] = _now_iso()
+    save_data(data)
+    return deepcopy(thread)
+
+
 def list_chat_messages(thread_id, limit=40, include_compacted=False):
     msgs = [
         m
@@ -2154,14 +2186,25 @@ def append_chat_message(thread_id, role, content, meta=None):
     }
     data["chat_messages"].append(msg)
     thread["updated_at"] = now
+    # Primer mensaje de usuario nombra el hilo si aún es genérico.
+    if (
+        role == "user"
+        and thread.get("kind") != "main"
+        and (thread.get("title") or "") in ("", "Nueva conversación")
+    ):
+        thread["title"] = content[:48].rstrip() + ("…" if len(content) > 48 else "")
     save_data(data)
     return deepcopy(msg)
 
 
-def list_memory_facts(limit=12):
-    facts = [f for f in (load_data().get("memory_facts") or []) if f.get("active", True)]
+def list_memory_facts(limit=12, include_inactive=False):
+    facts = list(load_data().get("memory_facts") or [])
+    if not include_inactive:
+        facts = [f for f in facts if f.get("active", True)]
     facts.sort(key=lambda f: f.get("created_at") or "", reverse=True)
-    return deepcopy(facts[:limit])
+    if limit and len(facts) > limit:
+        facts = facts[:limit]
+    return deepcopy(facts)
 
 
 def get_memory_summary():
@@ -2172,6 +2215,35 @@ def get_memory_summary():
     return deepcopy(rows[0].get("summary"))
 
 
+def get_memory_payload(limit=40):
+    """Panel de memoria: facts activos + summary global (compartido entre chats)."""
+    return {
+        "summary": get_memory_summary(),
+        "facts": list_memory_facts(limit=limit, include_inactive=False),
+    }
+
+
+def set_memory_fact_active(fact_id: str, active: bool) -> bool:
+    data = load_data()
+    for fact in data.get("memory_facts") or []:
+        if fact.get("id") == fact_id:
+            fact["active"] = bool(active)
+            save_data(data)
+            return True
+    return False
+
+
+def delete_memory_fact(fact_id: str) -> bool:
+    data = load_data()
+    facts = data.get("memory_facts") or []
+    keep = [f for f in facts if f.get("id") != fact_id]
+    if len(keep) == len(facts):
+        return False
+    data["memory_facts"] = keep
+    save_data(data)
+    return True
+
+
 def upsert_memory_facts(updates):
     """Aplica memory_updates del LLM: lista de {fact, category?}."""
     if not updates:
@@ -2179,16 +2251,27 @@ def upsert_memory_facts(updates):
     data = load_data()
     facts = data.setdefault("memory_facts", [])
     now = _now_iso()
+    # Dedup barato: no reinsertar el mismo texto activo (casefold).
+    existing = {
+        str(f.get("fact") or "").strip().casefold()
+        for f in facts
+        if f.get("active", True)
+    }
     for raw in updates:
         if not isinstance(raw, dict):
             continue
         text = (raw.get("fact") or raw.get("text") or "").strip()
         if not text:
             continue
+        clipped = text[:400]
+        key = clipped.casefold()
+        if key in existing:
+            continue
+        existing.add(key)
         facts.append(
             {
                 "id": _next_id("fact", facts),
-                "fact": text[:400],
+                "fact": clipped,
                 "category": (raw.get("category") or "general").strip() or "general",
                 "source": "chat",
                 "active": True,

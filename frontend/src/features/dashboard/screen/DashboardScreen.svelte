@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import HeaderIsland from '@common/molecules/HeaderIsland.svelte';
   import SummaryCards from '@features/dashboard/components/organisms/SummaryCards.svelte';
   import ProfilePeek from '@features/dashboard/components/organisms/ProfilePeek.svelte';
@@ -12,6 +12,7 @@
   import AiPreview from '@features/dashboard/components/organisms/AiPreview.svelte';
   import MovementsList from '@features/dashboard/components/organisms/MovementsList.svelte';
   import BottomNav from '@common/molecules/BottomNav.svelte';
+  import SkeletonLayout from '@common/molecules/SkeletonLayout.svelte';
   import EditModal from '@common/organisms/EditModal.svelte';
   import {
     deleteAccount,
@@ -38,6 +39,15 @@
 
   let draftText = '';
   let analysisPreview: AnalysisPreview | null = null;
+  let quickEntry: { analyze: (fromText?: string) => Promise<void> } | undefined;
+
+  async function onVoiceTranscript(event: CustomEvent<string>) {
+    const spoken = (event.detail || '').trim();
+    if (!spoken) return;
+    draftText = spoken;
+    await tick();
+    await quickEntry?.analyze(spoken);
+  }
 
   let editOpen = false;
   let editType: EditRecordType | null = null;
@@ -255,85 +265,86 @@
   />
 
   {#if $financeStatus === 'loading' && !$finance}
-    <p class="finance-loading" role="status">Cargando finanzas…</p>
+    <SkeletonLayout variant="dashboard" />
   {:else if $financeStatus === 'error' && !$finance}
     <p class="finance-loading finance-loading--error" role="alert">
       No se pudieron cargar los datos.
       <button type="button" class="linkish" on:click={() => refreshFinanceData()}>Reintentar</button>
     </p>
-  {/if}
+  {:else}
+    {#if $finance && $finance.financial_profile && !$finance.financial_profile.onboarding_completed}
+      <aside class="onboarding-banner" aria-label="Alta de perfil">
+        <div>
+          <strong>Configura tu perfil financiero</strong>
+          <p>Ingresos, metas y preferencias para que el asistente tenga contexto.</p>
+        </div>
+        <a class="onboarding-banner__cta" href="/perfil">Empezar</a>
+      </aside>
+    {:else if showPaydayBanner}
+      <aside class="onboarding-banner" aria-label="Recordatorio de ingreso">
+        <div>
+          <strong>¿Ya te pagaron?</strong>
+          <p>{paydayBannerCopy}</p>
+        </div>
+        <div class="onboarding-banner__actions">
+          <button
+            type="button"
+            class="onboarding-banner__ghost"
+            disabled={dismissingPayday}
+            on:click={dismissPaydayPrompt}
+          >
+            Ahora no
+          </button>
+          <button type="button" class="onboarding-banner__cta" on:click={openPaydayIncome}>
+            Registrar ingreso
+          </button>
+        </div>
+      </aside>
+    {/if}
 
-  {#if $finance && $finance.financial_profile && !$finance.financial_profile.onboarding_completed}
-    <aside class="onboarding-banner" aria-label="Alta de perfil">
-      <div>
-        <strong>Configura tu perfil financiero</strong>
-        <p>Ingresos, metas y preferencias para que el asistente tenga contexto.</p>
+    <div class="dashboard-grid">
+      <div class="dashboard-col-left" id="inicio">
+        <SummaryCards summary={$finance?.summary ?? null} />
+        <ProfilePeek
+          profile={$finance?.financial_profile}
+          goals={$finance?.goals ?? []}
+          kpis={$finance?.assistant_kpis}
+        />
+        <AccountsPanel
+          accounts={$finance?.accounts ?? []}
+          goals={$finance?.goals ?? []}
+          on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
+          on:delete={(e) => handleDelete(e.detail.type, e.detail.id)}
+          on:refresh={refreshFinanceData}
+        />
       </div>
-      <a class="onboarding-banner__cta" href="/perfil">Empezar</a>
-    </aside>
-  {:else if showPaydayBanner}
-    <aside class="onboarding-banner" aria-label="Recordatorio de ingreso">
-      <div>
-        <strong>¿Ya te pagaron?</strong>
-        <p>{paydayBannerCopy}</p>
-      </div>
-      <div class="onboarding-banner__actions">
-        <button
-          type="button"
-          class="onboarding-banner__ghost"
-          disabled={dismissingPayday}
-          on:click={dismissPaydayPrompt}
-        >
-          Ahora no
-        </button>
-        <button type="button" class="onboarding-banner__cta" on:click={openPaydayIncome}>
-          Registrar ingreso
-        </button>
-      </div>
-    </aside>
-  {/if}
 
-  <div class="dashboard-grid">
-    <div class="dashboard-col-left" id="inicio">
-      <SummaryCards summary={$finance?.summary ?? null} />
-      <ProfilePeek
-        profile={$finance?.financial_profile}
-        goals={$finance?.goals ?? []}
-        kpis={$finance?.assistant_kpis}
-      />
-      <AccountsPanel
-        accounts={$finance?.accounts ?? []}
-        goals={$finance?.goals ?? []}
-        on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
-        on:delete={(e) => handleDelete(e.detail.type, e.detail.id)}
-        on:refresh={refreshFinanceData}
-      />
+      <div class="dashboard-col-right" id="registrar">
+        <QuickEntry
+          bind:this={quickEntry}
+          bind:text={draftText}
+          on:analyzed={handleAnalyzed}
+          on:clearPreview={clearPreview}
+        />
+        <VoiceEntry bind:text={draftText} on:transcript={onVoiceTranscript} />
+        <ControlCenterPanel
+          on:openExpense={() => (expenseModalOpen = true)}
+          on:openIncome={() => {
+            incomePrefill = null;
+            incomeModalOpen = true;
+          }}
+          on:openImport={() => (importModalOpen = true)}
+        />
+      </div>
     </div>
 
-    <div class="dashboard-col-right" id="registrar">
-      <QuickEntry
-        bind:text={draftText}
-        on:analyzed={handleAnalyzed}
-        on:clearPreview={clearPreview}
-      />
-      <VoiceEntry bind:text={draftText} on:transcript={(e) => (draftText = e.detail)} />
-      <ControlCenterPanel
-        on:openExpense={() => (expenseModalOpen = true)}
-        on:openIncome={() => {
-          incomePrefill = null;
-          incomeModalOpen = true;
-        }}
-        on:openImport={() => (importModalOpen = true)}
-      />
-    </div>
-  </div>
-
-  <MovementsList
-    movements={$finance?.movements ?? []}
-    movementFilters={$finance?.movement_filters ?? []}
-    on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
-    on:delete={(e) => handleDelete(e.detail.type, e.detail.id)}
-  />
+    <MovementsList
+      movements={$finance?.movements ?? []}
+      movementFilters={$finance?.movement_filters ?? []}
+      on:edit={(e) => openEdit(e.detail.type, e.detail.id)}
+      on:delete={(e) => handleDelete(e.detail.type, e.detail.id)}
+    />
+  {/if}
 
   <BottomNav active="inicio" />
 </div>

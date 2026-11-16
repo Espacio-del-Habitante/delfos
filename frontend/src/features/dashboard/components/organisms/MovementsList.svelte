@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import SearchFilterBar from '@common/molecules/SearchFilterBar.svelte';
+  import SkeletonLayout from '@common/molecules/SkeletonLayout.svelte';
   import TablePagination from '@common/molecules/TablePagination.svelte';
   import { getMovements } from '@common/lib/api';
   import type { MovementFilterState } from '@common/lib/filters';
@@ -148,9 +149,7 @@
     </ul>
     <TablePagination bind:page pageSize={PAGE_SIZE} totalItems={total} />
   {:else if loading}
-    <div class="empty-state">
-      <p class="empty-state__title">Cargando movimientos…</p>
-    </div>
+    <SkeletonLayout variant="movements" />
   {:else if hasFilters}
     <div class="empty-state">
       <p class="empty-state__icon" aria-hidden="true">🔍</p>

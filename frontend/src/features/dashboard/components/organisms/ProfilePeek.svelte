@@ -125,6 +125,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    flex-wrap: wrap;
   }
 
   .peek__eyebrow {
@@ -296,6 +297,33 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  @media (max-width: 480px) {
+    .peek {
+      padding: 14px;
+      gap: 12px;
+    }
+
+    .peek-grid {
+      gap: 10px;
+    }
+
+    .peek-card {
+      padding: 12px;
+    }
+
+    .peek-card__value {
+      font-size: 1.1rem;
+    }
+
+    .peek-card__meta {
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
   }
 
   .peek-goals {

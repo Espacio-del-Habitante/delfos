@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import SkeletonLayout from '@common/molecules/SkeletonLayout.svelte';
   import { analyzeText, createNote } from '@common/lib/api';
   import { applyFinancePayload } from '@common/stores/finance';
   import { showToast } from '@common/lib/toast';
@@ -14,8 +15,9 @@
 
   let analyzing = false;
 
-  async function analyze() {
-    const trimmed = text.trim();
+  /** Optional override: voice dictation can analyze before bind:text flushes. */
+  export async function analyze(fromText?: string) {
+    const trimmed = String(fromText ?? text).trim();
     if (!trimmed) {
       showToast('Escribe algo para analizar');
       return;
@@ -92,4 +94,15 @@
     <button type="button" class="secondary-button" on:click={saveNote}>Guardar nota</button>
     <button type="button" class="ghost-button" on:click={clearText}>Limpiar</button>
   </div>
+  {#if analyzing}
+    <div class="quick-entry-card__skel" aria-live="polite">
+      <SkeletonLayout variant="card" />
+    </div>
+  {/if}
 </section>
+
+<style>
+  .quick-entry-card__skel {
+    margin-top: 14px;
+  }
+</style>

@@ -163,6 +163,29 @@ class OpenAICompatibleIntegration(AIIntegration):
             raise IntegrationError("El proveedor no devolvio texto de la transcripcion.")
         return json.dumps({"text": text}, ensure_ascii=False)
 
+    def list_models(self) -> list[str]:
+        if not self.api_key or not self.base_url:
+            return []
+        url = f"{self.base_url}/models"
+        req = urllib.request.Request(
+            url,
+            method="GET",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+            return []
+        data = body.get("data") if isinstance(body, dict) else None
+        if not isinstance(data, list):
+            return []
+        names = []
+        for row in data:
+            if isinstance(row, dict) and row.get("id"):
+                names.append(str(row["id"]))
+        return sorted(set(names))
+
     def health(self) -> dict:
         base = {
             "ok": False,

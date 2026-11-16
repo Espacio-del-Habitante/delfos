@@ -83,7 +83,7 @@ class ApiTestCase(unittest.TestCase):
                     "cloud_enabled": True,
                     "provider": "gemini",
                     "api_key": "SECRET_AI_KEY",
-                    "text_model": "gemini-2.0-flash",
+                    "text_model": "gemini-3.8-flash",
                 }
             )
             quote_settings.save_config(
@@ -145,7 +145,7 @@ class ApiTestCase(unittest.TestCase):
 
             stored_ai = json.loads(ai_path.read_text(encoding="utf-8"))
             self.assertEqual(stored_ai["api_key"], "SECRET_AI_KEY")
-            self.assertEqual(stored_ai["text_model"], "gemini-2.0-flash")
+            self.assertEqual(stored_ai["text_model"], "gemini-3.8-flash")
             stored_quote = json.loads(quote_path.read_text(encoding="utf-8"))
             self.assertEqual(stored_quote["twelve_data_api_key"], "SECRET_TD")
             self.assertEqual(stored_quote["broker_reference_total_usd"], 1234.5)
@@ -1135,12 +1135,12 @@ class AiSettingsTestCase(unittest.TestCase):
         # Guardar cambios sin enviar api_key no debe borrar la previa.
         res = self.client.post(
             "/api/settings/ai",
-            json={"cloud_enabled": True, "provider": "gemini", "text_model": "gemini-2.0-flash"},
+            json={"cloud_enabled": True, "provider": "gemini", "text_model": "gemini-3.8-flash"},
         )
         cfg = res.get_json()["config"]
         self.assertTrue(cfg["has_api_key"])
         self.assertEqual(cfg["masked_key"], "****9999")
-        self.assertEqual(cfg["text_model"], "gemini-2.0-flash")
+        self.assertEqual(cfg["text_model"], "gemini-3.8-flash")
         stored = json.loads(self.settings_path.read_text(encoding="utf-8"))
         self.assertEqual(stored["api_key"], "FIRSTKEY9999")
 
@@ -1253,6 +1253,19 @@ class AiSettingsTestCase(unittest.TestCase):
         self.assertFalse(result["ai_available"])
         self.assertIn("no vision", result["error"])
         self.assertEqual(result["hint"], "configura el modelo")
+
+    def test_ai_models_endpoint_returns_fallback_catalog(self):
+        res = self.client.post(
+            "/api/settings/ai/models",
+            json={"cloud_enabled": True, "provider": "gemini", "api_key": "fake-key"},
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.get_json()
+        self.assertEqual(body["provider"], "gemini")
+        self.assertIn(body["source"], ("provider", "fallback"))
+        self.assertTrue(body.get("allow_custom"))
+        self.assertIsInstance(body.get("models"), list)
+        self.assertGreaterEqual(len(body["models"]), 1)
 
 
 class OpenAICompatiblePayloadTestCase(unittest.TestCase):
@@ -1629,6 +1642,44 @@ class AssistantProfileTestCase(unittest.TestCase):
         roles = [m["role"] for m in hist["messages"]]
         self.assertIn("user", roles)
         self.assertIn("assistant", roles)
+
+    def test_assistant_multi_thread_and_shared_memory(self):
+        main = self.client.post("/api/assistant/threads").get_json()["thread"]
+        created = self.client.post(
+            "/api/assistant/threads",
+            json={"new": True, "title": "Plan quincena"},
+        )
+        self.assertEqual(created.status_code, 201)
+        other = created.get_json()["thread"]
+        self.assertNotEqual(main["id"], other["id"])
+        self.assertEqual(other["title"], "Plan quincena")
+        self.assertEqual(other["kind"], "chat")
+
+        listed = self.client.get("/api/assistant/threads").get_json()
+        ids = {t["id"] for t in listed["threads"]}
+        self.assertIn(main["id"], ids)
+        self.assertIn(other["id"], ids)
+
+        from services import finance_store as fs
+
+        fs.upsert_memory_facts([{"fact": "Prefiere ahorrar 20% del sueldo", "category": "preference"}])
+        mem = self.client.get("/api/assistant/memory").get_json()
+        self.assertGreaterEqual(len(mem["facts"]), 1)
+        fact_id = mem["facts"][0]["id"]
+
+        patched = self.client.patch(
+            f"/api/assistant/memory/{fact_id}",
+            json={"active": False},
+        )
+        self.assertEqual(patched.status_code, 200)
+        self.assertEqual(patched.get_json()["facts"], [])
+
+        fs.upsert_memory_facts([{"fact": "Meta viaje 2027", "category": "goal"}])
+        mem2 = self.client.get("/api/assistant/memory").get_json()
+        kill_id = mem2["facts"][0]["id"]
+        deleted = self.client.delete(f"/api/assistant/memory/{kill_id}")
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(deleted.get_json()["facts"], [])
 
     def test_chat_profile_suggestion_requires_confirm(self):
         self.client.patch(

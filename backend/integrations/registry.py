@@ -85,8 +85,8 @@ def available_providers() -> list[dict]:
             "label": "Google Gemini",
             "needs_api_key": True,
             "needs_base_url": False,
-            "suggested_text_model": "gemini-2.0-flash",
-            "suggested_vision_model": "gemini-2.0-flash",
+            "suggested_text_model": "gemini-3.5-flash-lite",
+            "suggested_vision_model": "gemini-3.5-flash-lite",
         },
         {
             "id": "compatible",
@@ -97,3 +97,69 @@ def available_providers() -> list[dict]:
             "suggested_vision_model": "google/gemma-4-31b-it:free",
         },
     ]
+
+
+# Fallback curado cuando el proveedor no lista modelos (sin key / API caída).
+_MODEL_FALLBACKS = {
+    "local": ["llama3.2", "llava", "llama3.1", "mistral"],
+    "gemini": [
+        "gemini-3.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+    ],
+    "compatible": [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "google/gemma-4-31b-it:free",
+        "openai/gpt-4o-mini",
+        "openai/gpt-4o",
+        "anthropic/claude-3.5-sonnet",
+    ],
+}
+
+
+def list_models_for_config(cfg: dict | None = None) -> dict:
+    """Lista modelos del proveedor efectivo; si falla, fallback curado + custom permitido."""
+    merged = settings.load_config()
+    for key, value in (cfg or {}).items():
+        if value is None:
+            continue
+        if isinstance(value, str) and value.strip() == "" and key == "api_key":
+            continue
+        if isinstance(value, str) and value.strip() == "" and key != "api_key":
+            # Permitir base_url vacío para local; para compatible no pisa.
+            if key in ("text_model", "vision_model", "base_url"):
+                merged[key] = value
+            continue
+        merged[key] = value
+
+    provider = settings.effective_provider(merged)
+    integration = _build(merged)
+    source = "fallback"
+    models: list[str] = []
+    error = None
+    try:
+        models = list(integration.list_models() or [])
+        if models:
+            source = "provider"
+    except Exception as exc:  # ponytail: la UI siempre debe poder elegir algo
+        error = str(exc)
+        models = []
+
+    if not models:
+        models = list(_MODEL_FALLBACKS.get(provider, []))
+        source = "fallback"
+
+    # Incluye el modelo ya elegido aunque no esté en el catálogo.
+    for key in ("text_model", "vision_model"):
+        current = (merged.get(key) or "").strip()
+        if current and current not in models:
+            models.insert(0, current)
+
+    return {
+        "provider": provider,
+        "source": source,
+        "models": models,
+        "allow_custom": True,
+        "error": error,
+    }
