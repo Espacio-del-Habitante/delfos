@@ -122,9 +122,11 @@ powershell -ExecutionPolicy Bypass -File .\build_exe.ps1
 
 Resultado: `backend\dist\Delfos.exe`. Datos en `%LOCALAPPDATA%\Delfos\data`.
 
-### Opción D — Electron (Linux/Mac PoC)
+### Opción D — Electron (hub del PC)
 
 Ver [`desktop/README.md`](desktop/README.md).
+
+Con **Compartir en red local** (Configuración → Hub, o `DELFOS_LAN_SYNC=1`), el celular instala la misma UI como PWA desde `http://<IP-LAN>:5000` y sincroniza a demanda. Detalle: [`docs/02_mobile_lan_sync.md`](docs/02_mobile_lan_sync.md).
 
 ---
 
@@ -156,6 +158,8 @@ Base: `/api`. Las mutaciones devuelven el `FinancePayload` completo.
 | `GET` | `/api/investments/portfolio` | Posiciones y P&L |
 | `GET·POST` | `/api/settings/ai` | Config IA |
 | `GET·PATCH` | `/api/assistant/*` | Perfil, metas, chat, context |
+| `GET` | `/api/hub` | Info hub LAN (IPs, política de sync) |
+| `GET·POST` | `/api/settings/hub` | Activar/desactivar compartir en LAN |
 
 Lista completa: [`docs/01_arquitectura.md`](docs/01_arquitectura.md).
 
@@ -187,6 +191,7 @@ uv run python -m unittest tests.test_api -v
 | [`docs/00_vision.md`](docs/00_vision.md) | Visión de producto, usuarios, reglas de negocio |
 | [`docs/01_arquitectura.md`](docs/01_arquitectura.md) | Capas, carpetas, flujos, patrón de IA |
 | [`docs/02_funcionalidades.md`](docs/02_funcionalidades.md) | Catálogo de features v1 |
+| [`docs/02_mobile_lan_sync.md`](docs/02_mobile_lan_sync.md) | PWA móvil ↔ hub Electron (sync LAN) |
 | [`AGENTS.md`](AGENTS.md) | Guía para agentes / colaboradores |
 
 ---

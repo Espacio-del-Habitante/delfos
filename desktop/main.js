@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, dialog, session, systemPreferences } = require
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const net = require("node:net");
+const os = require("node:os");
 const path = require("node:path");
 
 const MEDIA_PERMISSIONS = new Set(["media", "mediaKeySystem", "microphone", "camera"]);
@@ -10,10 +11,10 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const BACKEND_DIR = path.join(ROOT_DIR, "backend");
 const FRONTEND_DIST_INDEX = path.join(ROOT_DIR, "frontend", "dist", "index.html");
 
-const BACKEND_HOST = "127.0.0.1";
 const STARTUP_TIMEOUT_MS = Number(process.env.DELFOS_BACKEND_TIMEOUT_MS || 45000);
 const BACKEND_CMD = process.env.DELFOS_BACKEND_CMD || "uv run python app.py";
 const RENDERER_URL_OVERRIDE = process.env.DELFOS_RENDERER_URL || "";
+const HUB_PORT = Number(process.env.DELFOS_HUB_PORT || 5000);
 
 let backendProcess = null;
 let mainWindow = null;
@@ -24,11 +25,39 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function getFreePort() {
+
+function dataDir() {
+  return path.join(app.getPath("userData"), "data");
+}
+
+function readLanEnabled() {
+  const env = (process.env.DELFOS_LAN_SYNC || "").trim().toLowerCase();
+  if (["1", "true", "yes"].includes(env)) return true;
+  if (["0", "false", "no"].includes(env)) return false;
+  try {
+    const raw = fs.readFileSync(path.join(dataDir(), "hub_settings.json"), "utf8");
+    return Boolean(JSON.parse(raw).lan_enabled);
+  } catch {
+    return false;
+  }
+}
+
+function lanAddresses() {
+  const found = new Set();
+  const ifaces = os.networkInterfaces();
+  for (const entries of Object.values(ifaces)) {
+    for (const entry of entries || []) {
+      if (entry.family === "IPv4" && !entry.internal) found.add(entry.address);
+    }
+  }
+  return [...found].sort();
+}
+
+function getFreePort(host) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.on("error", reject);
-    server.listen(0, BACKEND_HOST, () => {
+    server.listen(0, host, () => {
       const address = server.address();
       if (!address || typeof address === "string") {
         server.close();
@@ -86,17 +115,18 @@ function ensureFrontendBuild() {
   }
 }
 
-function startBackend(port) {
-  const dataDir = path.join(app.getPath("userData"), "data");
-  fs.mkdirSync(dataDir, { recursive: true });
+function startBackend(bindHost, port, lanEnabled) {
+  const dir = dataDir();
+  fs.mkdirSync(dir, { recursive: true });
 
   const env = {
     ...process.env,
-    FLASK_HOST: BACKEND_HOST,
+    FLASK_HOST: bindHost,
     FLASK_PORT: String(port),
     FLASK_DEBUG: "false",
-    DELFOS_DATA_DIR: dataDir,
+    DELFOS_DATA_DIR: dir,
     DELFOS_OPEN_BROWSER: "false",
+    DELFOS_LAN_SYNC: lanEnabled ? "1" : "0",
   };
   const spawnOptions = {
     env,
@@ -280,13 +310,22 @@ async function bootstrap() {
   ensureFrontendBuild();
   setupMediaPermissions();
 
-  const backendPort = await getFreePort();
-  startBackend(backendPort);
+  const lanEnabled = readLanEnabled();
+  const bindHost = lanEnabled ? "0.0.0.0" : "127.0.0.1";
+  const backendPort = lanEnabled ? HUB_PORT : await getFreePort("127.0.0.1");
+  startBackend(bindHost, backendPort, lanEnabled);
 
-  const backendUrl = `http://${BACKEND_HOST}:${backendPort}`;
-  await waitForBackend(backendUrl, STARTUP_TIMEOUT_MS);
+  const localUrl = `http://127.0.0.1:${backendPort}`;
+  await waitForBackend(localUrl, STARTUP_TIMEOUT_MS);
 
-  const rendererUrl = RENDERER_URL_OVERRIDE || backendUrl;
+  if (lanEnabled) {
+    const urls = lanAddresses().map((ip) => `http://${ip}:${backendPort}`);
+    console.log("[hub] LAN activa. URL para la PWA del celular:");
+    for (const url of urls) console.log(`  ${url}`);
+    if (!urls.length) console.log("  (no se detectaron IPs LAN; revisa la Wi‑Fi)");
+  }
+
+  const rendererUrl = RENDERER_URL_OVERRIDE || localUrl;
   currentRendererUrl = rendererUrl;
   await createMainWindow(rendererUrl);
   maybeWarmupSttFromInstaller(backendUrl);

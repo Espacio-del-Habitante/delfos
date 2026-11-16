@@ -14,6 +14,7 @@ from services import (
     backup_service,
     bulk_import,
     finance_store,
+    hub_service,
     investment_ledger,
     local_whisper,
     portfolio_service,
@@ -24,9 +25,9 @@ from services import (
 )
 
 app = Flask(__name__)
-# Dev/tunnel: el Origin no es localhost:4321. En producción el front sale del
-# mismo :5000 (same-origin) y CORS casi no aplica.
-if config.FLASK_DEBUG:
+# Dev/tunnel: Origin no es localhost:4321. Con LAN el celular llega por IP.
+# En producción same-origin (:5000) CORS casi no aplica.
+if config.FLASK_DEBUG or config.LAN_SYNC:
     CORS(app)
 else:
     CORS(app, origins=["http://localhost:4321"])
@@ -818,8 +819,25 @@ def confirm_analysis_route():
     return finance_response({"saved": result["saved"], "created": result["created"]})
 
 
+@app.route("/api/hub")
+def api_hub():
+    return jsonify(hub_service.hub_payload())
+
+
+@app.route("/api/settings/hub", methods=["GET", "POST"])
+def api_settings_hub():
+    if request.method == "GET":
+        return jsonify(hub_service.hub_payload())
+
+    body = request.get_json(silent=True) or {}
+    if "lan_enabled" not in body:
+        return jsonify({"error": "lan_enabled requerido"}), 400
+    hub_service.save_settings(bool(body["lan_enabled"]))
+    return jsonify(hub_service.hub_payload())
+
+
 def _serve_packaged():
-    """Servidor de producción para el .exe: waitress + abrir el navegador."""
+    """Servidor empaquetado (PyInstaller / hijo de Electron): waitress."""
     import threading
     import webbrowser
 
@@ -829,8 +847,13 @@ def _serve_packaged():
     open_browser = os.getenv("DELFOS_OPEN_BROWSER", "true").lower() in ("1", "true", "yes")
     if open_browser:
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+    host = config.FLASK_HOST
     print(f"Delfos corriendo en {url} (cierra esta ventana para detenerlo)")
-    serve(app, host="127.0.0.1", port=config.FLASK_PORT)
+    if config.LAN_SYNC:
+        info = hub_service.hub_payload()
+        for lan_url in info.get("urls") or []:
+            print(f"  Hub LAN: {lan_url}")
+    serve(app, host=host, port=config.FLASK_PORT)
 
 
 if __name__ == "__main__":

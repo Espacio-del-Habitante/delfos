@@ -43,7 +43,6 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 OLLAMA_VISION_MODEL = os.getenv("OLLAMA_VISION_MODEL", "llava")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
-FLASK_HOST = os.getenv("FLASK_HOST", "127.0.0.1")
 FLASK_PORT = int(os.getenv("FLASK_PORT", "5000"))
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "true").lower() in ("1", "true", "yes")
 # Logs del chat (context → LLM → finance_query/lookup). Off por defecto.
@@ -52,3 +51,27 @@ ASSISTANT_DEBUG = os.getenv("DELFOS_ASSISTANT_DEBUG", "").lower() in (
     "true",
     "yes",
 )
+
+
+def _lan_sync_enabled() -> bool:
+    """LAN hub: env gana; si no, hub_settings.json (escrito desde Configuración)."""
+    env = os.getenv("DELFOS_LAN_SYNC", "").strip().lower()
+    if env in ("1", "true", "yes"):
+        return True
+    if env in ("0", "false", "no"):
+        return False
+    settings_path = DATA_DIR / "hub_settings.json"
+    if settings_path.is_file():
+        try:
+            import json
+
+            data = json.loads(settings_path.read_text(encoding="utf-8"))
+            return bool(data.get("lan_enabled"))
+        except (OSError, ValueError, TypeError):
+            return False
+    return False
+
+
+LAN_SYNC = _lan_sync_enabled()
+# Con LAN el hub debe ser alcanzable desde el celular.
+FLASK_HOST = os.getenv("FLASK_HOST") or ("0.0.0.0" if LAN_SYNC else "127.0.0.1")
