@@ -9,16 +9,18 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Linking,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { colors, radius, space, field, type, card } from '../theme';
 import { categoryMeta } from '../lib/categories';
 import { UNITS, convertQty } from '../lib/units';
 import { formatCop } from '../lib/format';
 import { fetchPriceQuotes, googlePriceUrl, type PriceQuote } from '../lib/priceSearch';
+import { pickProductPhoto } from '../lib/pickPhoto';
 import type { CartItem } from '../lib/store';
 import { VerticalWheel } from './VerticalWheel';
+import { InAppBrowser } from './InAppBrowser';
 
 type Props = {
   item: CartItem | null;
@@ -54,6 +56,9 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
   const [priceError, setPriceError] = useState<string | null>(null);
   const [googleUrl, setGoogleUrl] = useState('');
   const [extrasOpen, setExtrasOpen] = useState(false);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [browserQuery, setBrowserQuery] = useState('');
 
   useEffect(() => {
     if (!item) return;
@@ -63,10 +68,12 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
     setQtyText(String(q));
     setUnit(item.unit || 'und');
     setAmountDigits(item.amount != null ? String(Math.round(Number(item.amount))) : '');
+    setPhotoDataUrl(item.photoDataUrl || null);
     setPriceQuotes([]);
     setPriceError(null);
     setGoogleUrl(googlePriceUrl(item.name));
     setExtrasOpen(false);
+    setBrowserOpen(false);
   }, [item]);
 
   const qtyIndex = useMemo(() => nearestQtyIndex(qty), [qty]);
@@ -110,7 +117,15 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
       qty: Number(qty) || 1,
       unit,
       amount: amt && Number.isFinite(amt) ? amt : null,
+      photoDataUrl: photoDataUrl || null,
     });
+  }
+
+  function openInAppSearch(query = name.trim()) {
+    const q = query.trim() || 'producto mercado';
+    setGoogleUrl(googlePriceUrl(q));
+    setBrowserQuery(q);
+    setBrowserOpen(true);
   }
 
   async function loadPrices(query = name.trim()) {
@@ -124,11 +139,11 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
       setPriceQuotes(res.quotes);
       setGoogleUrl(res.googleUrl);
       if (!res.found) {
-        setPriceError('No encontré precios automáticos. Búscalo en Google y vuelve con el número.');
+        setPriceError('No encontré precios automáticos. Ábrelo en Google aquí mismo.');
       }
     } catch {
       setPriceQuotes([]);
-      setPriceError('No pude consultar precios ahora. Usa Google y pega el valor.');
+      setPriceError('No pude consultar precios ahora. Ábrelo en Google aquí mismo.');
       setGoogleUrl(googlePriceUrl(q));
     } finally {
       setPriceLoading(false);
@@ -140,9 +155,13 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
     setAmountDigits(String(Math.round(approx)));
   }
 
-  function openUrl(url: string) {
-    if (!url) return;
-    void Linking.openURL(url);
+  async function onPhotoAndSearch() {
+    const data = await pickProductPhoto();
+    if (data) setPhotoDataUrl(data);
+    setExtrasOpen(true);
+    const q = name.trim() || 'producto mercado Colombia';
+    openInAppSearch(q);
+    void loadPrices(q);
   }
 
   return (
@@ -160,7 +179,11 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
               <Text style={styles.eyebrow}>
                 {meta.emoji}  {meta.label}
               </Text>
-              <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
+              <Pressable
+                onPress={onClose}
+                hitSlop={12}
+                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
+              >
                 <Text style={styles.closeTxt}>×</Text>
               </Pressable>
             </View>
@@ -225,6 +248,20 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                 />
               </View>
 
+              <View style={styles.photoRow}>
+                <Pressable
+                  style={({ pressed }) => [styles.photoBtn, pressed && { opacity: 0.85 }]}
+                  onPress={() => void onPhotoAndSearch()}
+                >
+                  <Text style={styles.photoBtnTxt}>
+                    {photoDataUrl ? 'Cambiar foto y buscar' : 'Foto y buscar precios'}
+                  </Text>
+                </Pressable>
+                {photoDataUrl ? (
+                  <Image source={{ uri: photoDataUrl }} style={styles.photoThumb} />
+                ) : null}
+              </View>
+
               <Pressable
                 style={styles.extrasToggle}
                 onPress={() => {
@@ -282,31 +319,20 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                                 <Text style={styles.useBtnTxt}>Usar</Text>
                               </Pressable>
                             )}
-                            <Pressable onPress={() => openUrl(q.url)} hitSlop={6}>
+                            <Pressable onPress={() => openInAppSearch(`${name} ${q.label}`)} hitSlop={6}>
                               <Text style={styles.link}>{q.status === 'ok' ? 'Ver' : 'Google'}</Text>
                             </Pressable>
                           </View>
                         </View>
                       ))}
 
-                      {priceError ? (
-                        <>
-                          <Text style={styles.fallback}>{priceError}</Text>
-                          <Pressable
-                            style={styles.googleBtn}
-                            onPress={() => openUrl(googleUrl)}
-                          >
-                            <Text style={styles.googleBtnTxt}>Buscar en Google</Text>
-                          </Pressable>
-                        </>
-                      ) : priceQuotes.some((q) => q.status !== 'ok') ? (
-                        <Pressable
-                          style={styles.googleBtnSecondary}
-                          onPress={() => openUrl(googleUrl)}
-                        >
-                          <Text style={styles.googleBtnSecondaryTxt}>Completar en Google</Text>
-                        </Pressable>
-                      ) : null}
+                      {priceError ? <Text style={styles.fallback}>{priceError}</Text> : null}
+                      <Pressable
+                        style={styles.googleBtn}
+                        onPress={() => openInAppSearch(name.trim())}
+                      >
+                        <Text style={styles.googleBtnTxt}>Ver precios aquí</Text>
+                      </Pressable>
                     </>
                   )}
                 </View>
@@ -327,6 +353,18 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
           </View>
         </KeyboardAvoidingView>
       </View>
+
+      <InAppBrowser
+        visible={browserOpen}
+        query={browserQuery || name.trim() || 'producto'}
+        photoDataUrl={photoDataUrl}
+        title={name.trim() ? `Precios · ${name.trim()}` : 'Precios'}
+        onClose={() => setBrowserOpen(false)}
+        onUsePrice={(amount) => {
+          useApprox(amount);
+          setBrowserOpen(false);
+        }}
+      />
     </Modal>
   );
 }
@@ -379,14 +417,41 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.05)',
+    backgroundColor: 'transparent',
   },
   closeTxt: { fontSize: 22, color: colors.muted, lineHeight: 24 },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: space.md,
+  },
+  photoBtn: {
+    flex: 1,
+    ...field(),
+    backgroundColor: colors.surface,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+  },
+  photoBtnTxt: {
+    color: colors.text,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+  },
+  photoThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.bg,
+  },
   body: {
     paddingHorizontal: space.lg,
     paddingTop: space.sm,

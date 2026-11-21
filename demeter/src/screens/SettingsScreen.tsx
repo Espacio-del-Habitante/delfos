@@ -114,8 +114,14 @@ export function SettingsScreen({ onBack }: Props) {
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <StatusBar style="dark" />
       <View style={styles.topBar}>
-        <Pressable onPress={onBack} hitSlop={10} style={styles.backBtn}>
-          <Text style={styles.backTxt}>←</Text>
+        <Pressable
+          onPress={onBack}
+          hitSlop={10}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+          accessibilityLabel="Atrás"
+          accessibilityRole="button"
+        >
+          <Text style={styles.backTxt}>‹</Text>
         </Pressable>
         <Text style={styles.title}>Configuración</Text>
         <View style={{ width: 40 }} />
@@ -293,14 +299,12 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: 'transparent',
   },
-  backTxt: { fontSize: 20, color: colors.text },
+  backTxt: { fontSize: 28, lineHeight: 30, color: colors.text, marginTop: -2 },
   title: { ...type.title, fontSize: 18 },
   body: { paddingHorizontal: space.lg, paddingBottom: 48, gap: 10 },
   section: {

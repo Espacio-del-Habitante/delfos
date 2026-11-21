@@ -582,12 +582,10 @@ const styles = StyleSheet.create({
   settingsBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: 'transparent',
   },
   settingsTxt: { fontSize: 18, color: colors.text },
   logoMark: {

@@ -100,12 +100,13 @@ async function fetchViaJina(pageUrl: string) {
 }
 
 async function quoteForStore(store: StoreDef, query: string): Promise<PriceQuote> {
+  // DuckDuckGo HTML via Jina (Bing/Google suelen bloquear en entornos cloud).
   const pageUrl =
     store.id === 'd1'
-      ? `https://www.bing.com/search?q=${encodeURIComponent(`precio ${query} D1 supermercado Colombia`)}&setlang=es-co`
+      ? `http://html.duckduckgo.com/html/?q=${encodeURIComponent(`precio ${query} D1 supermercado Colombia`)}`
       : store.id === 'exito'
-        ? `https://www.bing.com/search?q=${encodeURIComponent(`precio ${query} éxito colombia`)}&setlang=es-co`
-        : store.searchUrl(query);
+        ? `http://html.duckduckgo.com/html/?q=${encodeURIComponent(`precio ${query} éxito colombia`)}`
+        : `http://html.duckduckgo.com/html/?q=${encodeURIComponent(`precio ${query} mercado libre colombia`)}`;
 
   try {
     if (store.id === 'ml') {
