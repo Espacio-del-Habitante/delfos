@@ -189,15 +189,6 @@ body {
   flex-shrink: 0;
 }
 
-.mercado-page-header__eyebrow {
-  margin: 0 0 2px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--primary);
-}
-
 .mercado-page-header__title {
   margin: 0;
   font-family: var(--font);
@@ -206,13 +197,6 @@ body {
   letter-spacing: -0.045em;
   line-height: 1.05;
   color: var(--text-strong);
-}
-
-.mercado-page-header__sub {
-  margin: 4px 0 0;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-muted);
 }
 
 .mercado-hero.hero-card {
