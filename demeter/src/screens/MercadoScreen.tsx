@@ -346,9 +346,7 @@ export function MercadoScreen() {
           {!!habits.length && (
             <View style={styles.chipsBlock}>
               <Text style={styles.chipsLabel}>
-                {habits.some((h) => h.source === 'last-month')
-                  ? 'Como el mes pasado — un toque'
-                  : 'Repetir — un toque'}
+                {habits.some((h) => h.source === 'last-month') ? 'Como el mes pasado' : 'Repetir'}
               </Text>
               <View style={styles.chipsRow}>
                 {habits.map((h) => {
@@ -356,16 +354,24 @@ export function MercadoScreen() {
                   return (
                     <Pressable
                       key={h.name}
-                      style={({ pressed }) => [styles.chip, pressed && { transform: [{ scale: 0.97 }] }]}
+                      style={({ pressed }) => [styles.habitCard, pressed && { transform: [{ scale: 0.985 }] }]}
                       onPress={() => void quickHabit(h)}
                     >
-                      <Text style={styles.chipTxt}>
-                        {meta.emoji}  {h.name}
-                      </Text>
-                      <Text style={styles.chipMeta}>
-                        {h.qty} {h.unit}
-                        {h.amount != null ? ` · ${formatCop(h.amount)}` : ''}
-                      </Text>
+                      <View style={styles.habitAccent} />
+                      <Text style={styles.habitEmoji}>{meta.emoji}</Text>
+                      <View style={styles.habitBody}>
+                        <Text style={styles.habitName} numberOfLines={1}>
+                          {h.name}
+                        </Text>
+                        <Text style={styles.habitMeta} numberOfLines={1}>
+                          {h.qty} {h.unit}
+                        </Text>
+                        {h.amount != null && (
+                          <Text style={styles.habitAmt} numberOfLines={1}>
+                            {formatCop(h.amount)}
+                          </Text>
+                        )}
+                      </View>
                     </Pressable>
                   );
                 })}
@@ -382,7 +388,7 @@ export function MercadoScreen() {
               <View style={[styles.card, styles.center, { padding: space.lg }]}>
                 <Text style={styles.emptyIcon}>🧺</Text>
                 <Text style={styles.emptyTitle}>Carrito vacío</Text>
-                <Text style={styles.emptyText}>Escribe o dicta abajo — se suma al toque.</Text>
+                <Text style={styles.emptyText}>Escribe o dicta abajo.</Text>
               </View>
             }
             renderItem={({ item }) => {
@@ -551,31 +557,59 @@ const styles = StyleSheet.create({
   },
   budgetFill: { height: '100%', backgroundColor: colors.soft },
   budgetOver: { backgroundColor: '#fecaca' },
-  chipsBlock: { paddingHorizontal: space.lg, marginBottom: space.sm },
+  chipsBlock: { paddingHorizontal: space.lg, marginBottom: space.md },
   chipsLabel: {
     fontSize: 12,
     color: colors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 8,
+    letterSpacing: 0.2,
+    marginBottom: 10,
     fontFamily: 'Inter_600SemiBold',
   },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    backgroundColor: 'rgba(240, 253, 244, 0.95)',
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  habitCard: {
+    ...card(),
+    borderColor: 'rgba(15, 23, 42, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(27, 122, 74, 0.18)',
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    maxWidth: 200,
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingRight: 14,
+    paddingLeft: 0,
+    overflow: 'hidden',
+    minWidth: '47%',
+    flexGrow: 1,
+    maxWidth: '100%',
   },
-  chipTxt: { color: colors.text, fontFamily: 'Inter_600SemiBold', fontWeight: '600' },
-  chipMeta: {
+  habitAccent: {
+    width: 5,
+    alignSelf: 'stretch',
+    backgroundColor: colors.primary,
+    marginRight: 2,
+  },
+  habitEmoji: { fontSize: 22, marginLeft: 10 },
+  habitBody: { flex: 1, minWidth: 0 },
+  habitName: {
+    color: colors.text,
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+  },
+  habitMeta: {
     color: colors.muted,
     fontSize: 12,
     marginTop: 2,
     fontFamily: 'Inter_400Regular',
+  },
+  habitAmt: {
+    color: colors.text,
+    fontSize: 13,
+    marginTop: 3,
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
   },
   list: { paddingHorizontal: space.lg, paddingBottom: 120, gap: 10 },
   card: {
