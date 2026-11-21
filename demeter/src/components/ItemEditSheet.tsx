@@ -9,10 +9,14 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
-import { colors, radius, space, field, type } from '../theme';
+import { colors, radius, space, field, type, card } from '../theme';
 import { categoryMeta } from '../lib/categories';
 import { UNITS, convertQty } from '../lib/units';
+import { formatCop } from '../lib/format';
+import { fetchPriceQuotes, googlePriceUrl, type PriceQuote } from '../lib/priceSearch';
 import type { CartItem } from '../lib/store';
 import { VerticalWheel } from './VerticalWheel';
 
@@ -45,6 +49,11 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
   const [qtyText, setQtyText] = useState('1');
   const [unit, setUnit] = useState('und');
   const [amountDigits, setAmountDigits] = useState('');
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [priceQuotes, setPriceQuotes] = useState<PriceQuote[]>([]);
+  const [priceError, setPriceError] = useState<string | null>(null);
+  const [googleUrl, setGoogleUrl] = useState('');
+  const [extrasOpen, setExtrasOpen] = useState(false);
 
   useEffect(() => {
     if (!item) return;
@@ -54,6 +63,10 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
     setQtyText(String(q));
     setUnit(item.unit || 'und');
     setAmountDigits(item.amount != null ? String(Math.round(Number(item.amount))) : '');
+    setPriceQuotes([]);
+    setPriceError(null);
+    setGoogleUrl(googlePriceUrl(item.name));
+    setExtrasOpen(false);
   }, [item]);
 
   const qtyIndex = useMemo(() => nearestQtyIndex(qty), [qty]);
@@ -98,6 +111,38 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
       unit,
       amount: amt && Number.isFinite(amt) ? amt : null,
     });
+  }
+
+  async function loadPrices(query = name.trim()) {
+    const q = query.trim();
+    if (!q) return;
+    setPriceLoading(true);
+    setPriceError(null);
+    setGoogleUrl(googlePriceUrl(q));
+    try {
+      const res = await fetchPriceQuotes(q);
+      setPriceQuotes(res.quotes);
+      setGoogleUrl(res.googleUrl);
+      if (!res.found) {
+        setPriceError('No encontré precios automáticos. Búscalo en Google y vuelve con el número.');
+      }
+    } catch {
+      setPriceQuotes([]);
+      setPriceError('No pude consultar precios ahora. Usa Google y pega el valor.');
+      setGoogleUrl(googlePriceUrl(q));
+    } finally {
+      setPriceLoading(false);
+    }
+  }
+
+  function useApprox(approx: number | null) {
+    if (approx == null) return;
+    setAmountDigits(String(Math.round(approx)));
+  }
+
+  function openUrl(url: string) {
+    if (!url) return;
+    void Linking.openURL(url);
   }
 
   return (
@@ -179,6 +224,93 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                   placeholderTextColor="rgba(17, 24, 39, 0.25)"
                 />
               </View>
+
+              <Pressable
+                style={styles.extrasToggle}
+                onPress={() => {
+                  const next = !extrasOpen;
+                  setExtrasOpen(next);
+                  if (next && !priceQuotes.length && !priceLoading) void loadPrices();
+                }}
+              >
+                <Text style={styles.extrasToggleTxt}>
+                  {extrasOpen ? '▾' : '▸'}  Comparar precios web
+                </Text>
+              </Pressable>
+
+              {extrasOpen && (
+                <View style={styles.priceSearch} accessibilityLabel="Comparar precios">
+                  <View style={styles.priceSearchHead}>
+                    <Text style={styles.priceSearchTitle}>¿Cuánto cuesta afuera?</Text>
+                    <Pressable
+                      onPress={() => void loadPrices()}
+                      disabled={priceLoading || !name.trim()}
+                      hitSlop={8}
+                    >
+                      <Text style={[styles.link, (!name.trim() || priceLoading) && { opacity: 0.4 }]}>
+                        Buscar
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {priceLoading ? (
+                    <View style={styles.priceLoading}>
+                      <ActivityIndicator color={colors.primary} />
+                      <Text style={styles.muted}>Buscando…</Text>
+                    </View>
+                  ) : (
+                    <>
+                      {priceQuotes.map((q) => (
+                        <View
+                          key={q.id}
+                          style={[styles.quoteRow, q.status !== 'ok' && styles.quoteMissing]}
+                        >
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.quoteLabel}>{q.label}</Text>
+                            {q.status === 'ok' && q.approx != null ? (
+                              <Text style={styles.quoteApprox}>aprox. {formatCop(q.approx)}</Text>
+                            ) : (
+                              <Text style={styles.muted}>Sin precio auto</Text>
+                            )}
+                          </View>
+                          <View style={styles.quoteActions}>
+                            {q.status === 'ok' && q.approx != null && (
+                              <Pressable
+                                style={styles.useBtn}
+                                onPress={() => useApprox(q.approx)}
+                              >
+                                <Text style={styles.useBtnTxt}>Usar</Text>
+                              </Pressable>
+                            )}
+                            <Pressable onPress={() => openUrl(q.url)} hitSlop={6}>
+                              <Text style={styles.link}>{q.status === 'ok' ? 'Ver' : 'Google'}</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+
+                      {priceError ? (
+                        <>
+                          <Text style={styles.fallback}>{priceError}</Text>
+                          <Pressable
+                            style={styles.googleBtn}
+                            onPress={() => openUrl(googleUrl)}
+                          >
+                            <Text style={styles.googleBtnTxt}>Buscar en Google</Text>
+                          </Pressable>
+                        </>
+                      ) : priceQuotes.some((q) => q.status !== 'ok') ? (
+                        <Pressable
+                          style={styles.googleBtnSecondary}
+                          onPress={() => openUrl(googleUrl)}
+                        >
+                          <Text style={styles.googleBtnSecondaryTxt}>Completar en Google</Text>
+                        </Pressable>
+                      ) : null}
+                    </>
+                  )}
+                </View>
+              )}
             </ScrollView>
 
             <View style={styles.footer}>
@@ -312,6 +444,72 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     padding: 0,
   },
+  extrasToggle: { marginTop: space.md, paddingVertical: 8 },
+  extrasToggleTxt: {
+    color: colors.text,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  priceSearch: {
+    ...card(),
+    padding: space.md,
+    marginTop: 4,
+    gap: 10,
+  },
+  priceSearchHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  priceSearchTitle: {
+    ...type.title,
+    fontSize: 15,
+  },
+  link: { color: colors.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  muted: { color: colors.muted, fontSize: 12, marginTop: 4, fontFamily: 'Inter_400Regular' },
+  priceLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  quoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  quoteMissing: { opacity: 0.85 },
+  quoteLabel: { fontWeight: '700', color: colors.text, fontFamily: 'Inter_700Bold' },
+  quoteApprox: {
+    marginTop: 2,
+    color: colors.primary,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  quoteActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  useBtn: {
+    backgroundColor: 'rgba(27,122,74,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  useBtnTxt: { color: colors.primary, fontWeight: '700', fontSize: 12, fontFamily: 'Inter_700Bold' },
+  fallback: { color: colors.muted, fontSize: 13, lineHeight: 18, fontFamily: 'Inter_400Regular' },
+  googleBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+  },
+  googleBtnTxt: { color: '#fff', fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  googleBtnSecondary: {
+    ...field(),
+    backgroundColor: colors.bg,
+    paddingVertical: 12,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+  },
+  googleBtnSecondaryTxt: { color: colors.text, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

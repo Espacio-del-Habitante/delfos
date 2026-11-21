@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uid, todayIso } from './format';
+import { DEFAULT_AI, type AiSettings } from './aiSettings';
 
 const KEY = 'demeter_mercado_v1';
 
@@ -33,15 +34,21 @@ type Product = {
   priceHistory: Array<{ date: string; unitPrice: number; qty: number; unit: string; amount: number | null; tripId: string | null }>;
 };
 
+export type AppSettings = {
+  budgetDefault: number;
+  currency: string;
+  ai: AiSettings;
+};
+
 type State = {
-  settings: { budgetDefault: number; currency: string };
+  settings: AppSettings;
   activeTripId: string | null;
   trips: Trip[];
   products: Record<string, Product>;
 };
 
 const DEFAULT: State = {
-  settings: { budgetDefault: 200000, currency: 'COP' },
+  settings: { budgetDefault: 200000, currency: 'COP', ai: { ...DEFAULT_AI } },
   activeTripId: null,
   trips: [],
   products: {},
@@ -84,7 +91,11 @@ export async function initStore() {
       cache = {
         ...structuredClone(DEFAULT),
         ...data,
-        settings: { ...DEFAULT.settings, ...(data.settings || {}) },
+        settings: {
+          ...DEFAULT.settings,
+          ...(data.settings || {}),
+          ai: { ...DEFAULT_AI, ...((data.settings && data.settings.ai) || {}) },
+        },
         products: data.products || {},
         trips: Array.isArray(data.trips) ? data.trips : [],
       };
@@ -99,6 +110,26 @@ export async function initStore() {
 
 export function getState() {
   return cache;
+}
+
+export function getAiSettings(): AiSettings {
+  return { ...DEFAULT_AI, ...(cache.settings.ai || {}) };
+}
+
+export async function updateSettings(patch: Partial<AppSettings>) {
+  cache.settings = {
+    ...cache.settings,
+    ...patch,
+    ai: patch.ai ? { ...cache.settings.ai, ...patch.ai } : cache.settings.ai,
+  };
+  await persist();
+  return cache.settings;
+}
+
+export async function updateAiSettings(patch: Partial<AiSettings>) {
+  cache.settings.ai = { ...getAiSettings(), ...patch };
+  await persist();
+  return cache.settings.ai;
 }
 
 export function getActiveTrip() {

@@ -72,7 +72,9 @@ const glyph = StyleSheet.create({
   stop: { width: 12, height: 12, borderRadius: 3 },
 });
 
-export function MercadoScreen() {
+type Props = { onOpenSettings?: () => void };
+
+export function MercadoScreen({ onOpenSettings }: Props) {
   const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
@@ -346,6 +348,17 @@ export function MercadoScreen() {
           <Text style={styles.logoGlyph}>🌿</Text>
         </View>
         <Text style={styles.brand}>Deméter</Text>
+        <View style={{ flex: 1 }} />
+        {onOpenSettings && (
+          <Pressable
+            onPress={onOpenSettings}
+            style={({ pressed }) => [styles.settingsBtn, pressed && { opacity: 0.85 }]}
+            accessibilityLabel="Configuración"
+            accessibilityRole="button"
+          >
+            <Text style={styles.settingsTxt}>⚙</Text>
+          </Pressable>
+        )}
       </View>
 
       {!trip ? (
@@ -566,6 +579,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     marginBottom: space.md,
   },
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  settingsTxt: { fontSize: 18, color: colors.text },
   logoMark: {
     width: 36,
     height: 36,
