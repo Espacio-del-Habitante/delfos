@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -11,7 +11,6 @@ import {
   Platform,
 } from 'react-native';
 import { colors, radius, space, field, chip, chipOn, type } from '../theme';
-import { formatCop } from '../lib/format';
 import { categoryMeta } from '../lib/categories';
 import { UNITS, convertQty } from '../lib/units';
 import type { CartItem } from '../lib/store';
@@ -24,36 +23,49 @@ type Props = {
   onRemove: (id: string) => void;
 };
 
+const QTY_PRESETS = [1, 2, 3, 4, 5, 6];
+
+function formatAmountInput(raw: string) {
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return '';
+  return Number(digits).toLocaleString('es-CO');
+}
+
 export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Props) {
   const [name, setName] = useState('');
-  const [qty, setQty] = useState('1');
+  const [qty, setQty] = useState(1);
   const [unit, setUnit] = useState('und');
-  const [amount, setAmount] = useState('');
+  const [amountDigits, setAmountDigits] = useState('');
 
   useEffect(() => {
     if (!item) return;
     setName(item.name);
-    setQty(String(item.qty));
+    setQty(Number(item.qty) || 1);
     setUnit(item.unit || 'und');
-    setAmount(item.amount != null ? String(item.amount) : '');
+    setAmountDigits(item.amount != null ? String(Math.round(Number(item.amount))) : '');
   }, [item]);
+
+  const qtyChips = useMemo(() => {
+    const base = QTY_PRESETS.slice();
+    const n = Math.round(qty * 100) / 100;
+    if (!base.includes(n) && Number.isFinite(n) && n > 0) {
+      return [...base, n].sort((a, b) => a - b);
+    }
+    return base;
+  }, [qty]);
 
   if (!item) return null;
   const meta = categoryMeta(item.category);
-
-  function bump(delta: number) {
-    const n = Math.max(0.05, Math.round((Number(qty) + delta) * 100) / 100);
-    setQty(String(n));
-  }
+  const amountDisplay = formatAmountInput(amountDigits);
 
   function pickUnit(next: string) {
-    const converted = convertQty(Number(qty) || 1, unit, next);
-    if (converted != null) setQty(String(converted));
+    const converted = convertQty(qty, unit, next);
+    if (converted != null) setQty(Math.round(converted * 100) / 100);
     setUnit(next);
   }
 
   function save() {
-    const amt = amount.trim() ? Number(String(amount).replace(/\D/g, '')) : null;
+    const amt = amountDigits ? Number(amountDigits) : null;
     onSave({
       name: name.trim() || item!.name,
       qty: Number(qty) || 1,
@@ -73,18 +85,11 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
           <View style={styles.sheet}>
             <View style={styles.grabber} />
 
-            <View style={styles.header}>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.eyebrow}>
-                  {meta.emoji}  {meta.label}
-                </Text>
-                <Text style={styles.title}>Editar</Text>
-              </View>
-              <Pressable
-                onPress={onClose}
-                hitSlop={12}
-                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
-              >
+            <View style={styles.topBar}>
+              <Text style={styles.eyebrow}>
+                {meta.emoji}  {meta.label}
+              </Text>
+              <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
                 <Text style={styles.closeTxt}>×</Text>
               </Pressable>
             </View>
@@ -94,81 +99,85 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.label}>Producto</Text>
-              <TextInput style={styles.input} value={name} onChangeText={setName} />
+              {/* 1. Nombre */}
+              <TextInput
+                style={styles.nameInput}
+                value={name}
+                onChangeText={setName}
+                placeholder="Producto"
+                placeholderTextColor={colors.muted}
+                autoCapitalize="sentences"
+              />
 
-              <Text style={styles.label}>Cantidad</Text>
-              <View style={styles.stepper}>
-                <Pressable
-                  style={({ pressed }) => [styles.stepBtn, pressed && { transform: [{ scale: 0.97 }] }]}
-                  onPress={() => bump(-1)}
-                >
-                  <Text style={styles.stepTxt}>−</Text>
-                </Pressable>
-                <TextInput
-                  style={[styles.input, styles.stepInput]}
-                  value={qty}
-                  onChangeText={setQty}
-                  keyboardType="decimal-pad"
-                />
-                <Pressable
-                  style={({ pressed }) => [styles.stepBtn, pressed && { transform: [{ scale: 0.97 }] }]}
-                  onPress={() => bump(1)}
-                >
-                  <Text style={styles.stepTxt}>+</Text>
-                </Pressable>
-              </View>
+              {/* 2. Qty */}
+              <Text style={styles.stepLabel}>Cantidad</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.qtyRow}
+              >
+                {qtyChips.map((n) => {
+                  const on = Math.abs(qty - n) < 0.001;
+                  return (
+                    <Pressable
+                      key={String(n)}
+                      style={[styles.qtyChip, on && styles.qtyChipOn]}
+                      onPress={() => setQty(n)}
+                    >
+                      <Text style={[styles.qtyChipTxt, on && styles.qtyChipTxtOn]}>{n}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
 
-              <Text style={styles.label}>Unidad</Text>
-              <View style={styles.units}>
+              {/* 3. Unidad */}
+              <Text style={styles.stepLabel}>Unidad</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.unitRow}
+              >
                 {UNITS.map((u) => {
                   const on = unit === u.id;
                   return (
                     <Pressable
                       key={u.id}
-                      style={[styles.unit, on && styles.unitOn]}
+                      style={[styles.unitChip, on && styles.unitChipOn]}
                       onPress={() => pickUnit(u.id)}
                     >
-                      <Text style={[styles.unitTxt, on && styles.unitTxtOn]}>{u.id}</Text>
+                      <Text style={[styles.unitChipTxt, on && styles.unitChipTxtOn]}>
+                        {u.id.toUpperCase()}
+                      </Text>
                     </Pressable>
                   );
                 })}
-              </View>
+              </ScrollView>
 
-              <Text style={styles.label}>Precio (COP)</Text>
-              <TextInput
-                style={styles.input}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="number-pad"
-                placeholder="Ej. 8000"
-                placeholderTextColor={colors.muted}
-              />
-              {!!amount && (
-                <Text style={styles.hint}>
-                  {formatCop(Number(String(amount).replace(/\D/g, '')))}
-                </Text>
-              )}
+              {/* 4. Precio — protagonista */}
+              <Text style={styles.stepLabel}>Precio</Text>
+              <View style={styles.priceBox}>
+                <Text style={styles.priceCurrency}>COP</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  value={amountDisplay}
+                  onChangeText={(t) => setAmountDigits(String(t).replace(/\D/g, ''))}
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  placeholderTextColor="rgba(17, 24, 39, 0.25)"
+                />
+              </View>
             </ScrollView>
 
             <View style={styles.footer}>
               <Pressable onPress={() => onRemove(item.id)} hitSlop={8}>
                 <Text style={styles.remove}>Quitar</Text>
               </Pressable>
-              <View style={styles.footerRight}>
-                <Pressable
-                  style={({ pressed }) => [styles.secondary, pressed && { transform: [{ scale: 0.97 }] }]}
-                  onPress={onClose}
-                >
-                  <Text style={styles.secondaryTxt}>Cancelar</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [styles.primary, pressed && { transform: [{ scale: 0.97 }] }]}
-                  onPress={save}
-                >
-                  <Text style={styles.primaryTxt}>Guardar</Text>
-                </Pressable>
-              </View>
+              <Pressable
+                style={({ pressed }) => [styles.primary, pressed && { transform: [{ scale: 0.97 }] }]}
+                onPress={save}
+              >
+                <Text style={styles.primaryTxt}>Listo</Text>
+              </Pressable>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -194,7 +203,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
-    maxHeight: '92%',
+    maxHeight: '88%',
     paddingBottom: space.md,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -8 },
@@ -209,14 +218,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(15, 23, 42, 0.16)',
     marginTop: 10,
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  header: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: space.lg,
-    paddingTop: space.sm,
-    gap: space.sm,
+    paddingTop: 4,
   },
   eyebrow: {
     color: colors.primary,
@@ -224,7 +233,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
   },
-  title: { ...type.title, fontSize: 22 },
   closeBtn: {
     width: 36,
     height: 36,
@@ -236,98 +244,112 @@ const styles = StyleSheet.create({
   closeTxt: { fontSize: 22, color: colors.muted, lineHeight: 24 },
   body: {
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
+    paddingTop: space.sm,
     paddingBottom: space.lg,
-    gap: 8,
   },
-  label: { ...type.label, marginTop: 10 },
-  input: {
-    ...field(),
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+  nameInput: {
+    fontSize: 32,
+    fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     color: colors.text,
-    fontFamily: 'Inter_400Regular',
-    width: '100%',
+    letterSpacing: -0.8,
+    paddingVertical: 8,
+    marginBottom: space.md,
   },
-  hint: { color: colors.muted, fontSize: 13, marginTop: 2 },
-  stepper: {
+  stepLabel: {
+    ...type.label,
+    marginBottom: 10,
+    marginTop: space.md,
+  },
+  qtyRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    width: '100%',
+    gap: 10,
+    paddingVertical: 2,
   },
-  stepBtn: {
-    width: 48,
-    height: 48,
-    flexShrink: 0,
+  qtyChip: {
+    width: 52,
+    height: 52,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(27, 122, 74, 0.1)',
+    backgroundColor: 'rgba(246, 247, 251, 0.95)',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  stepTxt: {
-    fontSize: 22,
-    color: colors.primaryDark,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
+  qtyChipOn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  stepInput: {
-    flex: 1,
-    minWidth: 0,
-    textAlign: 'center',
-    fontFamily: 'Inter_700Bold',
+  qtyChipTxt: {
+    fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    color: colors.text,
   },
-  units: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  unit: {
+  qtyChipTxtOn: { color: '#fff' },
+  unitRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  unitChip: {
     ...chip(),
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    minWidth: 48,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: 56,
     alignItems: 'center',
   },
-  unitOn: { ...chipOn() },
-  unitTxt: {
-    fontWeight: '600',
+  unitChipOn: { ...chipOn() },
+  unitChipTxt: {
+    fontWeight: '700',
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
     color: colors.text,
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 0.4,
   },
-  unitTxtOn: { color: '#fff' },
+  unitChipTxtOn: { color: '#fff' },
+  priceBox: {
+    ...field(),
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    minHeight: 88,
+    justifyContent: 'center',
+  },
+  priceCurrency: {
+    ...type.label,
+    marginBottom: 4,
+  },
+  priceInput: {
+    fontSize: 36,
+    fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
+    color: colors.text,
+    letterSpacing: -1,
+    padding: 0,
+  },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 10,
+    gap: 12,
   },
   remove: {
     color: colors.danger,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
-    paddingVertical: 12,
-  },
-  footerRight: { flexDirection: 'row', gap: 8, flex: 1, justifyContent: 'flex-end' },
-  secondary: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(27, 122, 74, 0.08)',
-  },
-  secondaryTxt: {
-    color: colors.primaryDark,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
   },
   primary: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
+    flex: 1,
+    paddingVertical: 14,
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
+    alignItems: 'center',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.28,
@@ -337,6 +359,7 @@ const styles = StyleSheet.create({
   primaryTxt: {
     color: '#fff',
     fontWeight: '700',
+    fontSize: 16,
     fontFamily: 'Inter_700Bold',
   },
 });
