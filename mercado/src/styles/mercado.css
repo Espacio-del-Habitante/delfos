@@ -269,22 +269,9 @@ body {
   font-size: 0.82rem;
 }
 
-.mercado-modal-overlay {
-  align-items: end;
-  place-items: end center;
-  padding: 0;
-}
-
-.mercado-item-modal {
-  width: min(520px, 100vw);
-  max-height: min(92vh, 860px);
-  margin: 0;
-  border-radius: 24px 24px 0 0;
-}
-
-.mercado-item-modal__header {
-  padding: 16px 16px 0;
-  gap: 10px;
+/* Content-only tweaks; sheet position/animation comes from Delfos .modal rules. */
+.mercado-item-modal.modal--narrow {
+  max-height: min(90vh, 720px);
 }
 
 .mercado-item-modal__heading {
@@ -296,36 +283,6 @@ body {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--primary);
-}
-
-.mercado-item-modal__body {
-  padding: 12px 16px 16px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.mercado-item-modal__footer {
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--border-soft);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.mercado-item-modal__footer .modal__actions-right {
-  display: flex;
-  gap: 8px;
-  flex: 1;
-  justify-content: flex-end;
-}
-
-.mercado-item-modal__footer .primary-button,
-.mercado-item-modal__footer .secondary-button {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 160px;
 }
 
 .mercado-item-modal__qtyblock {
@@ -464,18 +421,7 @@ body {
   justify-content: center;
 }
 
-@media (min-width: 640px) {
-  .mercado-modal-overlay {
-    align-items: center;
-    place-items: center;
-    padding: 24px;
-  }
-
-  .mercado-item-modal {
-    border-radius: var(--radius-md);
-    width: min(480px, 92vw);
-  }
-
+@media (min-width: 521px) {
   .mercado-item-modal__qtyblock {
     display: grid;
     grid-template-columns: 140px 1fr;

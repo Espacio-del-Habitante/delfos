@@ -43,6 +43,7 @@
   let category = 'otros';
   let fileInput: HTMLInputElement | undefined;
   let seededKey = '';
+  let sheetVisible = false;
 
   let priceLoading = false;
   let priceError = '';
@@ -84,7 +85,19 @@
 
   $: if (typeof document !== 'undefined') {
     if (open) document.body.classList.add('modal-open');
-    else document.body.classList.remove('modal-open');
+    else {
+      document.body.classList.remove('modal-open');
+      sheetVisible = false;
+    }
+  }
+
+  $: if (open) {
+    // Same trick as Delfos Modal: mount then flip visible for slide-up.
+    queueMicrotask(() => {
+      requestAnimationFrame(() => {
+        sheetVisible = true;
+      });
+    });
   }
 
   $: if (open && name.trim()) {
@@ -191,20 +204,25 @@
     mode === 'adjust' ? 'Ya está en el carrito' : mode === 'edit' ? 'Editar ítem' : 'Confirmar producto';
 </script>
 
+<svelte:window on:keydown={(e) => open && e.key === 'Escape' && close()} />
+
 {#if open && draft}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div
-    class="modal-overlay is-visible mercado-modal-overlay"
+    class="modal-overlay"
+    class:is-visible={sheetVisible}
     role="presentation"
     on:click|self={close}
-    on:keydown={(e) => e.key === 'Escape' && close()}
   >
     <div
-      class="modal is-visible mercado-item-modal"
+      class="modal modal--narrow mercado-item-modal"
+      class:is-visible={sheetVisible}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      <header class="modal__header mercado-item-modal__header">
+      <div class="modal__grabber" aria-hidden="true"></div>
+      <header class="modal__header">
         <div class="mercado-item-modal__heading">
           <p class="mercado-item-modal__eyebrow">
             <span class="emoji-char" aria-hidden="true">{meta.emoji}</span>
@@ -212,10 +230,10 @@
           </p>
           <h2 class="modal__title">{title}</h2>
         </div>
-        <button type="button" class="ghost-button" on:click={close} aria-label="Cerrar">Cerrar</button>
+        <button type="button" class="modal__close" aria-label="Cerrar" on:click={close}>&times;</button>
       </header>
 
-      <div class="modal__body mercado-stack mercado-item-modal__body">
+      <div class="modal__body mercado-stack">
         <label class="muted" for="item-name">Producto</label>
         <input id="item-name" class="mercado-text-input" bind:value={name} />
 
@@ -336,19 +354,21 @@
         </section>
       </div>
 
-      <footer class="modal__footer mercado-item-modal__footer">
-        {#if mode === 'edit' && draft.id}
-          <button type="button" class="ghost-button" style="color:var(--danger)" on:click={remove}>Quitar</button>
-        {:else}
-          <span></span>
-        {/if}
-        <div class="modal__actions-right">
-          <button type="button" class="secondary-button" on:click={close}>Cancelar</button>
-          <button type="button" class="primary-button" on:click={save}>
-            {mode === 'edit' || mode === 'adjust' ? 'Guardar' : 'Sumar'}
-          </button>
+      <div class="modal__footer">
+        <div class="modal__actions modal__actions--split">
+          {#if mode === 'edit' && draft.id}
+            <button type="button" class="ghost-button" style="color:var(--danger)" on:click={remove}>Quitar</button>
+          {:else}
+            <span></span>
+          {/if}
+          <div class="modal__actions-right">
+            <button type="button" class="secondary-button" on:click={close}>Cancelar</button>
+            <button type="button" class="primary-button" on:click={save}>
+              {mode === 'edit' || mode === 'adjust' ? 'Guardar' : 'Sumar'}
+            </button>
+          </div>
         </div>
-      </footer>
+      </div>
     </div>
   </div>
 {/if}
