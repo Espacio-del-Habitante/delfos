@@ -113,7 +113,18 @@ export function parseUtterance(input) {
   }
 
   const { amount, span } = extractMoney(text);
-  const { qty, unit, raw: qtyRaw } = extractQty(text);
+  let { qty, unit, raw: qtyRaw } = extractQty(text);
+  // "papa 8000" → precio, no cantidad 8000 und (solo si no hubo unidad explícita).
+  if (
+    amount != null &&
+    qtyRaw &&
+    unit === 'und' &&
+    !/\b(libras?|lb|kilos?|kg|gramos?|g|unidades?|und|paquetes?|latas?|bolsas?)\b/i.test(qtyRaw) &&
+    Number(String(qtyRaw).replace(/[^\d.,]/g, '').replace(',', '.')) === amount
+  ) {
+    qty = 1;
+    qtyRaw = null;
+  }
   const name = extractProduct(text, qtyRaw, span);
   const category = categorizeProduct(name);
 

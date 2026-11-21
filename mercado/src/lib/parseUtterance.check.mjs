@@ -39,4 +39,10 @@ assert.match(e.item.name, /papa/);
 assert.equal(e.item.amount, null);
 assert.ok(e.confidence >= 0.7);
 
+const f = parseUtterance('papa 8000');
+assert.equal(f.intent, 'add');
+assert.equal(f.item.qty, 1);
+assert.equal(f.item.amount, 8000);
+assert.match(f.item.name, /papa/);
+
 console.log('parseUtterance check ok');
