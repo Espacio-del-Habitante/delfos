@@ -29,6 +29,15 @@ for (const [rel, name] of files) {
   if (name === 'Toast.svelte') {
     text = text.replaceAll('@common/lib/toast', './toast');
   }
+  // Deméter: apaga el índigo/morado de Delfos en el CSS vendored.
+  if (name === 'global.css') {
+    text = text
+      .replaceAll('#4f46e5', '#1b7a4a')
+      .replaceAll('#4338ca', '#166534')
+      .replaceAll('#8b5cf6', '#3f9b68')
+      .replaceAll('rgba(79, 70, 229', 'rgba(27, 122, 74')
+      .replaceAll('rgba(139, 92, 246', 'rgba(63, 155, 104');
+  }
   fs.writeFileSync(path.join(out, name), text);
   console.log('vendored', name);
 }

@@ -312,26 +312,38 @@ body {
   background: rgba(27, 122, 74, 0.12);
 }
 
-.primary-button {
-  background: var(--primary);
+/* Fuerza verde aunque el CSS vendored traiga hex índigo (#4338ca / #4f46e5). */
+.primary-button,
+.primary-button.icon-button,
+.mercado-mic.primary-button {
+  color: #fff;
+  background: #1b7a4a;
   box-shadow: 0 12px 28px rgba(27, 122, 74, 0.28);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .primary-button:hover {
-    background: #166534;
-    box-shadow: 0 16px 32px rgba(27, 122, 74, 0.32);
-  }
+.primary-button:hover,
+.primary-button:focus-visible,
+.primary-button.icon-button:hover,
+.mercado-mic.primary-button:hover {
+  background: #166534;
+  box-shadow: 0 16px 32px rgba(27, 122, 74, 0.32);
 }
 
-.secondary-button {
+.secondary-button,
+.secondary-button.icon-button,
+.mercado-file__btn.secondary-button {
   color: #166534;
   background: rgba(27, 122, 74, 0.08);
   border: 1px solid rgba(27, 122, 74, 0.14);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .secondary-button:hover {
-    background: rgba(27, 122, 74, 0.14);
-  }
+.secondary-button:hover,
+.secondary-button:focus-visible,
+.mercado-file__btn.secondary-button:hover {
+  background: rgba(27, 122, 74, 0.14);
+}
+
+.hero-card {
+  background: #1b7a4a;
+  box-shadow: 0 24px 48px rgba(27, 122, 74, 0.24);
 }
