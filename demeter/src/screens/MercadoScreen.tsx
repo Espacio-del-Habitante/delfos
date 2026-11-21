@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -43,15 +44,21 @@ import {
 } from '../lib/speech';
 import { ItemEditSheet } from '../components/ItemEditSheet';
 
-/** Micrófono dibujado con Views — sin dependencia de iconos. */
-function MicGlyph({ color = '#fff' }: { color?: string }) {
+/** SVG en data-URI: viewBox cuadrado → centro geométrico fiable en el botón. */
+const MIC_URI =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><line x1="12" y1="17" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>',
+  );
+
+function MicGlyph() {
   return (
-    <View style={glyph.box} accessibilityElementsHidden>
-      <View style={[glyph.head, { backgroundColor: color }]} />
-      <View style={[glyph.yoke, { borderColor: color }]} />
-      <View style={[glyph.stem, { backgroundColor: color }]} />
-      <View style={[glyph.base, { backgroundColor: color }]} />
-    </View>
+    <Image
+      source={{ uri: MIC_URI }}
+      style={glyph.icon}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    />
   );
 }
 
@@ -60,20 +67,7 @@ function StopGlyph({ color = '#fff' }: { color?: string }) {
 }
 
 const glyph = StyleSheet.create({
-  box: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
-  head: { width: 8, height: 12, borderRadius: 4 },
-  yoke: {
-    position: 'absolute',
-    bottom: 3,
-    width: 14,
-    height: 8,
-    borderWidth: 2,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  stem: { position: 'absolute', bottom: 1, width: 2, height: 4, borderRadius: 1 },
-  base: { position: 'absolute', bottom: 0, width: 10, height: 2, borderRadius: 1 },
+  icon: { width: 22, height: 22 },
   stop: { width: 12, height: 12, borderRadius: 3 },
 });
 
