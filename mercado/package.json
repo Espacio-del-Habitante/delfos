@@ -1,0 +1,20 @@
+{
+  "name": "delfos-mercado",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5173",
+    "check": "node src/lib/parseUtterance.check.mjs && node src/lib/categories.check.mjs"
+  },
+  "dependencies": {
+    "svelte": "^5.56.3"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
+    "vite": "^7.1.12",
+    "vite-plugin-pwa": "^1.1.0"
+  }
+}
