@@ -100,14 +100,6 @@
     });
   }
 
-  $: if (open && name.trim()) {
-    const key = name.trim().toLowerCase();
-    if (key !== priceQueryKey) {
-      priceQueryKey = key;
-      void loadPrices(key);
-    }
-  }
-
   onDestroy(() => {
     if (typeof document !== 'undefined') document.body.classList.remove('modal-open');
   });
@@ -200,8 +192,14 @@
     priceQueryKey = '';
   }
 
-  $: title =
-    mode === 'adjust' ? 'Ya está en el carrito' : mode === 'edit' ? 'Editar ítem' : 'Confirmar producto';
+  $: title = mode === 'adjust' ? 'Ajustar' : 'Editar';
+
+  function onExtrasToggle(e: Event) {
+    const el = e.currentTarget as HTMLDetailsElement;
+    if (el.open && name.trim() && !priceQuotes.length && !priceLoading) {
+      void loadPrices(name.trim());
+    }
+  }
 </script>
 
 <svelte:window on:keydown={(e) => open && e.key === 'Escape' && close()} />
@@ -263,7 +261,7 @@
           </div>
         </div>
 
-        <label class="muted" for="item-amount">Precio en caja (COP)</label>
+        <label class="muted" for="item-amount">Precio (COP)</label>
         <input
           id="item-amount"
           class="mercado-text-input"
@@ -275,97 +273,100 @@
           <p class="muted" style="margin:0">{formatCop(Number(String(amountStr).replace(/\D/g, '')))}</p>
         {/if}
 
-        <div class="mercado-file">
-          <input
-            bind:this={fileInput}
-            class="sr-only"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            on:change={onPhoto}
-          />
-          <button type="button" class="secondary-button mercado-file__btn" on:click={() => fileInput?.click()}>
-            <IconCamera size={18} />
-            {photoDataUrl ? 'Cambiar foto del producto' : 'Foto del producto'}
-          </button>
-          {#if photoDataUrl}
-            <img class="mercado-item-modal__photo" src={photoDataUrl} alt="Producto" />
-            <button type="button" class="ghost-button mercado-file__clear" on:click={clearPhoto}>Quitar foto</button>
-          {:else if lastPhotos[0]}
-            <button type="button" class="ghost-button" on:click={() => (photoDataUrl = lastPhotos[0])}>
-              Usar foto anterior
-            </button>
-          {/if}
-        </div>
-
-        <section class="mercado-price-search" aria-label="Comparar precios">
-          <div class="mercado-price-search__head">
-            <p class="mercado-price-search__title">🔎 ¿Cuánto cuesta afuera?</p>
-            <button
-              type="button"
-              class="ghost-button"
-              style="padding:4px 8px;font-size:0.78rem"
-              on:click={() => loadPrices(name.trim())}
-              disabled={priceLoading || !name.trim()}
-            >
-              Actualizar
-            </button>
-          </div>
-
-          {#if priceLoading}
-            <p class="muted" style="margin:0">Buscando en Éxito, D1 y Mercado Libre…</p>
-          {:else}
-            <div class="mercado-price-search__quotes">
-              {#each priceQuotes as q}
-                <div class="mercado-price-quote" class:is-missing={q.status !== 'ok'}>
-                  <div>
-                    <strong>{q.label}</strong>
-                    {#if q.status === 'ok' && q.approx != null}
-                      <p class="mercado-price-quote__approx">aprox. {formatCop(q.approx)}</p>
-                    {:else}
-                      <p class="muted" style="margin:4px 0 0">No lo encontré automático</p>
-                    {/if}
-                  </div>
-                  <div class="mercado-price-quote__actions">
-                    {#if q.status === 'ok' && q.approx != null}
-                      <button type="button" class="secondary-button" on:click={() => useApprox(q.approx)}>
-                        Usar
-                      </button>
-                    {/if}
-                    <a class="ghost-button" href={q.url} target="_blank" rel="noopener noreferrer">
-                      {q.status === 'ok' ? 'Ver' : 'Google'}
-                    </a>
-                  </div>
-                </div>
-              {/each}
+        <details class="mercado-extras" on:toggle={onExtrasToggle}>
+          <summary class="mercado-extras__summary">Foto y precios web</summary>
+          <div class="mercado-stack" style="margin-top:12px">
+            <div class="mercado-file">
+              <input
+                bind:this={fileInput}
+                class="sr-only"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                on:change={onPhoto}
+              />
+              <button type="button" class="secondary-button mercado-file__btn" on:click={() => fileInput?.click()}>
+                <IconCamera size={18} />
+                {photoDataUrl ? 'Cambiar foto' : 'Foto'}
+              </button>
+              {#if photoDataUrl}
+                <img class="mercado-item-modal__photo" src={photoDataUrl} alt="Producto" />
+                <button type="button" class="ghost-button mercado-file__clear" on:click={clearPhoto}>Quitar foto</button>
+              {:else if lastPhotos[0]}
+                <button type="button" class="ghost-button" on:click={() => (photoDataUrl = lastPhotos[0])}>
+                  Usar foto anterior
+                </button>
+              {/if}
             </div>
 
-            {#if priceError}
-              <p class="mercado-price-search__fallback">{priceError}</p>
-              <a class="primary-button mercado-price-search__google" href={googleUrl} target="_blank" rel="noopener noreferrer">
-                Buscar en Google
-              </a>
-            {:else if priceQuotes.some((q) => q.status !== 'ok')}
-              <a class="secondary-button mercado-price-search__google" href={googleUrl} target="_blank" rel="noopener noreferrer">
-                Completar en Google
-              </a>
-            {/if}
-          {/if}
-        </section>
+            <section class="mercado-price-search" aria-label="Comparar precios">
+              <div class="mercado-price-search__head">
+                <p class="mercado-price-search__title">🔎 ¿Cuánto cuesta afuera?</p>
+                <button
+                  type="button"
+                  class="ghost-button"
+                  style="padding:4px 8px;font-size:0.78rem"
+                  on:click={() => loadPrices(name.trim())}
+                  disabled={priceLoading || !name.trim()}
+                >
+                  Buscar
+                </button>
+              </div>
+
+              {#if priceLoading}
+                <p class="muted" style="margin:0">Buscando…</p>
+              {:else}
+                <div class="mercado-price-search__quotes">
+                  {#each priceQuotes as q}
+                    <div class="mercado-price-quote" class:is-missing={q.status !== 'ok'}>
+                      <div>
+                        <strong>{q.label}</strong>
+                        {#if q.status === 'ok' && q.approx != null}
+                          <p class="mercado-price-quote__approx">aprox. {formatCop(q.approx)}</p>
+                        {:else}
+                          <p class="muted" style="margin:4px 0 0">Sin precio auto</p>
+                        {/if}
+                      </div>
+                      <div class="mercado-price-quote__actions">
+                        {#if q.status === 'ok' && q.approx != null}
+                          <button type="button" class="secondary-button" on:click={() => useApprox(q.approx)}>
+                            Usar
+                          </button>
+                        {/if}
+                        <a class="ghost-button" href={q.url} target="_blank" rel="noopener noreferrer">
+                          {q.status === 'ok' ? 'Ver' : 'Google'}
+                        </a>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+
+                {#if priceError}
+                  <p class="mercado-price-search__fallback">{priceError}</p>
+                  <a class="primary-button mercado-price-search__google" href={googleUrl} target="_blank" rel="noopener noreferrer">
+                    Buscar en Google
+                  </a>
+                {:else if priceQuotes.some((q) => q.status !== 'ok')}
+                  <a class="secondary-button mercado-price-search__google" href={googleUrl} target="_blank" rel="noopener noreferrer">
+                    Completar en Google
+                  </a>
+                {/if}
+              {/if}
+            </section>
+          </div>
+        </details>
       </div>
 
       <div class="modal__footer">
         <div class="modal__actions modal__actions--split">
-          {#if mode === 'edit' && draft.id}
+          {#if draft.id}
             <button type="button" class="ghost-button" style="color:var(--danger)" on:click={remove}>Quitar</button>
           {:else}
             <span></span>
           {/if}
           <div class="modal__actions-right">
             <button type="button" class="secondary-button" on:click={close}>Cancelar</button>
-            <button type="button" class="primary-button" on:click={save}>
-              {mode === 'edit' || mode === 'adjust' ? 'Guardar' : 'Sumar'}
-            </button>
+            <button type="button" class="primary-button" on:click={save}>Guardar</button>
           </div>
         </div>
       </div>

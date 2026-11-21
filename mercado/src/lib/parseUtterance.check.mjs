@@ -52,4 +52,10 @@ assert.equal(g.item.unit, 'lb');
 assert.equal(g.item.amount, null);
 assert.match(g.item.name, /papa/);
 
+const h = parseUtterance('banano 3 mil');
+assert.equal(h.intent, 'add');
+assert.equal(h.item.qty, 1);
+assert.equal(h.item.amount, 3000);
+assert.match(h.item.name, /banano/);
+
 console.log('parseUtterance check ok');

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { parseUtterance, findItemMatches } from '../../../../lib/parseUtterance.js';
-  import { speechSupported, listenOnce } from '../../../../lib/speech.js';
+  import { speechSupported, speechSupportReason, listenOnce } from '../../../../lib/speech.js';
   import { formatCop, formatQty } from '../../../../lib/format.js';
   import { categoryMeta } from '../../../../lib/categories.js';
   import {
@@ -40,8 +40,9 @@
   let draftInput: HTMLInputElement | undefined;
 
   let modalOpen = false;
-  let modalMode: 'confirm' | 'adjust' | 'edit' = 'confirm';
+  let modalMode: 'confirm' | 'adjust' | 'edit' = 'edit';
   let modalDraft: any = null;
+  let stopListening: (() => void) | null = null;
 
   $: total = tripTotal(trip);
   $: budget = Number(trip?.budget) || 0;
@@ -99,35 +100,39 @@
     modalDraft = null;
   }
 
-  function openConfirmFromParsed(parsed: any) {
-    const existing = findCartItemByName(parsed.item.name);
-    if (existing) {
-      openModal('adjust', {
-        id: existing.id,
-        name: existing.name,
-        qty: parsed.item.qty ?? existing.qty,
-        unit: parsed.item.unit || existing.unit,
-        amount: parsed.item.amount ?? existing.amount,
-        category: existing.category || parsed.item.category,
-        photoDataUrl: existing.photoDataUrl || null,
-      });
-      return;
-    }
-
-    const item = { ...parsed.item };
+  /** Suma al carrito sin modal. Toca el ítem si quieres editar. */
+  function commitAdd(parsedItem: any) {
+    const item = { ...parsedItem };
     const prev = lastPriceFor(item.name);
     if (item.amount == null && prev) {
       item.amount = prev.amountFor(Number(item.qty) || 1);
       if (!item.unit || item.unit === 'und') item.unit = prev.unit;
     }
-    openModal('confirm', {
-      name: item.name,
-      qty: item.qty || 1,
-      unit: item.unit || 'und',
-      amount: item.amount ?? null,
-      category: item.category || 'otros',
-      photoDataUrl: prev?.photo || null,
-    });
+    const qty = Number(item.qty) || 1;
+    const unit = item.unit || 'und';
+    const existing = findCartItemByName(item.name);
+    if (existing) {
+      const sameUnit = (existing.unit || 'und') === unit;
+      const nextQty = sameUnit ? Number(existing.qty) + qty : qty;
+      updateItem(existing.id, {
+        qty: nextQty,
+        unit: sameUnit ? existing.unit : unit,
+        amount: item.amount ?? existing.amount,
+        category: existing.category || item.category,
+      });
+      toast(`+ ${existing.name}`, 'success');
+    } else {
+      addItem({
+        name: item.name,
+        qty,
+        unit,
+        amount: item.amount ?? null,
+        category: item.category || 'otros',
+        photoDataUrl: prev?.photo || null,
+      });
+      toast(`Sumé ${item.name}`, 'success');
+    }
+    changed();
   }
 
   async function applyText(text: string) {
@@ -153,26 +158,34 @@
     }
 
     if (parsed.intent === 'add') {
-      openConfirmFromParsed(parsed);
+      commitAdd(parsed.item);
       return;
     }
 
     const matches = findItemMatches(trip.items, parsed.item.name);
     if (!matches.length) {
+      if (parsed.intent === 'update') {
+        commitAdd(parsed.item);
+        return;
+      }
       toast('No está en el carrito', 'error');
       return;
     }
     if (matches.length === 1) {
       const m = matches[0];
-      openModal('adjust', {
-        id: m.id,
-        name: m.name,
+      if (parsed.intent === 'remove') {
+        removeItem(m.id);
+        changed();
+        toast('Quitado', 'success');
+        return;
+      }
+      updateItem(m.id, {
         qty: parsed.item.qty ?? m.qty,
         unit: parsed.item.unit || m.unit,
         amount: parsed.item.amount ?? m.amount,
-        category: m.category,
-        photoDataUrl: m.photoDataUrl || null,
       });
+      changed();
+      toast(`Actualicé ${m.name}`, 'success');
       return;
     }
     pending = { kind: parsed.intent, matches, parsed };
@@ -187,20 +200,38 @@
   }
 
   async function dictate() {
+    if (listening && stopListening) {
+      stopListening();
+      return;
+    }
+    const reason = speechSupportReason();
+    if (reason === 'needs-https') {
+      toast('Dictado necesita HTTPS — abre el túnel en el teléfono', 'error');
+      return;
+    }
     if (!speechSupported()) {
       toast('Dictado no disponible aquí — escribe', 'error');
       return;
     }
     listening = true;
+    toast('Escuchando…', 'info');
+    const session = listenOnce({
+      onPartial: (t) => {
+        draft = t;
+      },
+    });
+    stopListening = () => session.stop();
     try {
-      const text = await listenOnce();
+      const text = await session.promise;
       draft = text;
       await applyText(text);
       draft = '';
     } catch (e: any) {
-      toast(e?.message || 'Error de micrófono', 'error');
+      const msg = e?.message || 'Error de micrófono';
+      if (!/cancelad/i.test(msg)) toast(msg, 'error');
     } finally {
       listening = false;
+      stopListening = null;
       queueMicrotask(() => draftInput?.focus());
     }
   }
@@ -209,15 +240,19 @@
     if (!pending) return;
     const m = pending.matches.find((x) => x.id === itemId);
     if (!m) return;
-    openModal(pending.kind === 'remove' ? 'edit' : 'adjust', {
-      id: m.id,
-      name: m.name,
-      qty: pending.parsed.item.qty ?? m.qty,
-      unit: pending.parsed.item.unit || m.unit,
-      amount: pending.parsed.item.amount ?? m.amount,
-      category: m.category,
-      photoDataUrl: m.photoDataUrl || null,
-    });
+    if (pending.kind === 'remove') {
+      removeItem(m.id);
+      changed();
+      toast('Quitado', 'success');
+    } else {
+      updateItem(m.id, {
+        qty: pending.parsed.item.qty ?? m.qty,
+        unit: pending.parsed.item.unit || m.unit,
+        amount: pending.parsed.item.amount ?? m.amount,
+      });
+      changed();
+      toast(`Actualicé ${m.name}`, 'success');
+    }
     pending = null;
   }
 
@@ -227,26 +262,12 @@
     const unit = last?.unit || 'und';
     const amount =
       last?.unitPrice != null ? Math.round(Number(last.unitPrice) * qty) : last?.amount ?? null;
-    const existing = findCartItemByName(product.name);
-    if (existing) {
-      openModal('adjust', {
-        id: existing.id,
-        name: existing.name,
-        qty,
-        unit,
-        amount: amount ?? existing.amount,
-        category: existing.category || product.category,
-        photoDataUrl: existing.photoDataUrl || product.photos?.[0] || null,
-      });
-      return;
-    }
-    openModal('confirm', {
+    commitAdd({
       name: product.name,
       qty,
       unit,
       amount,
       category: product.category || 'otros',
-      photoDataUrl: product.photos?.[0] || null,
     });
   }
 
@@ -448,7 +469,7 @@
         <div class="empty-state" style="padding:8px 0">
           <div class="empty-state__icon" aria-hidden="true">🧺</div>
           <p class="empty-state__title">Carrito vacío</p>
-          <p class="empty-state__text">Dicta o escribe abajo. Ej: “papa 8 mil”.</p>
+          <p class="empty-state__text">Escribe o dicta abajo — se suma al toque. Ej: “papa 8 mil”.</p>
         </div>
       {:else}
         {#each [...trip.items].reverse() as item}
@@ -469,7 +490,7 @@
               <p class="mercado-item__amt amount" class:is-missing={item.amount == null}>
                 {item.amount == null ? 'sin precio' : formatCop(item.amount)}
               </p>
-              <span class="mercado-item__hint muted">Editar</span>
+              <span class="mercado-item__hint muted">tocar</span>
             </div>
           </button>
         {/each}
@@ -544,22 +565,26 @@
         bind:this={draftInput}
         class="mercado-text-input mercado-composer__input"
         bind:value={draft}
-        placeholder="papa 8 mil · Enter"
+        placeholder={listening ? 'Escuchando…' : 'papa 8 mil · Enter'}
         enterkeyhint="done"
         autocomplete="off"
         autocorrect="on"
-        on:keydown={(e) => e.key === 'Enter' && submitDraft()}
+        on:keydown={(e) => e.key === 'Enter' && !listening && submitDraft()}
       />
       <button
         type="button"
         class="primary-button mercado-mic"
         class:is-listening={listening}
-        aria-label={listening ? 'Escuchando' : 'Dictar'}
+        aria-label={listening ? 'Detener dictado' : 'Dictar'}
+        title={listening ? 'Toca para detener' : 'Dictar'}
         on:click={dictate}
       >
         <IconMic size={20} />
       </button>
     </div>
+    {#if listening}
+      <p class="mercado-composer__hint">Escuchando — toca el mic para cortar</p>
+    {/if}
   </div>
 {/if}
 

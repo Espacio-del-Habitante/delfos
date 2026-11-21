@@ -11,7 +11,7 @@
     "dev": "npm run vendor:delfos && astro dev --host 127.0.0.1 --port 5173",
     "build": "npm run vendor:delfos && astro build",
     "preview": "astro preview --host 127.0.0.1 --port 5173",
-    "check": "node src/lib/parseUtterance.check.mjs && node src/lib/categories.check.mjs"
+    "check": "node src/lib/parseUtterance.check.mjs && node src/lib/categories.check.mjs && node src/lib/speech.check.mjs"
   },
   "dependencies": {
     "@astrojs/svelte": "^8.1.2",

@@ -132,16 +132,13 @@ export function parseUtterance(input) {
   let qtyInfo = extractQty(text);
   let { amount, span } = extractMoney(text, qtyInfo);
   let { qty, unit, raw: qtyRaw, hasUnit } = qtyInfo;
-  // "papa 8000" → precio, no cantidad 8000 und (solo si no hubo unidad explícita).
-  if (
-    amount != null &&
-    qtyRaw &&
-    !hasUnit &&
-    unit === 'und' &&
-    Number(String(qtyRaw).replace(/[^\d.,]/g, '').replace(',', '.')) === amount
-  ) {
-    qty = 1;
-    qtyRaw = null;
+  // "papa 8000" / "banano 3 mil" → precio, no cantidad (solo sin unidad explícita).
+  if (amount != null && qtyRaw && !hasUnit && unit === 'und') {
+    const qtyNum = Number(String(qtyRaw).replace(/[^\d.,]/g, '').replace(',', '.'));
+    if (qtyNum === amount || amount === qtyNum * 1000) {
+      qty = 1;
+      qtyRaw = null;
+    }
   }
   const name = extractProduct(text, qtyRaw, span);
   const category = categorizeProduct(name);
