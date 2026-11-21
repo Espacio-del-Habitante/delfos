@@ -34,6 +34,153 @@ body {
   display: flex;
 }
 
+.app-shell {
+  padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+}
+
+.mercado-hero-compact {
+  padding: 18px 20px !important;
+}
+
+.mercado-hero-compact__row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mercado-hero-compact__right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.mercado-hero-compact .hero-card__amount {
+  font-size: 1.65rem;
+}
+
+.mercado-chips__label {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mercado-chips__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mercado-chip {
+  border: 1px solid rgba(27, 122, 74, 0.18);
+  background: rgba(240, 253, 244, 0.95);
+  color: var(--text-strong);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.mercado-chip:active {
+  transform: scale(0.97);
+}
+
+.mercado-item__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.mercado-item__amt-btn {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text-strong);
+  text-align: right;
+  cursor: pointer;
+}
+
+.mercado-item__amt-btn.is-missing {
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mercado-item__rm {
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  color: var(--danger);
+}
+
+.mercado-inline-edit {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mercado-inline-edit .mercado-text-input {
+  width: 110px;
+  padding: 8px 10px;
+}
+
+.mercado-inline-edit__ok {
+  flex: 0 !important;
+  min-width: 0 !important;
+  padding: 8px 12px;
+}
+
+.mercado-pay__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text-strong);
+  cursor: pointer;
+  text-align: left;
+}
+
+.mercado-composer {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 16px 36px rgba(18, 36, 26, 0.14);
+  backdrop-filter: blur(12px);
+}
+
+.mercado-composer__row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.mercado-composer__input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
 .mercado-page-header {
   display: flex;
   align-items: center;

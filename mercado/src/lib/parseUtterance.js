@@ -135,8 +135,11 @@ export function parseUtterance(input) {
     };
   }
 
-  // add
-  const confidence = amount != null && name !== 'producto' ? 0.9 : amount != null ? 0.6 : 0.35;
+  // add — el precio puede llegar después; el nombre basta para sumar.
+  let confidence = 0.35;
+  if (name !== 'producto' && amount != null) confidence = 0.9;
+  else if (name !== 'producto') confidence = 0.78;
+  else if (amount != null) confidence = 0.55;
   return {
     intent: 'add',
     item: { name, qty, unit, amount: amount ?? null, category },

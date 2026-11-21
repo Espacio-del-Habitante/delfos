@@ -33,4 +33,10 @@ const matches = findItemMatches(
 );
 assert.equal(matches[0].id, '1');
 
+const e = parseUtterance('papa');
+assert.equal(e.intent, 'add');
+assert.match(e.item.name, /papa/);
+assert.equal(e.item.amount, null);
+assert.ok(e.confidence >= 0.7);
+
 console.log('parseUtterance check ok');

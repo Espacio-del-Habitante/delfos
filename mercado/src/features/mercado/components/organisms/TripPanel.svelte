@@ -13,6 +13,7 @@
     closeTrip,
     startTrip,
     getState,
+    getProducts,
     markSynced,
   } from '../../../../lib/store.js';
   import { syncTripToDelfos } from '../../../../lib/syncDelfos.js';
@@ -33,11 +34,27 @@
   let receiptPreview = '';
   let receiptFileName = '';
   let fileInput: HTMLInputElement | undefined;
+  let payOpen = false;
+  let editingId: string | null = null;
+  let editAmount = '';
+  let draftInput: HTMLInputElement | undefined;
 
   $: total = tripTotal(trip);
   $: budget = Number(trip?.budget) || 0;
   $: pct = budget > 0 ? Math.min(100, Math.round((total / budget) * 100)) : 0;
   $: over = budget > 0 && total > budget;
+  $: recent = (() => {
+    trip; // recompute when the active trip refreshes
+    return Object.values(getProducts())
+      .filter((p: any) => (p.priceHistory || []).length)
+      .sort(
+        (a: any, b: any) =>
+          String(b.priceHistory.at(-1)?.date || '').localeCompare(
+            String(a.priceHistory.at(-1)?.date || ''),
+          ),
+      )
+      .slice(0, 6);
+  })();
 
   function toast(message: string, type: 'success' | 'error' | 'info' = 'info') {
     dispatch('toast', { message, type });
@@ -47,16 +64,33 @@
     dispatch('change');
   }
 
+  function lastPriceFor(name: string) {
+    const products = getProducts();
+    const key = String(name || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .trim();
+    const hist = products[key]?.priceHistory || [];
+    const last = hist.at(-1);
+    if (!last) return null;
+    const qty = Number(last.qty) || 1;
+    const unitPrice = Number(last.unitPrice);
+    if (!Number.isFinite(unitPrice)) return null;
+    return { unitPrice, unit: last.unit || 'und', amountFor: (q: number) => Math.round(unitPrice * q) };
+  }
+
   async function applyText(text: string) {
     const parsed = parseUtterance(text);
     if (parsed.intent === 'unknown' || parsed.confidence < 0.35) {
-      toast('No entendí. Prueba: “3 libras de papa 30 mil”', 'error');
+      toast('No entendí. Ej: “papa 8 mil” o solo “papa”', 'error');
       return;
     }
     if (parsed.intent === 'checkout') {
+      payOpen = true;
       setCheckout({});
       changed();
-      toast('Modo pago: foto de factura o total', 'info');
+      toast('Listo — cierra con el total de la factura', 'info');
       return;
     }
     if (parsed.intent === 'sync') {
@@ -69,19 +103,31 @@
     }
 
     if (parsed.intent === 'add') {
-      if (parsed.item?.amount == null) {
-        toast('Falta el precio. Di también el valor, ej. “30 mil”', 'error');
-        return;
+      const item = { ...parsed.item };
+      if (item.amount == null) {
+        const prev = lastPriceFor(item.name);
+        if (prev) {
+          item.amount = prev.amountFor(Number(item.qty) || 1);
+          if (!item.unit || item.unit === 'und') item.unit = prev.unit;
+          toast(`Sumé ${item.name} (precio de la vez pasada)`, 'success');
+        } else {
+          toast(`Sumé ${item.name} — toca el monto para poner precio`, 'info');
+        }
+      } else {
+        toast(`Sumé ${item.name}`, 'success');
       }
-      addItem(parsed.item);
+      addItem(item);
       changed();
-      toast(`Sumé ${parsed.item.name}`, 'success');
       return;
     }
 
     const matches = findItemMatches(trip.items, parsed.item.name);
     if (!matches.length) {
-      toast('No encontré ese producto en el carrito', 'error');
+      toast('No está en el carrito', 'error');
+      return;
+    }
+    if (matches.length === 1) {
+      confirmPending(matches[0].id, parsed.intent, parsed);
       return;
     }
     pending = { kind: parsed.intent, matches, parsed };
@@ -92,11 +138,12 @@
     if (!text) return;
     draft = '';
     await applyText(text);
+    queueMicrotask(() => draftInput?.focus());
   }
 
   async function dictate() {
     if (!speechSupported()) {
-      toast('Dictado no disponible. Usa el teclado.', 'error');
+      toast('Dictado no disponible aquí — escribe', 'error');
       return;
     }
     listening = true;
@@ -104,19 +151,20 @@
       const text = await listenOnce();
       draft = text;
       await applyText(text);
+      draft = '';
     } catch (e: any) {
       toast(e?.message || 'Error de micrófono', 'error');
     } finally {
       listening = false;
+      queueMicrotask(() => draftInput?.focus());
     }
   }
 
-  function confirmPending(itemId: string) {
-    if (!pending) return;
-    const { kind, parsed } = pending;
+  function confirmPending(itemId: string, kind = pending?.kind, parsed = pending?.parsed) {
+    if (!kind || !parsed) return;
     if (kind === 'remove') {
       removeItem(itemId);
-      toast('Ítem quitado', 'success');
+      toast('Quitado', 'success');
     } else {
       const patch: Record<string, unknown> = { qty: parsed.item.qty, unit: parsed.item.unit };
       if (parsed.item.amount != null) patch.amount = parsed.item.amount;
@@ -125,9 +173,44 @@
         patch.amount = Math.round((Number(current.amount) / Number(current.qty)) * Number(parsed.item.qty));
       }
       updateItem(itemId, patch);
-      toast('Ítem actualizado', 'success');
+      toast('Actualizado', 'success');
     }
     pending = null;
+    changed();
+  }
+
+  function quickAdd(product: any) {
+    const last = (product.priceHistory || []).at(-1);
+    const qty = Number(last?.qty) || 1;
+    const unit = last?.unit || 'und';
+    const amount =
+      last?.unitPrice != null ? Math.round(Number(last.unitPrice) * qty) : last?.amount ?? null;
+    addItem({
+      name: product.name,
+      qty,
+      unit,
+      amount,
+      category: product.category || 'otros',
+    });
+    changed();
+    toast(`Sumé ${product.name}`, 'success');
+  }
+
+  function startEdit(item: any) {
+    editingId = item.id;
+    editAmount = item.amount != null ? String(item.amount) : '';
+  }
+
+  function saveEdit() {
+    if (!editingId) return;
+    const n = Number(String(editAmount).replace(/\D/g, ''));
+    if (!n) {
+      toast('Pon un monto', 'error');
+      return;
+    }
+    updateItem(editingId, { amount: n });
+    editingId = null;
+    editAmount = '';
     changed();
   }
 
@@ -153,17 +236,17 @@
     changed();
   }
 
-  function compareTicket() {
+  function applyTicket() {
     const t = Number(String(ticketTotal).replace(/\D/g, ''));
     if (!t) {
-      toast('Escribe el total de la factura', 'error');
+      toast('Escribe el total de la caja', 'error');
       return;
     }
     const diff = t - total;
     setCheckout({ ticketTotal: t, notes: `diff=${diff}` });
     changed();
-    if (Math.abs(diff) < 1) toast('Cuadra con la factura', 'success');
-    else if (diff > 0) toast(`La factura sale ${formatCop(diff)} más cara`, 'info');
+    if (Math.abs(diff) < 1) toast('Cuadra con el carrito', 'success');
+    else if (diff > 0) toast(`La caja sale ${formatCop(diff)} más`, 'info');
     else toast(`Calculaste ${formatCop(-diff)} de más`, 'info');
   }
 
@@ -171,6 +254,7 @@
     try {
       const settings = getState().settings;
       if (!trip) throw new Error('No hay viaje');
+      if (ticketTotal.trim()) applyTicket();
       const res = await syncTripToDelfos(trip, settings);
       markSynced(trip.id, {
         at: new Date().toISOString(),
@@ -189,13 +273,16 @@
   }
 
   function finishTrip() {
+    if (ticketTotal.trim()) applyTicket();
     closeTrip();
     startTrip({ budget: getState().settings.budgetDefault });
     ticketTotal = '';
     receiptPreview = '';
+    receiptFileName = '';
     pending = null;
+    payOpen = false;
     changed();
-    toast('Mercado cerrado. Nuevo viaje listo.', 'success');
+    toast('Mercado cerrado', 'success');
   }
 
   function newTrip() {
@@ -207,68 +294,48 @@
 {#if !trip}
   <section class="manual-card">
     <div class="empty-state">
-      <p class="empty-state__title">No hay mercado activo</p>
-      <p class="empty-state__text">Empieza un viaje para dictar productos y controlar el presupuesto.</p>
-      <button type="button" class="primary-button" style="margin-top:14px" on:click={newTrip}>Empezar mercado</button>
+      <p class="empty-state__title">Sin mercado abierto</p>
+      <p class="empty-state__text">Un toque y empiezas a sumar.</p>
+      <button type="button" class="primary-button" style="margin-top:14px" on:click={newTrip}>Empezar</button>
     </div>
   </section>
 {:else}
-  <div class="mercado-stack">
-    <section class="hero-card" aria-live="polite">
-      <p class="hero-card__label">Total del carrito</p>
-      <p class="hero-card__amount amount">{formatCop(total)}</p>
-      <div class="hero-card__stats">
+  <div class="mercado-stack mercado-trip">
+    <section class="hero-card mercado-hero-compact" aria-live="polite">
+      <div class="mercado-hero-compact__row">
         <div>
-          <p class="hero-card__stat-label">Presupuesto</p>
-          <p class="hero-card__stat-value amount">{formatCop(budget)}</p>
+          <p class="hero-card__label" style="margin:0">Carrito</p>
+          <p class="hero-card__amount amount" style="margin:4px 0 0">{formatCop(total)}</p>
         </div>
-        <div>
-          <p class="hero-card__stat-label">Ítems</p>
-          <p class="hero-card__stat-value">{trip.items.length}</p>
+        <div class="mercado-hero-compact__right">
+          <span class="pill">{trip.items.length} ítems</span>
+          {#if budget}
+            <span class="pill">{pct}%{over ? '!' : ''}</span>
+          {/if}
         </div>
       </div>
-      <div class="hero-card__footer">
-        <span class="hero-card__status">
-          <span class="hero-card__status-dot" aria-hidden="true"></span>
-          <span>{over ? 'Sobre presupuesto' : 'Dentro del presupuesto'}</span>
-        </span>
-        <span class="pill">{pct}% usado</span>
-      </div>
-      <div class="mercado-budget-bar" class:is-over={over}><span style={`width:${pct}%`}></span></div>
+      {#if budget}
+        <div class="mercado-budget-bar" class:is-over={over} style="margin-top:12px">
+          <span style={`width:${pct}%`}></span>
+        </div>
+      {/if}
     </section>
 
-    <section class="quick-entry-card">
-      <h2 class="card-title" style="margin-top:0">Dicta o escribe</h2>
-      <p class="muted" style="margin:0 0 12px">
-        Ej: “compré 3 libras de papa 30 mil”. Parser local — sin tokens de IA.
-      </p>
-      <div class="mercado-input-row">
-        <input
-          class="mercado-text-input"
-          bind:value={draft}
-          placeholder="Di o escribe el producto…"
-          on:keydown={(e) => e.key === 'Enter' && submitDraft()}
-        />
-        <button
-          type="button"
-          class="primary-button mercado-mic"
-          class:is-listening={listening}
-          aria-label={listening ? 'Escuchando' : 'Dictar'}
-          on:click={dictate}
-        >
-          <IconMic size={20} />
-        </button>
-      </div>
-      <div class="quick-entry-card__actions">
-        <button type="button" class="primary-button" on:click={submitDraft}>Agregar</button>
-        <button type="button" class="secondary-button" on:click={() => (draft = '')}>Limpiar</button>
-      </div>
-    </section>
+    {#if recent.length && !trip.items.length}
+      <section class="mercado-chips" aria-label="Recientes">
+        <p class="mercado-chips__label">De antes — un toque</p>
+        <div class="mercado-chips__row">
+          {#each recent as p}
+            <button type="button" class="mercado-chip" on:click={() => quickAdd(p)}>{p.name}</button>
+          {/each}
+        </div>
+      </section>
+    {/if}
 
     {#if pending}
       <section class="manual-card mercado-confirm">
         <h2 class="card-title" style="margin-top:0">
-          ¿Cuál quieres {pending.kind === 'remove' ? 'quitar' : 'cambiar'}?
+          ¿Cuál {pending.kind === 'remove' ? 'quito' : 'cambio'}?
         </h2>
         <div class="mercado-stack">
           {#each pending.matches as m}
@@ -282,11 +349,10 @@
     {/if}
 
     <section class="manual-card" aria-label="Carrito">
-      <h2 class="card-title" style="margin-top:0">Carrito</h2>
       {#if !trip.items.length}
-        <div class="empty-state">
-          <p class="empty-state__title">Aún vacío</p>
-          <p class="empty-state__text">Recorre el súper y dicta lo que vas llevando.</p>
+        <div class="empty-state" style="padding:8px 0">
+          <p class="empty-state__title">Vacío</p>
+          <p class="empty-state__text">Dicta o escribe abajo. Ej: “papa 8 mil”.</p>
         </div>
       {:else}
         {#each [...trip.items].reverse() as item}
@@ -296,79 +362,131 @@
               <p class="mercado-item__name">{item.name}</p>
               <p class="mercado-item__meta">{formatQty(item.qty, item.unit)} · {meta.label}</p>
             </div>
-            <div>
-              <p class="mercado-item__amt amount">{formatCop(item.amount)}</p>
-              <button
-                type="button"
-                class="ghost-button"
-                style="margin-top:8px;padding:6px 10px;font-size:0.78rem;color:var(--danger)"
-                on:click={() => {
-                  removeItem(item.id);
-                  changed();
-                }}
-              >
-                Quitar
-              </button>
+            <div class="mercado-item__right">
+              {#if editingId === item.id}
+                <form
+                  class="mercado-inline-edit"
+                  on:submit|preventDefault={saveEdit}
+                >
+                  <input
+                    class="mercado-text-input"
+                    type="text"
+                    inputmode="numeric"
+                    bind:value={editAmount}
+                    placeholder="Monto"
+                    aria-label="Monto"
+                  />
+                  <button type="submit" class="primary-button mercado-inline-edit__ok">OK</button>
+                </form>
+              {:else}
+                <button
+                  type="button"
+                  class="mercado-item__amt-btn amount"
+                  class:is-missing={item.amount == null}
+                  on:click={() => startEdit(item)}
+                >
+                  {item.amount == null ? 'poner precio' : formatCop(item.amount)}
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button mercado-item__rm"
+                  on:click={() => {
+                    removeItem(item.id);
+                    changed();
+                  }}
+                >
+                  Quitar
+                </button>
+              {/if}
             </div>
           </div>
         {/each}
       {/if}
     </section>
 
-    <section class="manual-card">
-      <h2 class="card-title" style="margin-top:0">Voy a pagar</h2>
-      <p class="muted" style="margin:0 0 12px">
-        Adjunta la factura y escribe el total para contrastar con el carrito.
-      </p>
-      <div class="manual-form mercado-stack">
-        <input
-          bind:this={fileInput}
-          class="sr-only"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          on:change={onReceiptFile}
-        />
-        <div class="mercado-file">
-          <button type="button" class="secondary-button mercado-file__btn" on:click={() => fileInput?.click()}>
-            <IconCamera size={18} />
-            {receiptFileName || trip.receipt?.photoDataUrl ? 'Cambiar foto' : 'Tomar o subir factura'}
-          </button>
-          {#if receiptFileName || trip.receipt?.photoDataUrl}
-            <div class="mercado-file__meta">
-              <span class="mercado-file__name">{receiptFileName || 'Factura adjuntada'}</span>
-              <button type="button" class="ghost-button mercado-file__clear" on:click={clearReceipt}>Quitar</button>
-            </div>
-          {:else}
-            <span class="mercado-file__hint">JPG o PNG · cámara o galería</span>
-          {/if}
-        </div>
-        {#if receiptPreview || trip.receipt?.photoDataUrl}
-          <img
-            class="mercado-receipt-preview"
-            src={receiptPreview || trip.receipt.photoDataUrl}
-            alt="Factura"
+    <section class="manual-card mercado-pay">
+      <button
+        type="button"
+        class="mercado-pay__toggle"
+        aria-expanded={payOpen}
+        on:click={() => (payOpen = !payOpen)}
+      >
+        <span>Cerrar / pagar</span>
+        <span class="muted">{payOpen ? 'ocultar' : 'factura + sync'}</span>
+      </button>
+
+      {#if payOpen}
+        <div class="manual-form mercado-stack" style="margin-top:14px">
+          <input
+            bind:this={fileInput}
+            class="sr-only"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            on:change={onReceiptFile}
           />
-        {/if}
-        <input
-          class="mercado-text-input"
-          type="text"
-          bind:value={ticketTotal}
-          placeholder="Total factura (ej. 185000)"
-          inputmode="numeric"
-        />
-        <div class="quick-entry-card__actions">
-          <button type="button" class="secondary-button" on:click={compareTicket}>Contrastar</button>
-          <button type="button" class="primary-button" on:click={doSync}>Sincronizar con Delfos</button>
+          <div class="mercado-file">
+            <button type="button" class="secondary-button mercado-file__btn" on:click={() => fileInput?.click()}>
+              <IconCamera size={18} />
+              {receiptFileName || trip.receipt?.photoDataUrl ? 'Cambiar foto' : 'Foto de factura'}
+            </button>
+            {#if receiptFileName || trip.receipt?.photoDataUrl}
+              <div class="mercado-file__meta">
+                <span class="mercado-file__name">{receiptFileName || 'Factura adjuntada'}</span>
+                <button type="button" class="ghost-button mercado-file__clear" on:click={clearReceipt}>Quitar</button>
+              </div>
+            {/if}
+          </div>
+          {#if receiptPreview || trip.receipt?.photoDataUrl}
+            <img
+              class="mercado-receipt-preview"
+              src={receiptPreview || trip.receipt.photoDataUrl}
+              alt="Factura"
+            />
+          {/if}
+          <input
+            class="mercado-text-input"
+            type="text"
+            bind:value={ticketTotal}
+            placeholder="Total en caja"
+            inputmode="numeric"
+            on:keydown={(e) => e.key === 'Enter' && applyTicket()}
+            on:blur={() => ticketTotal.trim() && applyTicket()}
+          />
+          {#if trip.receipt?.ticketTotal != null}
+            <p class="muted" style="margin:0">
+              Caja {formatCop(trip.receipt.ticketTotal)} · carrito {formatCop(total)} ·
+              diff {formatCop(Number(trip.receipt.ticketTotal) - total)}
+            </p>
+          {/if}
+          <button type="button" class="primary-button" on:click={finishTrip}>Cerrar mercado</button>
+          <button type="button" class="secondary-button" on:click={doSync}>Sincronizar con Delfos</button>
         </div>
-        {#if trip.receipt?.ticketTotal != null}
-          <p class="muted">
-            Factura {formatCop(trip.receipt.ticketTotal)} vs carrito {formatCop(total)} →
-            diff {formatCop(Number(trip.receipt.ticketTotal) - total)}
-          </p>
-        {/if}
-        <button type="button" class="secondary-button" on:click={finishTrip}>Cerrar mercado</button>
-      </div>
+      {/if}
     </section>
+  </div>
+
+  <div class="mercado-composer">
+    <div class="mercado-composer__row">
+      <input
+        bind:this={draftInput}
+        class="mercado-text-input mercado-composer__input"
+        bind:value={draft}
+        placeholder="papa 8 mil · Enter"
+        enterkeyhint="done"
+        autocomplete="off"
+        autocorrect="on"
+        on:keydown={(e) => e.key === 'Enter' && submitDraft()}
+      />
+      <button
+        type="button"
+        class="primary-button mercado-mic"
+        class:is-listening={listening}
+        aria-label={listening ? 'Escuchando' : 'Dictar'}
+        on:click={dictate}
+      >
+        <IconMic size={20} />
+      </button>
+    </div>
   </div>
 {/if}
