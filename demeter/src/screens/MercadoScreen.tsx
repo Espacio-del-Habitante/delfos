@@ -357,7 +357,6 @@ export function MercadoScreen() {
                       style={({ pressed }) => [styles.habitCard, pressed && { transform: [{ scale: 0.985 }] }]}
                       onPress={() => void quickHabit(h)}
                     >
-                      <View style={styles.habitAccent} />
                       <Text style={styles.habitEmoji}>{meta.emoji}</Text>
                       <View style={styles.habitBody}>
                         <Text style={styles.habitName} numberOfLines={1}>
@@ -577,20 +576,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingVertical: 14,
-    paddingRight: 14,
-    paddingLeft: 0,
-    overflow: 'hidden',
+    paddingHorizontal: 14,
     minWidth: '47%',
     flexGrow: 1,
     maxWidth: '100%',
   },
-  habitAccent: {
-    width: 5,
-    alignSelf: 'stretch',
-    backgroundColor: colors.primary,
-    marginRight: 2,
-  },
-  habitEmoji: { fontSize: 22, marginLeft: 10 },
+  habitEmoji: { fontSize: 22 },
   habitBody: { flex: 1, minWidth: 0 },
   habitName: {
     color: colors.text,
