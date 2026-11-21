@@ -49,7 +49,7 @@
     <h2 class="card-title" style="margin-top:0">Resumen</h2>
     <div class="mercado-stat-grid">
       <div class="mercado-stat">
-        <p class="mercado-stat__label">Mercados</p>
+        <p class="mercado-stat__label">Cosechas</p>
         <p class="mercado-stat__value">{trips.length}</p>
       </div>
       <div class="mercado-stat">
@@ -63,7 +63,7 @@
     <p class="muted" style="color:rgba(255,255,255,0.7);margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em">
       Para redes
     </p>
-    <h2>Mi mercado en números</h2>
+    <h2>Mi Deméter en números</h2>
     <p>
       {#if proteina >= harinas}
         Vas más en proteína ({formatCop(proteina)}) que en harinas ({formatCop(harinas)}).
@@ -83,7 +83,7 @@
             <span>{c.emoji} {c.label}</span>
             <strong class="amount">{formatCop(amt)}</strong>
           </div>
-          <div class="mercado-budget-bar" style="background:rgba(79,70,229,0.12);margin-top:8px">
+          <div class="mercado-budget-bar" style="background:rgba(27,122,74,0.12);margin-top:8px">
             <span style={`width:${Math.round((amt / catSum) * 100)}%;background:var(--primary)`}></span>
           </div>
         </div>

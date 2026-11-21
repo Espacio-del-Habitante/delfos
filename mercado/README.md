@@ -1,7 +1,9 @@
-# Delfos Mercado (aparte)
+# Deméter
 
-Mini-app **separada** de Delfos: mismo lenguaje visual (CSS / toast vendored desde `frontend/`),
-stack Astro + Svelte, PWA para iPhone. **No modifica** el frontend principal.
+Mini-app **aparte** de Delfos para mercar con voz. Nombre por la diosa griega de la cosecha.
+Paleta verde; stack Astro + Svelte; PWA para iPhone.
+
+No modifica el frontend de Delfos. El look base se vendor desde `frontend` y se recolorea aquí.
 
 ## Dev
 
@@ -14,16 +16,6 @@ npm run dev
 
 http://127.0.0.1:5173
 
-`npm run vendor:delfos` copia `global.css` + toast desde `../frontend` a `src/vendor/delfos/`
-(antes de dev/build).
+## Sync con Delfos
 
-## Qué hace v0.2
-
-- Mercado con presupuesto (hero-card Delfos)
-- Dictado / texto → parser local (0 tokens LLM)
-- Historial, stats, share card
-- Sync opcional a Delfos API
-
-## iPhone
-
-Safari → Compartir → Añadir a pantalla de inicio.
+En Ajustes pega la URL del API. Requiere CORS (`FLASK_DEBUG` o `DELFOS_CORS_ORIGINS`).

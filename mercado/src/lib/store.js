@@ -66,7 +66,7 @@ export function startTrip({ budget, storeName } = {}) {
     id: uid('trip'),
     createdAt: todayIso(),
     closedAt: null,
-    storeName: storeName || 'Supermercado',
+    storeName: storeName || 'Deméter',
     budget: Number(budget ?? data.settings.budgetDefault) || 0,
     status: 'open', // open | checkout | closed
     items: [],

@@ -2,12 +2,12 @@
   export let active: 'trip' | 'history' | 'stats' | 'settings' = 'trip';
 </script>
 
-<nav class="bottom-nav mercado-bottom-nav" aria-label="Navegación Mercado">
+<nav class="bottom-nav mercado-bottom-nav" aria-label="Navegación Deméter">
   <a
     href="/"
     class="bottom-nav__item"
     class:is-active={active === 'trip'}
-    aria-label="Mercado"
+    aria-label="Deméter"
     aria-current={active === 'trip' ? 'page' : undefined}
   >
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

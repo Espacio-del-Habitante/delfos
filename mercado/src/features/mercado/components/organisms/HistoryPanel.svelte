@@ -28,7 +28,7 @@
 
 <div class="mercado-stack">
   <section class="manual-card">
-    <h2 class="card-title" style="margin-top:0">Historial de mercados</h2>
+    <h2 class="card-title" style="margin-top:0">Historial de cosechas</h2>
     <p class="muted" style="margin:0 0 14px">Todo vive en este teléfono. Nada se sube solo.</p>
     <button type="button" class="secondary-button" on:click={reopen}>Nuevo mercado</button>
   </section>
@@ -36,7 +36,7 @@
   {#each trips as t}
     <article class="manual-card">
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline">
-        <strong>{t.storeName || 'Mercado'}</strong>
+        <strong>{t.storeName || 'Deméter'}</strong>
         <span class="muted">{new Date(t.createdAt).toLocaleDateString('es-CO')}</span>
       </div>
       <p class="amount" style="margin:10px 0 6px;font-size:1.25rem">
@@ -50,7 +50,7 @@
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
         {#each Object.entries(breakdown(t.items)) as [cat, amt]}
           {@const meta = categoryMeta(cat)}
-          <span class="pill" style="background:rgba(79,70,229,0.1);color:var(--primary)">
+          <span class="pill" style="background:rgba(27,122,74,0.12);color:var(--primary)">
             {meta.emoji} {meta.label} {formatCop(amt)}
           </span>
         {/each}

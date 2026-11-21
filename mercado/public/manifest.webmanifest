@@ -1,11 +1,11 @@
 {
-  "name": "Delfos Mercado",
-  "short_name": "Mercado",
+  "name": "Deméter",
+  "short_name": "Deméter",
   "description": "Mercado por voz, local-first, sync con Delfos",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f7fb",
-  "theme_color": "#4f46e5",
+  "background_color": "#f2f7f3",
+  "theme_color": "#1b7a4a",
   "lang": "es",
   "icons": [
     {

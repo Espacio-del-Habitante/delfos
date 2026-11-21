@@ -24,7 +24,7 @@ export async function syncTripToDelfos(trip, settings) {
   const body = {
     amount: total,
     currency: settings.currency || 'COP',
-    description: `Mercado · ${trip.storeName || 'Supermercado'} · ${trip.items.length} ítems`,
+    description: `Deméter · ${trip.storeName || 'Mercado'} · ${trip.items.length} ítems`,
     category: 'Mercado',
     emoji: meta.emoji || '🛒',
     payment_method: 'other',
