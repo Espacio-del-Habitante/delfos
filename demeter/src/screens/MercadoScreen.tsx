@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { colors, radius, space, softRaised, softInset, softPressed, type } from '../theme';
+import { colors, radius, space, card, field, type } from '../theme';
 import { formatCop, formatQty } from '../lib/format';
 import { categoryMeta } from '../lib/categories';
 import { parseUtterance, findItemMatches } from '../lib/parseUtterance';
@@ -289,7 +289,7 @@ export function MercadoScreen() {
           <Text style={styles.emptyTitle}>Sin mercado abierto</Text>
           <Text style={styles.emptyText}>Un toque y empiezas a sumar.</Text>
           <Pressable
-            style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+            style={({ pressed }) => [styles.primaryBtn, pressed && { transform: [{ scale: 0.97 }] }]}
             onPress={onStart}
           >
             <Text style={styles.primaryBtnTxt}>Empezar</Text>
@@ -298,34 +298,43 @@ export function MercadoScreen() {
       ) : (
         <>
           <View style={styles.hero}>
-            <Text style={styles.heroLabel}>Total</Text>
-            <Text style={[styles.heroAmount, over && styles.heroAmountOver]}>{formatCop(total)}</Text>
+            <Text style={styles.heroLabel}>Total del carrito</Text>
+            <Text style={styles.heroAmount}>{formatCop(total)}</Text>
             <View style={styles.heroStats}>
-              <View style={styles.heroStat}>
+              <View>
                 <Text style={styles.heroStatLabel}>Presupuesto</Text>
                 <Text style={styles.heroStatValue}>{formatCop(budget)}</Text>
               </View>
-              <View style={styles.heroStat}>
+              <View>
                 <Text style={styles.heroStatLabel}>Ítems</Text>
                 <Text style={styles.heroStatValue}>{trip.items.length}</Text>
               </View>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>Usado</Text>
-                <Text style={styles.heroStatValue}>{pct}%</Text>
+            </View>
+            <View style={styles.heroFooter}>
+              <Text style={styles.heroStatus}>
+                {over ? 'Sobre presupuesto' : 'Dentro del presupuesto'}
+              </Text>
+              <View style={styles.pill}>
+                <Text style={styles.pillTxt}>{pct}% usado</Text>
               </View>
             </View>
+            {budget > 0 && (
+              <View style={styles.budgetBar}>
+                <View style={[styles.budgetFill, { width: `${pct}%` }, over && styles.budgetOver]} />
+              </View>
+            )}
           </View>
 
           {!!recent.length && !trip.items.length && (
             <View style={styles.chipsBlock}>
-              <Text style={styles.chipsLabel}>Recientes</Text>
+              <Text style={styles.chipsLabel}>De antes — un toque</Text>
               <View style={styles.chipsRow}>
                 {recent.map((p) => {
                   const meta = categoryMeta(p.category);
                   return (
                     <Pressable
                       key={p.name}
-                      style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+                      style={({ pressed }) => [styles.chip, pressed && { transform: [{ scale: 0.97 }] }]}
                       onPress={() => void quickAdd(p)}
                     >
                       <Text style={styles.chipTxt}>
@@ -344,7 +353,7 @@ export function MercadoScreen() {
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              <View style={[styles.card, styles.center, { padding: space.xl }]}>
+              <View style={[styles.card, styles.center, { padding: space.lg }]}>
                 <Text style={styles.emptyIcon}>🧺</Text>
                 <Text style={styles.emptyTitle}>Carrito vacío</Text>
                 <Text style={styles.emptyText}>Escribe o dicta abajo — se suma al toque.</Text>
@@ -354,30 +363,32 @@ export function MercadoScreen() {
               const meta = categoryMeta(item.category);
               return (
                 <Pressable
-                  style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+                  style={({ pressed }) => [styles.item, pressed && { transform: [{ scale: 0.985 }] }]}
                   onPress={() => setEditItem(item)}
                 >
-                  <View style={styles.itemIcon}>
-                    <Text style={styles.itemEmoji}>{meta.emoji}</Text>
-                  </View>
+                  <Text style={styles.itemEmoji}>{meta.emoji}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemName}>{item.name}</Text>
                     <Text style={styles.itemMeta}>
                       {formatQty(item.qty, item.unit)} · {meta.label}
                     </Text>
                   </View>
-                  <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
-                    {item.amount == null ? '—' : formatCop(item.amount)}
-                  </Text>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
+                      {item.amount == null ? 'sin precio' : formatCop(item.amount)}
+                    </Text>
+                    <Text style={styles.itemHint}>tocar</Text>
+                  </View>
                 </Pressable>
               );
             }}
             ListFooterComponent={
               <Pressable
-                style={({ pressed }) => [styles.payRow, pressed && styles.itemPressed]}
+                style={({ pressed }) => [styles.payRow, pressed && { opacity: 0.85 }]}
                 onPress={onFinish}
               >
                 <Text style={styles.payTitle}>Cerrar mercado</Text>
+                <Text style={styles.payHint}>terminar viaje</Text>
               </Pressable>
             }
           />
@@ -385,13 +396,13 @@ export function MercadoScreen() {
       )}
 
       {trip && (
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           <View style={styles.composerRow}>
             <TextInput
               style={styles.composerInput}
               value={draft}
               onChangeText={setDraft}
-              placeholder={listening ? 'Escuchando…' : 'papa 8 mil'}
+              placeholder={listening ? 'Escuchando…' : 'papa 8 mil · Enter'}
               placeholderTextColor={colors.muted}
               returnKeyType="done"
               onSubmitEditing={() => void submitDraft()}
@@ -401,14 +412,12 @@ export function MercadoScreen() {
               style={({ pressed }) => [
                 styles.mic,
                 listening && styles.micOn,
-                pressed && styles.micPressed,
+                pressed && { transform: [{ scale: 0.97 }] },
               ]}
               onPress={() => void onMic()}
               accessibilityLabel={listening ? 'Detener dictado' : 'Dictar'}
             >
-              <Text style={[styles.micIcon, listening && styles.micIconOn]}>
-                {listening ? '■' : 'Mic'}
-              </Text>
+              <Text style={styles.micIcon}>{listening ? '■' : 'Mic'}</Text>
             </Pressable>
           </View>
           {listening && <Text style={styles.listenHint}>Escuchando — toca para cortar</Text>}
@@ -449,193 +458,193 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: space.xl,
-    marginBottom: space.lg,
+    gap: 10,
+    paddingHorizontal: space.lg,
+    marginBottom: space.md,
   },
   logoMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.heroTo,
     alignItems: 'center',
     justifyContent: 'center',
-    ...softRaised('sm'),
   },
-  logoGlyph: { fontSize: 20 },
-  brand: { ...type.brand, fontSize: 28 },
+  logoGlyph: { fontSize: 18 },
+  brand: { ...type.brand, fontSize: 26 },
   hero: {
-    marginHorizontal: space.xl,
-    marginBottom: space.lg,
-    padding: space.xl,
-    borderRadius: radius.lg,
-    ...softRaised('md'),
+    marginHorizontal: space.lg,
+    marginBottom: space.md,
+    padding: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.heroFrom,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.28,
+    shadowRadius: 28,
+    elevation: 8,
   },
-  heroLabel: { ...type.label },
+  heroLabel: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    fontFamily: 'Inter_600SemiBold',
+  },
   heroAmount: {
-    ...type.brand,
-    fontSize: 36,
-    marginTop: 6,
-    letterSpacing: -1.2,
-  },
-  heroAmountOver: { color: colors.danger },
-  heroStats: { flexDirection: 'row', gap: 12, marginTop: space.lg },
-  heroStat: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: radius.sm,
-    ...softInset('sm'),
-  },
-  heroStatLabel: { ...type.label, fontSize: 10 },
-  heroStatValue: {
-    color: colors.text,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: -1,
     marginTop: 4,
-    fontSize: 14,
+    fontFamily: 'Inter_800ExtraBold',
   },
-  chipsBlock: { paddingHorizontal: space.xl, marginBottom: space.md },
-  chipsLabel: { ...type.label, marginBottom: 12 },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  chip: {
+  heroStats: { flexDirection: 'row', gap: 28, marginTop: 14 },
+  heroStatLabel: { color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '600' },
+  heroStatValue: { color: '#fff', fontWeight: '700', marginTop: 2, fontFamily: 'Inter_700Bold' },
+  heroFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  heroStatus: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
+  pill: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: radius.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    ...softRaised('sm'),
   },
-  chipPressed: { ...softPressed(), transform: [{ scale: 0.97 }] },
+  pillTxt: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  budgetBar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginTop: 14,
+    overflow: 'hidden',
+  },
+  budgetFill: { height: '100%', backgroundColor: colors.soft },
+  budgetOver: { backgroundColor: '#fecaca' },
+  chipsBlock: { paddingHorizontal: space.lg, marginBottom: space.sm },
+  chipsLabel: {
+    fontSize: 12,
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    backgroundColor: 'rgba(240, 253, 244, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(27, 122, 74, 0.18)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
   chipTxt: { color: colors.text, fontFamily: 'Inter_600SemiBold', fontWeight: '600' },
-  list: { paddingHorizontal: space.xl, paddingBottom: 140, gap: 14 },
+  list: { paddingHorizontal: space.lg, paddingBottom: 120, gap: 10 },
   card: {
-    borderRadius: radius.lg,
-    ...softRaised('md'),
+    ...card(),
   },
-  emptyIcon: { fontSize: 36, marginBottom: 10 },
+  emptyIcon: { fontSize: 36, marginBottom: 8 },
   emptyTitle: { ...type.title, fontSize: 18 },
   emptyText: {
     color: colors.muted,
     textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 18,
+    marginTop: 4,
+    marginBottom: 14,
     fontFamily: 'Inter_400Regular',
   },
   primaryBtn: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: radius.sm,
-    shadowColor: '#2a2f3a',
-    shadowOffset: { width: 4, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: radius.pill,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  primaryBtnPressed: { transform: [{ scale: 0.97 }], opacity: 0.92 },
-  primaryBtnTxt: { color: '#f7f8fa', fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  primaryBtnTxt: { color: '#fff', fontWeight: '700', fontFamily: 'Inter_700Bold' },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    borderRadius: radius.md,
+    gap: 12,
+    ...card(),
     padding: space.md,
-    ...softRaised('sm'),
   },
-  itemPressed: { ...softPressed(), transform: [{ scale: 0.985 }] },
-  itemIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...softInset('sm'),
-  },
-  itemEmoji: { fontSize: 20 },
+  itemEmoji: { fontSize: 22 },
   itemName: {
     fontWeight: '700',
     color: colors.text,
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
   },
-  itemMeta: { color: colors.muted, fontSize: 13, marginTop: 3, fontFamily: 'Inter_400Regular' },
-  itemAmt: {
-    fontWeight: '700',
-    color: colors.text,
-    fontFamily: 'Inter_700Bold',
-    fontSize: 14,
-  },
-  itemAmtMissing: { color: colors.muted, fontWeight: '600' },
+  itemMeta: { color: colors.muted, fontSize: 13, marginTop: 2 },
+  itemAmt: { fontWeight: '700', color: colors.text, fontFamily: 'Inter_700Bold' },
+  itemAmtMissing: { color: colors.primary, fontWeight: '600', fontSize: 13 },
+  itemHint: { color: colors.muted, fontSize: 11, marginTop: 2 },
   payRow: {
-    marginTop: 6,
-    borderRadius: radius.md,
-    padding: space.lg,
-    alignItems: 'center',
-    ...softRaised('sm'),
+    marginTop: 8,
+    ...card(),
+    padding: space.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  payTitle: {
-    fontWeight: '600',
-    color: colors.muted,
-    fontFamily: 'Inter_600SemiBold',
-  },
+  payTitle: { fontWeight: '700', color: colors.text, fontFamily: 'Inter_700Bold' },
+  payHint: { color: colors.muted },
   composer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 8,
-    borderRadius: radius.lg,
-    padding: 12,
-    ...softRaised('md'),
+    left: 12,
+    right: 12,
+    bottom: 0,
+    ...card(),
+    backgroundColor: colors.surfaceSoft,
+    padding: 10,
   },
-  composerRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  composerRow: { flexDirection: 'row', gap: 8 },
   composerInput: {
     flex: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    ...field(),
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 16,
     color: colors.text,
     fontFamily: 'Inter_400Regular',
-    ...softInset('md'),
   },
   mic: {
-    width: 54,
-    height: 54,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    ...softRaised('sm'),
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 4,
   },
-  micOn: {
-    backgroundColor: colors.micListen,
-    shadowColor: colors.micListen,
-  },
-  micPressed: { transform: [{ scale: 0.97 }] },
-  micIcon: {
-    fontSize: 13,
-    color: colors.accent,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-  },
-  micIconOn: { color: '#fff' },
+  micOn: { backgroundColor: colors.micListen },
+  micIcon: { fontSize: 13, color: '#fff', fontWeight: '700', fontFamily: 'Inter_700Bold' },
   listenHint: {
-    marginTop: 10,
+    marginTop: 8,
     color: colors.danger,
     fontWeight: '600',
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
-    textAlign: 'center',
   },
   toast: {
     position: 'absolute',
     alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    backgroundColor: 'rgba(18, 36, 26, 0.92)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: radius.pill,
-    ...softRaised('sm'),
   },
-  toastTxt: {
-    color: colors.text,
-    fontWeight: '600',
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-  },
+  toastTxt: { color: '#fff', fontWeight: '600', fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 });

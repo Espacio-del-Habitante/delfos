@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { colors, radius, space, softRaised, softInset, softPressed, type } from '../theme';
+import { colors, radius, space, field, chip, chipOn, type } from '../theme';
 import { formatCop } from '../lib/format';
 import { categoryMeta } from '../lib/categories';
 import { UNITS, convertQty } from '../lib/units';
@@ -74,7 +74,7 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
             <View style={styles.grabber} />
 
             <View style={styles.header}>
-              <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.eyebrow}>
                   {meta.emoji}  {meta.label}
                 </Text>
@@ -83,7 +83,7 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
               <Pressable
                 onPress={onClose}
                 hitSlop={12}
-                style={({ pressed }) => [styles.closeBtn, pressed && styles.closeBtnPressed]}
+                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
               >
                 <Text style={styles.closeTxt}>×</Text>
               </Pressable>
@@ -95,17 +95,12 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
               showsVerticalScrollIndicator={false}
             >
               <Text style={styles.label}>Producto</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholderTextColor={colors.muted}
-              />
+              <TextInput style={styles.input} value={name} onChangeText={setName} />
 
               <Text style={styles.label}>Cantidad</Text>
               <View style={styles.stepper}>
                 <Pressable
-                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
+                  style={({ pressed }) => [styles.stepBtn, pressed && { transform: [{ scale: 0.97 }] }]}
                   onPress={() => bump(-1)}
                 >
                   <Text style={styles.stepTxt}>−</Text>
@@ -117,7 +112,7 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                   keyboardType="decimal-pad"
                 />
                 <Pressable
-                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
+                  style={({ pressed }) => [styles.stepBtn, pressed && { transform: [{ scale: 0.97 }] }]}
                   onPress={() => bump(1)}
                 >
                   <Text style={styles.stepTxt}>+</Text>
@@ -131,7 +126,7 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                   return (
                     <Pressable
                       key={u.id}
-                      style={[styles.unit, on ? styles.unitOn : null]}
+                      style={[styles.unit, on && styles.unitOn]}
                       onPress={() => pickUnit(u.id)}
                     >
                       <Text style={[styles.unitTxt, on && styles.unitTxtOn]}>{u.id}</Text>
@@ -140,13 +135,13 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                 })}
               </View>
 
-              <Text style={styles.label}>Precio</Text>
+              <Text style={styles.label}>Precio (COP)</Text>
               <TextInput
                 style={styles.input}
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="number-pad"
-                placeholder="0"
+                placeholder="Ej. 8000"
                 placeholderTextColor={colors.muted}
               />
               {!!amount && (
@@ -162,13 +157,13 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
               </Pressable>
               <View style={styles.footerRight}>
                 <Pressable
-                  style={({ pressed }) => [styles.secondary, pressed && styles.secondaryPressed]}
+                  style={({ pressed }) => [styles.secondary, pressed && { transform: [{ scale: 0.97 }] }]}
                   onPress={onClose}
                 >
                   <Text style={styles.secondaryTxt}>Cancelar</Text>
                 </Pressable>
                 <Pressable
-                  style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]}
+                  style={({ pressed }) => [styles.primary, pressed && { transform: [{ scale: 0.97 }] }]}
                   onPress={save}
                 >
                   <Text style={styles.primaryTxt}>Guardar</Text>
@@ -190,101 +185,90 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(42, 47, 58, 0.18)',
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
   },
   sheetWrap: { justifyContent: 'flex-end' },
   sheet: {
     width: '100%',
     alignSelf: 'stretch',
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     maxHeight: '92%',
-    paddingBottom: space.lg,
-    ...softRaised('md'),
+    paddingBottom: space.md,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
   },
   grabber: {
     alignSelf: 'center',
-    width: 44,
-    height: 5,
+    width: 40,
+    height: 4,
     borderRadius: radius.pill,
-    backgroundColor: colors.softDark,
-    marginTop: 12,
-    marginBottom: 8,
-    opacity: 0.55,
+    backgroundColor: 'rgba(15, 23, 42, 0.16)',
+    marginTop: 10,
+    marginBottom: 4,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
-    gap: space.md,
+    gap: space.sm,
   },
   eyebrow: {
-    color: colors.muted,
+    color: colors.primary,
     fontWeight: '600',
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
   },
-  title: { ...type.title, fontSize: 26 },
+  title: { ...type.title, fontSize: 22 },
   closeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    ...softRaised('sm'),
-  },
-  closeBtnPressed: {
-    ...softPressed(),
-    transform: [{ scale: 0.97 }],
+    backgroundColor: 'rgba(15, 23, 42, 0.05)',
   },
   closeTxt: { fontSize: 22, color: colors.muted, lineHeight: 24 },
   body: {
     paddingHorizontal: space.lg,
-    paddingTop: space.lg,
-    paddingBottom: space.xl,
-    gap: 10,
+    paddingTop: space.md,
+    paddingBottom: space.lg,
+    gap: 8,
   },
-  label: { ...type.label, marginTop: space.md },
+  label: { ...type.label, marginTop: 10 },
   input: {
-    ...softInset('md'),
-    borderRadius: radius.md,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    fontSize: 17,
+    ...field(),
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
     color: colors.text,
     fontFamily: 'Inter_400Regular',
     width: '100%',
   },
-  hint: {
-    color: colors.muted,
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 4,
-  },
+  hint: { color: colors.muted, fontSize: 13, marginTop: 2 },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     width: '100%',
   },
   stepBtn: {
     width: 48,
     height: 48,
     flexShrink: 0,
-    borderRadius: radius.sm,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    ...softRaised('sm'),
-  },
-  stepBtnPressed: {
-    ...softPressed(),
-    transform: [{ scale: 0.97 }],
+    backgroundColor: 'rgba(27, 122, 74, 0.1)',
   },
   stepTxt: {
     fontSize: 22,
-    color: colors.accent,
+    color: colors.primaryDark,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
   },
@@ -295,69 +279,63 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
-  units: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  units: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   unit: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: radius.sm,
+    ...chip(),
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     minWidth: 48,
     alignItems: 'center',
-    ...softRaised('sm'),
   },
-  unitOn: {
-    ...softPressed(),
-  },
+  unitOn: { ...chipOn() },
   unitTxt: {
     fontWeight: '600',
-    color: colors.muted,
+    color: colors.text,
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
   },
-  unitTxtOn: { color: colors.text },
+  unitTxtOn: { color: '#fff' },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
-    gap: 12,
+    paddingTop: space.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 10,
   },
   remove: {
     color: colors.danger,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
-  footerRight: { flexDirection: 'row', gap: 12, flex: 1, justifyContent: 'flex-end' },
+  footerRight: { flexDirection: 'row', gap: 8, flex: 1, justifyContent: 'flex-end' },
   secondary: {
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: radius.sm,
-    ...softRaised('sm'),
-  },
-  secondaryPressed: {
-    ...softPressed(),
-    transform: [{ scale: 0.97 }],
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(27, 122, 74, 0.08)',
   },
   secondaryTxt: {
-    color: colors.muted,
+    color: colors.primaryDark,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
   },
   primary: {
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    borderRadius: radius.sm,
-    backgroundColor: colors.accent,
-    shadowColor: '#2a2f3a',
-    shadowOffset: { width: 4, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  primaryPressed: { transform: [{ scale: 0.97 }], opacity: 0.92 },
   primaryTxt: {
-    color: '#f7f8fa',
+    color: '#fff',
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },
