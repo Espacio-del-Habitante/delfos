@@ -33,10 +33,10 @@
 <main class="app-shell">
   <header class="mercado-page-header">
     <div class="mercado-page-header__brand">
-      <img class="mercado-page-header__mark" src="/icon.svg" alt="" width="36" height="36" />
+      <img class="mercado-page-header__mark" src="/icon.svg" alt="" width="44" height="44" />
       <div>
         <h1 class="mercado-page-header__title">Deméter</h1>
-        <p class="mercado-page-header__sub">Cosecha · hermana de Delfos</p>
+        <p class="mercado-page-header__sub">Mercado local · hermana de Delfos</p>
       </div>
     </div>
   </header>

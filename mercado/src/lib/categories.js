@@ -1,16 +1,16 @@
 /** Categorías de mercado — keywords locales, cero tokens. */
 
 export const CATEGORIES = [
-  { id: 'proteina', label: 'Proteína', emoji: '🥩' },
-  { id: 'lacteos', label: 'Lácteos', emoji: '🥛' },
-  { id: 'verduras', label: 'Verduras', emoji: '🥦' },
-  { id: 'frutas', label: 'Frutas', emoji: '🍌' },
-  { id: 'harinas', label: 'Harinas', emoji: '🍞' },
-  { id: 'granos', label: 'Granos', emoji: '🫘' },
-  { id: 'aseo', label: 'Aseo', emoji: '🧼' },
-  { id: 'bebidas', label: 'Bebidas', emoji: '🧃' },
-  { id: 'snacks', label: 'Snacks', emoji: '🍪' },
-  { id: 'otros', label: 'Otros', emoji: '🛒' },
+  { id: 'proteina', label: 'Proteína' },
+  { id: 'lacteos', label: 'Lácteos' },
+  { id: 'verduras', label: 'Verduras' },
+  { id: 'frutas', label: 'Frutas' },
+  { id: 'harinas', label: 'Harinas' },
+  { id: 'granos', label: 'Granos' },
+  { id: 'aseo', label: 'Aseo' },
+  { id: 'bebidas', label: 'Bebidas' },
+  { id: 'snacks', label: 'Snacks' },
+  { id: 'otros', label: 'Otros' },
 ];
 
 const RULES = [

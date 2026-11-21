@@ -16,6 +16,8 @@
     markSynced,
   } from '../../../../lib/store.js';
   import { syncTripToDelfos } from '../../../../lib/syncDelfos.js';
+  import IconMic from '../atoms/IconMic.svelte';
+  import IconCamera from '../atoms/IconCamera.svelte';
 
   export let trip: any = null;
 
@@ -29,6 +31,8 @@
   let pending: null | { kind: string; matches: any[]; parsed: any } = null;
   let ticketTotal = '';
   let receiptPreview = '';
+  let receiptFileName = '';
+  let fileInput: HTMLInputElement | undefined;
 
   $: total = tripTotal(trip);
   $: budget = Number(trip?.budget) || 0;
@@ -130,6 +134,7 @@
   function onReceiptFile(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
+    receiptFileName = file.name;
     const reader = new FileReader();
     reader.onload = () => {
       receiptPreview = String(reader.result || '');
@@ -138,6 +143,14 @@
       toast('Factura guardada', 'success');
     };
     reader.readAsDataURL(file);
+  }
+
+  function clearReceipt() {
+    receiptPreview = '';
+    receiptFileName = '';
+    if (fileInput) fileInput.value = '';
+    setCheckout({ photoDataUrl: null });
+    changed();
   }
 
   function compareTicket() {
@@ -194,7 +207,6 @@
 {#if !trip}
   <section class="manual-card">
     <div class="empty-state">
-      <div class="empty-state__icon" aria-hidden="true">◎</div>
       <p class="empty-state__title">No hay mercado activo</p>
       <p class="empty-state__text">Empieza un viaje para dictar productos y controlar el presupuesto.</p>
       <button type="button" class="primary-button" style="margin-top:14px" on:click={newTrip}>Empezar mercado</button>
@@ -232,8 +244,7 @@
       </p>
       <div class="mercado-input-row">
         <input
-          class="manual-form"
-          style="width:100%;border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:14px 16px;background:rgba(246,247,251,0.8)"
+          class="mercado-text-input"
           bind:value={draft}
           placeholder="Di o escribe el producto…"
           on:keydown={(e) => e.key === 'Enter' && submitDraft()}
@@ -242,10 +253,10 @@
           type="button"
           class="primary-button mercado-mic"
           class:is-listening={listening}
-          aria-label="Dictar"
+          aria-label={listening ? 'Escuchando' : 'Dictar'}
           on:click={dictate}
         >
-          {listening ? '…' : '🎙️'}
+          <IconMic size={20} />
         </button>
       </div>
       <div class="quick-entry-card__actions">
@@ -274,7 +285,6 @@
       <h2 class="card-title" style="margin-top:0">Carrito</h2>
       {#if !trip.items.length}
         <div class="empty-state">
-          <div class="empty-state__icon" aria-hidden="true">◎</div>
           <p class="empty-state__title">Aún vacío</p>
           <p class="empty-state__text">Recorre el súper y dicta lo que vas llevando.</p>
         </div>
@@ -283,7 +293,7 @@
           {@const meta = categoryMeta(item.category)}
           <div class="mercado-item">
             <div>
-              <p class="mercado-item__name">{meta.emoji} {item.name}</p>
+              <p class="mercado-item__name">{item.name}</p>
               <p class="mercado-item__meta">{formatQty(item.qty, item.unit)} · {meta.label}</p>
             </div>
             <div>
@@ -308,10 +318,31 @@
     <section class="manual-card">
       <h2 class="card-title" style="margin-top:0">Voy a pagar</h2>
       <p class="muted" style="margin:0 0 12px">
-        Foto de la factura + total manual para contrastar (OCR con IA después).
+        Adjunta la factura y escribe el total para contrastar con el carrito.
       </p>
       <div class="manual-form mercado-stack">
-        <input type="file" accept="image/*" capture="environment" on:change={onReceiptFile} />
+        <input
+          bind:this={fileInput}
+          class="sr-only"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          on:change={onReceiptFile}
+        />
+        <div class="mercado-file">
+          <button type="button" class="secondary-button mercado-file__btn" on:click={() => fileInput?.click()}>
+            <IconCamera size={18} />
+            {receiptFileName || trip.receipt?.photoDataUrl ? 'Cambiar foto' : 'Tomar o subir factura'}
+          </button>
+          {#if receiptFileName || trip.receipt?.photoDataUrl}
+            <div class="mercado-file__meta">
+              <span class="mercado-file__name">{receiptFileName || 'Factura adjuntada'}</span>
+              <button type="button" class="ghost-button mercado-file__clear" on:click={clearReceipt}>Quitar</button>
+            </div>
+          {:else}
+            <span class="mercado-file__hint">JPG o PNG · cámara o galería</span>
+          {/if}
+        </div>
         {#if receiptPreview || trip.receipt?.photoDataUrl}
           <img
             class="mercado-receipt-preview"
@@ -319,7 +350,13 @@
             alt="Factura"
           />
         {/if}
-        <input type="text" bind:value={ticketTotal} placeholder="Total factura (ej. 185000)" inputmode="numeric" />
+        <input
+          class="mercado-text-input"
+          type="text"
+          bind:value={ticketTotal}
+          placeholder="Total factura (ej. 185000)"
+          inputmode="numeric"
+        />
         <div class="quick-entry-card__actions">
           <button type="button" class="secondary-button" on:click={compareTicket}>Contrastar</button>
           <button type="button" class="primary-button" on:click={doSync}>Sincronizar con Delfos</button>

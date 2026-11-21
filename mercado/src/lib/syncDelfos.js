@@ -1,5 +1,4 @@
 import { tripTotal } from './store.js';
-import { categoryMeta } from './categories.js';
 
 /**
  * Sync a closed/checkout trip as one Delfos expense.
@@ -13,20 +12,11 @@ export async function syncTripToDelfos(trip, settings) {
   const total = trip.receipt?.ticketTotal != null ? Number(trip.receipt.ticketTotal) : tripTotal(trip);
   if (!total || total <= 0) throw new Error('El total del mercado es 0');
 
-  const byCat = {};
-  for (const it of trip.items || []) {
-    const k = it.category || 'otros';
-    byCat[k] = (byCat[k] || 0) + 1;
-  }
-  const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0]?.[0];
-  const meta = categoryMeta(top || 'otros');
-
   const body = {
     amount: total,
     currency: settings.currency || 'COP',
     description: `Deméter · ${trip.storeName || 'Mercado'} · ${trip.items.length} ítems`,
     category: 'Mercado',
-    emoji: meta.emoji || '🛒',
     payment_method: 'other',
     account_id: settings.delfosAccountId || null,
     date: (trip.closedAt || trip.createdAt || new Date().toISOString()).slice(0, 10),

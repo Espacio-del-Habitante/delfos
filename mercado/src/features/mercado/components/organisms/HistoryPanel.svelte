@@ -51,7 +51,7 @@
         {#each Object.entries(breakdown(t.items)) as [cat, amt]}
           {@const meta = categoryMeta(cat)}
           <span class="pill" style="background:rgba(27,122,74,0.12);color:var(--primary)">
-            {meta.emoji} {meta.label} {formatCop(amt)}
+            {meta.label} {formatCop(amt)}
           </span>
         {/each}
       </div>
@@ -59,7 +59,6 @@
   {:else}
     <section class="manual-card">
       <div class="empty-state">
-        <div class="empty-state__icon" aria-hidden="true">◎</div>
         <p class="empty-state__title">Sin historial aún</p>
         <p class="empty-state__text">Cuando cierres un mercado, aparece aquí.</p>
       </div>

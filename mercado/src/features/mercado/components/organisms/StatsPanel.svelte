@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getProducts, listTrips, tripTotal, categoryBreakdown } from '../../../../lib/store.js';
-  import { CATEGORIES, categoryMeta } from '../../../../lib/categories.js';
+  import { CATEGORIES } from '../../../../lib/categories.js';
   import { formatCop } from '../../../../lib/format.js';
 
   $: trips = listTrips().filter((t) => t.items?.length);
@@ -80,7 +80,7 @@
       {#if amt > 0}
         <div style="margin:12px 0">
           <div style="display:flex;justify-content:space-between;gap:10px">
-            <span>{c.emoji} {c.label}</span>
+            <span>{c.label}</span>
             <strong class="amount">{formatCop(amt)}</strong>
           </div>
           <div class="mercado-budget-bar" style="background:rgba(27,122,74,0.12);margin-top:8px">
@@ -96,10 +96,9 @@
     <p class="muted" style="margin:0 0 8px">Unitario vs compra pasada (local).</p>
     {#each sparkProducts as p}
       {@const delta = lastDelta(p.priceHistory)}
-      {@const meta = categoryMeta(p.category)}
       <div class="mercado-item">
         <div>
-          <p class="mercado-item__name">{meta.emoji} {p.name}</p>
+          <p class="mercado-item__name">{p.name}</p>
           <p class="mercado-item__meta">
             {#if delta == null}
               sin delta
