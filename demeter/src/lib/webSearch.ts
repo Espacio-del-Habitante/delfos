@@ -37,13 +37,21 @@ export async function fetchWebSearchResults(query: string): Promise<{
   for (const m of text.matchAll(re)) {
     const title = m[1].replace(/\*\*/g, '').trim();
     const url = decodeUddg(m[2]);
-    const snippet = m[3]
+    let snippet = m[3]
       .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
       .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
       .replace(/\*\*/g, '')
+      .replace(/https?:\/\/\S+/g, '')
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 220);
+    if (!snippet || snippet.length < 12) {
+      try {
+        snippet = new URL(url).hostname.replace(/^www\./, '');
+      } catch {
+        snippet = '';
+      }
+    }
     if (!title || /duckduckgo\.com\/html/i.test(url)) continue;
     const prices = extractCopPrices(`${title} ${snippet}`);
     hits.push({
