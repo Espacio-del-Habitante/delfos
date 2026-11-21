@@ -10,10 +10,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { colors, radius, space, field, chip, chipOn, type } from '../theme';
+import { colors, radius, space, field, type } from '../theme';
 import { categoryMeta } from '../lib/categories';
 import { UNITS, convertQty } from '../lib/units';
 import type { CartItem } from '../lib/store';
+import { VerticalWheel } from './VerticalWheel';
 
 type Props = {
   item: CartItem | null;
@@ -23,7 +24,8 @@ type Props = {
   onRemove: (id: string) => void;
 };
 
-const QTY_PRESETS = [1, 2, 3, 4, 5, 6];
+/** Ruleta de cantidades enteras; se puede escribir otro valor en el centro. */
+const QTY_ITEMS = Array.from({ length: 40 }, (_, i) => i + 1);
 
 function formatAmountInput(raw: string) {
   const digits = String(raw).replace(/\D/g, '');
@@ -31,36 +33,60 @@ function formatAmountInput(raw: string) {
   return Number(digits).toLocaleString('es-CO');
 }
 
+function nearestQtyIndex(qty: number) {
+  const n = Math.round(qty);
+  const clamped = Math.max(1, Math.min(QTY_ITEMS.length, n));
+  return clamped - 1;
+}
+
 export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Props) {
   const [name, setName] = useState('');
   const [qty, setQty] = useState(1);
+  const [qtyText, setQtyText] = useState('1');
   const [unit, setUnit] = useState('und');
   const [amountDigits, setAmountDigits] = useState('');
 
   useEffect(() => {
     if (!item) return;
+    const q = Number(item.qty) || 1;
     setName(item.name);
-    setQty(Number(item.qty) || 1);
+    setQty(q);
+    setQtyText(String(q));
     setUnit(item.unit || 'und');
     setAmountDigits(item.amount != null ? String(Math.round(Number(item.amount))) : '');
   }, [item]);
 
-  const qtyChips = useMemo(() => {
-    const base = QTY_PRESETS.slice();
-    const n = Math.round(qty * 100) / 100;
-    if (!base.includes(n) && Number.isFinite(n) && n > 0) {
-      return [...base, n].sort((a, b) => a - b);
-    }
-    return base;
-  }, [qty]);
+  const qtyIndex = useMemo(() => nearestQtyIndex(qty), [qty]);
+  const unitIndex = useMemo(
+    () => Math.max(0, UNITS.findIndex((u) => u.id === unit)),
+    [unit],
+  );
 
   if (!item) return null;
   const meta = categoryMeta(item.category);
   const amountDisplay = formatAmountInput(amountDigits);
 
-  function pickUnit(next: string) {
+  function onQtyWheel(i: number) {
+    const n = QTY_ITEMS[i];
+    setQty(n);
+    setQtyText(String(n));
+  }
+
+  function onQtyType(text: string) {
+    const cleaned = text.replace(',', '.').replace(/[^\d.]/g, '');
+    setQtyText(cleaned);
+    const n = Number(cleaned);
+    if (Number.isFinite(n) && n > 0) setQty(n);
+  }
+
+  function onUnitWheel(i: number) {
+    const next = UNITS[i]?.id || 'und';
     const converted = convertQty(qty, unit, next);
-    if (converted != null) setQty(Math.round(converted * 100) / 100);
+    if (converted != null) {
+      const q = Math.round(converted * 100) / 100;
+      setQty(q);
+      setQtyText(String(q));
+    }
     setUnit(next);
   }
 
@@ -98,8 +124,8 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
               contentContainerStyle={styles.body}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              nestedScrollEnabled
             >
-              {/* 1. Nombre */}
               <TextInput
                 style={styles.nameInput}
                 value={name}
@@ -109,51 +135,38 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                 autoCapitalize="sentences"
               />
 
-              {/* 2. Qty */}
-              <Text style={styles.stepLabel}>Cantidad</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.qtyRow}
-              >
-                {qtyChips.map((n) => {
-                  const on = Math.abs(qty - n) < 0.001;
-                  return (
-                    <Pressable
-                      key={String(n)}
-                      style={[styles.qtyChip, on && styles.qtyChipOn]}
-                      onPress={() => setQty(n)}
-                    >
-                      <Text style={[styles.qtyChipTxt, on && styles.qtyChipTxtOn]}>{n}</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              <View style={styles.wheelsRow}>
+                <View style={styles.wheelCol}>
+                  <Text style={styles.stepLabel}>Cantidad</Text>
+                  <VerticalWheel
+                    items={QTY_ITEMS}
+                    index={qtyIndex}
+                    onChangeIndex={onQtyWheel}
+                    labelOf={(n) => String(n)}
+                    hideCenterLabel
+                    centerSlot={
+                      <TextInput
+                        style={styles.qtyEditInput}
+                        value={qtyText}
+                        onChangeText={onQtyType}
+                        keyboardType="decimal-pad"
+                        selectTextOnFocus
+                      />
+                    }
+                  />
+                </View>
 
-              {/* 3. Unidad */}
-              <Text style={styles.stepLabel}>Unidad</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.unitRow}
-              >
-                {UNITS.map((u) => {
-                  const on = unit === u.id;
-                  return (
-                    <Pressable
-                      key={u.id}
-                      style={[styles.unitChip, on && styles.unitChipOn]}
-                      onPress={() => pickUnit(u.id)}
-                    >
-                      <Text style={[styles.unitChipTxt, on && styles.unitChipTxtOn]}>
-                        {u.id.toUpperCase()}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+                <View style={styles.wheelCol}>
+                  <Text style={styles.stepLabel}>Unidad</Text>
+                  <VerticalWheel
+                    items={[...UNITS]}
+                    index={unitIndex}
+                    onChangeIndex={onUnitWheel}
+                    labelOf={(u) => u.id.toUpperCase()}
+                  />
+                </View>
+              </View>
 
-              {/* 4. Precio — protagonista */}
               <Text style={styles.stepLabel}>Precio</Text>
               <View style={styles.priceBox}>
                 <Text style={styles.priceCurrency}>COP</Text>
@@ -203,7 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
-    maxHeight: '88%',
+    maxHeight: '90%',
     paddingBottom: space.md,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -8 },
@@ -254,60 +267,29 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: -0.8,
     paddingVertical: 8,
-    marginBottom: space.md,
+    marginBottom: space.sm,
   },
   stepLabel: {
     ...type.label,
-    marginBottom: 10,
-    marginTop: space.md,
+    marginBottom: 8,
+    marginTop: 4,
   },
-  qtyRow: {
+  wheelsRow: {
     flexDirection: 'row',
-    gap: 10,
-    paddingVertical: 2,
+    gap: 12,
+    marginBottom: space.md,
   },
-  qtyChip: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(246, 247, 251, 0.95)',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  qtyChipOn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  qtyChipTxt: {
-    fontSize: 18,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
+  wheelCol: { flex: 1 },
+  qtyEditInput: {
+    width: '80%',
+    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: 'Inter_800ExtraBold',
     color: colors.text,
+    paddingVertical: 6,
+    backgroundColor: 'transparent',
   },
-  qtyChipTxtOn: { color: '#fff' },
-  unitRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 2,
-  },
-  unitChip: {
-    ...chip(),
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    minWidth: 56,
-    alignItems: 'center',
-  },
-  unitChipOn: { ...chipOn() },
-  unitChipTxt: {
-    fontWeight: '700',
-    fontSize: 14,
-    fontFamily: 'Inter_700Bold',
-    color: colors.text,
-    letterSpacing: 0.4,
-  },
-  unitChipTxtOn: { color: '#fff' },
   priceBox: {
     ...field(),
     backgroundColor: colors.bg,
@@ -316,6 +298,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     minHeight: 88,
     justifyContent: 'center',
+    marginTop: 4,
   },
   priceCurrency: {
     ...type.label,
