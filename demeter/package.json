@@ -25,7 +25,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "check": "node src/lib/parseUtterance.check.mjs && node src/lib/historySuggest.check.mjs && node src/lib/priceSearch.check.mjs && node src/lib/webSearch.check.mjs && tsc --noEmit"
+    "check": "node src/lib/parseUtterance.check.mjs && node src/lib/historySuggest.check.mjs && node src/lib/priceSearch.check.mjs && node src/lib/webSearch.check.mjs && node src/lib/tripTotal.check.mjs && tsc --noEmit"
   },
   "private": true
 }
