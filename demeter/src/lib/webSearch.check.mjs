@@ -1,18 +1,35 @@
 import assert from 'node:assert/strict';
 
-function decodeUddg(href) {
-  try {
-    const u = new URL(href, 'https://duckduckgo.com');
-    const uddg = u.searchParams.get('uddg');
-    if (uddg) return decodeURIComponent(uddg);
-  } catch {}
-  return href;
+function looksLikeUrl(s) {
+  return /https?:\/\//i.test(s) || /^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(String(s).trim());
 }
 
-const sample =
-  '## [Papa criolla X 1000 G | D1](https://duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.d1.com.co%2Fpapa&rut=abc)\n\nPrecio aprox $4.500 COP en tienda\n\n';
-const m = sample.match(/## \[(.+?)\]\((.+?)\)/);
-assert.ok(m);
-assert.equal(m[1], 'Papa criolla X 1000 G | D1');
-assert.equal(decodeUddg(m[2]), 'https://www.d1.com.co/papa');
+function cleanSnippet(raw, hostname, store) {
+  let snippet = String(raw || '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\*\*/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/^\(+|\)+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!snippet || snippet.length < 8 || looksLikeUrl(snippet)) {
+    return store ? `Precio en ${store}` : hostname ? `Precio en ${hostname}` : 'Resultado de búsqueda';
+  }
+  return snippet.slice(0, 140);
+}
+
+assert.equal(
+  cleanSnippet('[](https://x) www.d1.com.co/papa', 'd1.com.co', 'D1'),
+  'Precio en D1',
+);
+assert.equal(
+  cleanSnippet('Papa Criolla EXITO 1000 gr $ 9.200 Llévalo con puntos', 'exito.com', 'Éxito').includes('Papa'),
+  true,
+);
+assert.equal(looksLikeUrl('www.exito.com/papa'), true);
+assert.equal(looksLikeUrl('Ahorra en D1 hoy'), false);
+
 console.log('webSearch check ok');
