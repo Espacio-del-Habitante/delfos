@@ -14,11 +14,13 @@
     startTrip,
     getState,
     getProducts,
+    findCartItemByName,
     markSynced,
   } from '../../../../lib/store.js';
   import { syncTripToDelfos } from '../../../../lib/syncDelfos.js';
   import IconMic from '../atoms/IconMic.svelte';
   import IconCamera from '../atoms/IconCamera.svelte';
+  import ItemEditorModal from '../molecules/ItemEditorModal.svelte';
 
   export let trip: any = null;
 
@@ -35,16 +37,18 @@
   let receiptFileName = '';
   let fileInput: HTMLInputElement | undefined;
   let payOpen = false;
-  let editingId: string | null = null;
-  let editAmount = '';
   let draftInput: HTMLInputElement | undefined;
+
+  let modalOpen = false;
+  let modalMode: 'confirm' | 'adjust' | 'edit' = 'confirm';
+  let modalDraft: any = null;
 
   $: total = tripTotal(trip);
   $: budget = Number(trip?.budget) || 0;
   $: pct = budget > 0 ? Math.min(100, Math.round((total / budget) * 100)) : 0;
   $: over = budget > 0 && total > budget;
   $: recent = (() => {
-    trip; // recompute when the active trip refreshes
+    trip;
     return Object.values(getProducts())
       .filter((p: any) => (p.priceHistory || []).length)
       .sort(
@@ -74,10 +78,56 @@
     const hist = products[key]?.priceHistory || [];
     const last = hist.at(-1);
     if (!last) return null;
-    const qty = Number(last.qty) || 1;
     const unitPrice = Number(last.unitPrice);
     if (!Number.isFinite(unitPrice)) return null;
-    return { unitPrice, unit: last.unit || 'und', amountFor: (q: number) => Math.round(unitPrice * q) };
+    return {
+      unitPrice,
+      unit: last.unit || 'und',
+      amountFor: (q: number) => Math.round(unitPrice * q),
+      photo: (products[key]?.photos || [])[0] || null,
+    };
+  }
+
+  function openModal(mode: 'confirm' | 'adjust' | 'edit', itemDraft: any) {
+    modalMode = mode;
+    modalDraft = itemDraft;
+    modalOpen = true;
+  }
+
+  function closeModal() {
+    modalOpen = false;
+    modalDraft = null;
+  }
+
+  function openConfirmFromParsed(parsed: any) {
+    const existing = findCartItemByName(parsed.item.name);
+    if (existing) {
+      openModal('adjust', {
+        id: existing.id,
+        name: existing.name,
+        qty: parsed.item.qty ?? existing.qty,
+        unit: parsed.item.unit || existing.unit,
+        amount: parsed.item.amount ?? existing.amount,
+        category: existing.category || parsed.item.category,
+        photoDataUrl: existing.photoDataUrl || null,
+      });
+      return;
+    }
+
+    const item = { ...parsed.item };
+    const prev = lastPriceFor(item.name);
+    if (item.amount == null && prev) {
+      item.amount = prev.amountFor(Number(item.qty) || 1);
+      if (!item.unit || item.unit === 'und') item.unit = prev.unit;
+    }
+    openModal('confirm', {
+      name: item.name,
+      qty: item.qty || 1,
+      unit: item.unit || 'und',
+      amount: item.amount ?? null,
+      category: item.category || 'otros',
+      photoDataUrl: prev?.photo || null,
+    });
   }
 
   async function applyText(text: string) {
@@ -103,21 +153,7 @@
     }
 
     if (parsed.intent === 'add') {
-      const item = { ...parsed.item };
-      if (item.amount == null) {
-        const prev = lastPriceFor(item.name);
-        if (prev) {
-          item.amount = prev.amountFor(Number(item.qty) || 1);
-          if (!item.unit || item.unit === 'und') item.unit = prev.unit;
-          toast(`Sumé ${item.name} (precio de la vez pasada)`, 'success');
-        } else {
-          toast(`Sumé ${item.name} — toca el monto para poner precio`, 'info');
-        }
-      } else {
-        toast(`Sumé ${item.name}`, 'success');
-      }
-      addItem(item);
-      changed();
+      openConfirmFromParsed(parsed);
       return;
     }
 
@@ -127,7 +163,16 @@
       return;
     }
     if (matches.length === 1) {
-      confirmPending(matches[0].id, parsed.intent, parsed);
+      const m = matches[0];
+      openModal('adjust', {
+        id: m.id,
+        name: m.name,
+        qty: parsed.item.qty ?? m.qty,
+        unit: parsed.item.unit || m.unit,
+        amount: parsed.item.amount ?? m.amount,
+        category: m.category,
+        photoDataUrl: m.photoDataUrl || null,
+      });
       return;
     }
     pending = { kind: parsed.intent, matches, parsed };
@@ -160,23 +205,20 @@
     }
   }
 
-  function confirmPending(itemId: string, kind = pending?.kind, parsed = pending?.parsed) {
-    if (!kind || !parsed) return;
-    if (kind === 'remove') {
-      removeItem(itemId);
-      toast('Quitado', 'success');
-    } else {
-      const patch: Record<string, unknown> = { qty: parsed.item.qty, unit: parsed.item.unit };
-      if (parsed.item.amount != null) patch.amount = parsed.item.amount;
-      const current = trip.items.find((i: any) => i.id === itemId);
-      if (current && parsed.item.amount == null && current.amount != null && current.qty) {
-        patch.amount = Math.round((Number(current.amount) / Number(current.qty)) * Number(parsed.item.qty));
-      }
-      updateItem(itemId, patch);
-      toast('Actualizado', 'success');
-    }
+  function pickPending(itemId: string) {
+    if (!pending) return;
+    const m = pending.matches.find((x) => x.id === itemId);
+    if (!m) return;
+    openModal(pending.kind === 'remove' ? 'edit' : 'adjust', {
+      id: m.id,
+      name: m.name,
+      qty: pending.parsed.item.qty ?? m.qty,
+      unit: pending.parsed.item.unit || m.unit,
+      amount: pending.parsed.item.amount ?? m.amount,
+      category: m.category,
+      photoDataUrl: m.photoDataUrl || null,
+    });
     pending = null;
-    changed();
   }
 
   function quickAdd(product: any) {
@@ -185,33 +227,73 @@
     const unit = last?.unit || 'und';
     const amount =
       last?.unitPrice != null ? Math.round(Number(last.unitPrice) * qty) : last?.amount ?? null;
-    addItem({
+    const existing = findCartItemByName(product.name);
+    if (existing) {
+      openModal('adjust', {
+        id: existing.id,
+        name: existing.name,
+        qty,
+        unit,
+        amount: amount ?? existing.amount,
+        category: existing.category || product.category,
+        photoDataUrl: existing.photoDataUrl || product.photos?.[0] || null,
+      });
+      return;
+    }
+    openModal('confirm', {
       name: product.name,
       qty,
       unit,
       amount,
       category: product.category || 'otros',
+      photoDataUrl: product.photos?.[0] || null,
     });
-    changed();
-    toast(`Sumé ${product.name}`, 'success');
   }
 
-  function startEdit(item: any) {
-    editingId = item.id;
-    editAmount = item.amount != null ? String(item.amount) : '';
+  function openItem(item: any) {
+    openModal('edit', {
+      id: item.id,
+      name: item.name,
+      qty: item.qty,
+      unit: item.unit,
+      amount: item.amount,
+      category: item.category,
+      photoDataUrl: item.photoDataUrl || null,
+    });
   }
 
-  function saveEdit() {
-    if (!editingId) return;
-    const n = Number(String(editAmount).replace(/\D/g, ''));
-    if (!n) {
-      toast('Pon un monto', 'error');
-      return;
+  function onModalSave(e: CustomEvent) {
+    const d = e.detail;
+    if (d.mode === 'confirm') {
+      addItem({
+        name: d.name,
+        qty: d.qty,
+        unit: d.unit,
+        amount: d.amount,
+        category: d.category,
+        photoDataUrl: d.photoDataUrl,
+      });
+      toast(`Sumé ${d.name}`, 'success');
+    } else if (d.id) {
+      updateItem(d.id, {
+        name: d.name,
+        qty: d.qty,
+        unit: d.unit,
+        amount: d.amount,
+        category: d.category,
+        photoDataUrl: d.photoDataUrl,
+      });
+      toast(d.mode === 'adjust' ? `Actualicé ${d.name}` : 'Guardado', 'success');
     }
-    updateItem(editingId, { amount: n });
-    editingId = null;
-    editAmount = '';
+    closeModal();
     changed();
+  }
+
+  function onModalRemove(e: CustomEvent) {
+    removeItem(e.detail.id);
+    closeModal();
+    changed();
+    toast('Quitado', 'success');
   }
 
   function onReceiptFile(e: Event) {
@@ -281,6 +363,7 @@
     receiptFileName = '';
     pending = null;
     payOpen = false;
+    closeModal();
     changed();
     toast('Mercado cerrado', 'success');
   }
@@ -351,7 +434,7 @@
         </h2>
         <div class="mercado-stack">
           {#each pending.matches as m}
-            <button type="button" class="secondary-button" on:click={() => confirmPending(m.id)}>
+            <button type="button" class="secondary-button" on:click={() => pickPending(m.id)}>
               {m.name} · {formatQty(m.qty, m.unit)} · {formatCop(m.amount)}
             </button>
           {/each}
@@ -370,52 +453,25 @@
       {:else}
         {#each [...trip.items].reverse() as item}
           {@const meta = categoryMeta(item.category)}
-          <div class="mercado-item">
+          <button type="button" class="mercado-item mercado-item--btn" on:click={() => openItem(item)}>
             <div class="mercado-item__main">
-              <span class="mercado-item__emoji emoji-char" aria-hidden="true">{meta.emoji}</span>
+              {#if item.photoDataUrl}
+                <img class="mercado-item__thumb" src={item.photoDataUrl} alt="" />
+              {:else}
+                <span class="mercado-item__emoji emoji-char" aria-hidden="true">{meta.emoji}</span>
+              {/if}
               <div>
                 <p class="mercado-item__name">{item.name}</p>
                 <p class="mercado-item__meta">{formatQty(item.qty, item.unit)} · {meta.label}</p>
               </div>
             </div>
             <div class="mercado-item__right">
-              {#if editingId === item.id}
-                <form
-                  class="mercado-inline-edit"
-                  on:submit|preventDefault={saveEdit}
-                >
-                  <input
-                    class="mercado-text-input"
-                    type="text"
-                    inputmode="numeric"
-                    bind:value={editAmount}
-                    placeholder="Monto"
-                    aria-label="Monto"
-                  />
-                  <button type="submit" class="primary-button mercado-inline-edit__ok">OK</button>
-                </form>
-              {:else}
-                <button
-                  type="button"
-                  class="mercado-item__amt-btn amount"
-                  class:is-missing={item.amount == null}
-                  on:click={() => startEdit(item)}
-                >
-                  {item.amount == null ? 'poner precio' : formatCop(item.amount)}
-                </button>
-                <button
-                  type="button"
-                  class="ghost-button mercado-item__rm"
-                  on:click={() => {
-                    removeItem(item.id);
-                    changed();
-                  }}
-                >
-                  Quitar
-                </button>
-              {/if}
+              <p class="mercado-item__amt amount" class:is-missing={item.amount == null}>
+                {item.amount == null ? 'sin precio' : formatCop(item.amount)}
+              </p>
+              <span class="mercado-item__hint muted">Editar</span>
             </div>
-          </div>
+          </button>
         {/each}
       {/if}
     </section>
@@ -506,3 +562,12 @@
     </div>
   </div>
 {/if}
+
+<ItemEditorModal
+  open={modalOpen}
+  mode={modalMode}
+  draft={modalDraft}
+  on:close={closeModal}
+  on:save={onModalSave}
+  on:remove={onModalRemove}
+/>

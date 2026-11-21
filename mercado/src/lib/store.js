@@ -127,8 +127,10 @@ export function addItem(item) {
     unit: item.unit || 'und',
     amount: item.amount == null ? null : Number(item.amount),
     category: item.category || 'otros',
+    photoDataUrl: item.photoDataUrl || null,
     createdAt: todayIso(),
   };
+  if (row.photoDataUrl) rememberProductPhoto(data, row.name, row.photoDataUrl);
   trip.items.push(row);
   rememberProduct(data, row);
   save(data);
@@ -142,6 +144,7 @@ export function updateItem(itemId, patch) {
   const row = trip.items.find((i) => i.id === itemId);
   if (!row) throw new Error('Ítem no encontrado');
   Object.assign(row, patch);
+  if (patch.photoDataUrl) rememberProductPhoto(data, row.name, patch.photoDataUrl);
   rememberProduct(data, row);
   save(data);
   return { trip, item: row };
@@ -198,15 +201,28 @@ export function getProducts() {
   return load().products;
 }
 
+function rememberProductPhoto(data, name, dataUrl) {
+  const key = nameKey(name);
+  if (!key || !dataUrl) return;
+  const prev = data.products[key] || { name, category: 'otros', photos: [], priceHistory: [] };
+  prev.photos = [dataUrl, ...(prev.photos || []).filter((p) => p !== dataUrl)].slice(0, 3);
+  data.products[key] = prev;
+}
+
 export function attachProductPhoto(name, dataUrl) {
   const data = load();
+  rememberProductPhoto(data, name, dataUrl);
+  save(data);
+  return data.products[nameKey(name)] || null;
+}
+
+/** Ítem del carrito activo con el mismo nombre (normalizado). */
+export function findCartItemByName(name) {
+  const trip = getActiveTrip();
+  if (!trip) return null;
   const key = nameKey(name);
   if (!key) return null;
-  const prev = data.products[key] || { name, category: 'otros', photos: [], priceHistory: [] };
-  prev.photos = [dataUrl, ...(prev.photos || [])].slice(0, 3);
-  data.products[key] = prev;
-  save(data);
-  return prev;
+  return trip.items.find((i) => nameKey(i.name) === key) || null;
 }
 
 export function categoryBreakdown(trip) {

@@ -224,12 +224,156 @@ body {
   align-items: flex-start;
   gap: 10px;
   min-width: 0;
+  text-align: left;
 }
 
 .mercado-item__emoji {
   font-size: 1.25rem;
   line-height: 1.2;
   margin-top: 1px;
+}
+
+.mercado-item__thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(27, 122, 74, 0.08);
+}
+
+.mercado-item--btn {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 14px;
+  transition: background 160ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.mercado-item--btn:active {
+  transform: scale(0.985);
+  background: rgba(27, 122, 74, 0.06);
+}
+
+.mercado-item__hint {
+  font-size: 0.72rem;
+}
+
+.mercado-item__amt.is-missing {
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.mercado-item-modal {
+  width: min(440px, calc(100vw - 24px));
+  max-height: min(92vh, 820px);
+}
+
+.mercado-item-modal__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.mercado-item-modal__row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 12px;
+}
+
+.mercado-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mercado-stepper__btn {
+  flex: 0 !important;
+  min-width: 44px !important;
+  padding: 10px 0;
+}
+
+.mercado-stepper__input {
+  text-align: center;
+  padding: 10px 8px;
+}
+
+.mercado-unit-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mercado-unit {
+  border: 1px solid rgba(27, 122, 74, 0.16);
+  background: rgba(240, 253, 244, 0.9);
+  color: var(--text-strong);
+  border-radius: 999px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-transform: lowercase;
+}
+
+.mercado-unit.is-active {
+  background: #1b7a4a;
+  border-color: #1b7a4a;
+  color: #fff;
+}
+
+.mercado-item-modal__photo {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+}
+
+.mercado-price-search {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(240, 253, 244, 0.75);
+  border: 1px solid rgba(27, 122, 74, 0.12);
+}
+
+.mercado-price-search__title {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.mercado-price-search__links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mercado-price-search__link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(27, 122, 74, 0.12);
+  text-decoration: none;
+  color: inherit;
+}
+
+.mercado-price-search__link:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 420px) {
+  .mercado-item-modal__row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mercado-cat-pill {
