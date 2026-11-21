@@ -45,4 +45,11 @@ assert.equal(f.item.qty, 1);
 assert.equal(f.item.amount, 8000);
 assert.match(f.item.name, /papa/);
 
+const g = parseUtterance('3 libras de papa');
+assert.equal(g.intent, 'add');
+assert.equal(g.item.qty, 3);
+assert.equal(g.item.unit, 'lb');
+assert.equal(g.item.amount, null);
+assert.match(g.item.name, /papa/);
+
 console.log('parseUtterance check ok');

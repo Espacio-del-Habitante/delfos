@@ -3,7 +3,7 @@
   import { formatCop } from '../../../../lib/format.js';
   import { categoryMeta } from '../../../../lib/categories.js';
   import { UNITS, convertQty } from '../../../../lib/units.js';
-  import { priceSearchLinks } from '../../../../lib/priceSearch.js';
+  import { fetchPriceQuotes, googlePriceUrl } from '../../../../lib/priceSearch.js';
   import { getProducts } from '../../../../lib/store.js';
   import IconCamera from '../atoms/IconCamera.svelte';
 
@@ -44,7 +44,19 @@
   let fileInput: HTMLInputElement | undefined;
   let seededKey = '';
 
-  $: links = priceSearchLinks(name);
+  let priceLoading = false;
+  let priceError = '';
+  let priceQuotes: Array<{
+    id: string;
+    label: string;
+    status: string;
+    approx: number | null;
+    url: string;
+    sample: string | null;
+  }> = [];
+  let googleUrl = '';
+  let priceQueryKey = '';
+
   $: meta = categoryMeta(category);
   $: lastPhotos = (() => {
     name;
@@ -65,6 +77,9 @@
     amountStr = draft.amount != null ? String(draft.amount) : '';
     photoDataUrl = draft.photoDataUrl || null;
     category = draft.category || 'otros';
+    priceQuotes = [];
+    priceError = '';
+    priceQueryKey = '';
   }
 
   $: if (typeof document !== 'undefined') {
@@ -72,9 +87,39 @@
     else document.body.classList.remove('modal-open');
   }
 
+  $: if (open && name.trim()) {
+    const key = name.trim().toLowerCase();
+    if (key !== priceQueryKey) {
+      priceQueryKey = key;
+      void loadPrices(key);
+    }
+  }
+
   onDestroy(() => {
     if (typeof document !== 'undefined') document.body.classList.remove('modal-open');
   });
+
+  async function loadPrices(q: string) {
+    priceLoading = true;
+    priceError = '';
+    googleUrl = googlePriceUrl(q);
+    try {
+      const res = await fetchPriceQuotes(q);
+      if (priceQueryKey !== q.toLowerCase()) return;
+      priceQuotes = res.quotes;
+      googleUrl = res.googleUrl;
+      if (!res.found) {
+        priceError = 'No encontré precios automáticos. Búscalo en Google y vuelve con el número.';
+      }
+    } catch {
+      if (priceQueryKey !== q.toLowerCase()) return;
+      priceQuotes = [];
+      priceError = 'No pude consultar precios ahora. Usa Google y pega el valor.';
+      googleUrl = googlePriceUrl(q);
+    } finally {
+      if (priceQueryKey === q.toLowerCase()) priceLoading = false;
+    }
+  }
 
   function bump(delta: number) {
     qty = Math.max(0.05, Math.round((Number(qty) + delta) * 100) / 100);
@@ -94,6 +139,11 @@
     unit = next;
   }
 
+  function useApprox(n: number | null) {
+    if (n == null) return;
+    amountStr = String(n);
+  }
+
   function onPhoto(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
@@ -111,6 +161,7 @@
 
   function close() {
     seededKey = '';
+    priceQueryKey = '';
     dispatch('close');
   }
 
@@ -127,11 +178,13 @@
       mode,
     });
     seededKey = '';
+    priceQueryKey = '';
   }
 
   function remove() {
     if (draft?.id) dispatch('remove', { id: draft.id });
     seededKey = '';
+    priceQueryKey = '';
   }
 
   $: title =
@@ -140,7 +193,7 @@
 
 {#if open && draft}
   <div
-    class="modal-overlay is-visible"
+    class="modal-overlay is-visible mercado-modal-overlay"
     role="presentation"
     on:click|self={close}
     on:keydown={(e) => e.key === 'Escape' && close()}
@@ -151,8 +204,8 @@
       aria-modal="true"
       aria-label={title}
     >
-      <header class="modal__header">
-        <div>
+      <header class="modal__header mercado-item-modal__header">
+        <div class="mercado-item-modal__heading">
           <p class="mercado-item-modal__eyebrow">
             <span class="emoji-char" aria-hidden="true">{meta.emoji}</span>
             {meta.label}
@@ -162,12 +215,12 @@
         <button type="button" class="ghost-button" on:click={close} aria-label="Cerrar">Cerrar</button>
       </header>
 
-      <div class="modal__body mercado-stack">
+      <div class="modal__body mercado-stack mercado-item-modal__body">
         <label class="muted" for="item-name">Producto</label>
         <input id="item-name" class="mercado-text-input" bind:value={name} />
 
-        <div class="mercado-item-modal__row">
-          <div>
+        <div class="mercado-item-modal__qtyblock">
+          <div class="mercado-item-modal__qty">
             <p class="muted" style="margin:0 0 8px">Cantidad</p>
             <div class="mercado-stepper">
               <button type="button" class="secondary-button mercado-stepper__btn" on:click={() => bump(-1)} aria-label="Menos">−</button>
@@ -175,9 +228,9 @@
               <button type="button" class="secondary-button mercado-stepper__btn" on:click={() => bump(1)} aria-label="Más">+</button>
             </div>
           </div>
-          <div>
+          <div class="mercado-item-modal__units">
             <p class="muted" style="margin:0 0 8px">Unidad</p>
-            <div class="mercado-unit-grid">
+            <div class="mercado-unit-grid" role="group" aria-label="Unidad">
               {#each UNITS as u}
                 <button
                   type="button"
@@ -228,29 +281,71 @@
         </div>
 
         <section class="mercado-price-search" aria-label="Comparar precios">
-          <p class="mercado-price-search__title">🔎 ¿Cuánto cuesta afuera?</p>
-          <p class="muted" style="margin:0 0 10px">
-            Abre buscadores con este producto. Sin tokens: tú miras y decides.
-          </p>
-          <div class="mercado-price-search__links">
-            {#each links as link}
-              <a class="mercado-price-search__link" href={link.url} target="_blank" rel="noopener noreferrer">
-                <strong>{link.label}</strong>
-                <span class="muted">{link.hint}</span>
-              </a>
-            {/each}
+          <div class="mercado-price-search__head">
+            <p class="mercado-price-search__title">🔎 ¿Cuánto cuesta afuera?</p>
+            <button
+              type="button"
+              class="ghost-button"
+              style="padding:4px 8px;font-size:0.78rem"
+              on:click={() => loadPrices(name.trim())}
+              disabled={priceLoading || !name.trim()}
+            >
+              Actualizar
+            </button>
           </div>
+
+          {#if priceLoading}
+            <p class="muted" style="margin:0">Buscando en Éxito, D1 y Mercado Libre…</p>
+          {:else}
+            <div class="mercado-price-search__quotes">
+              {#each priceQuotes as q}
+                <div class="mercado-price-quote" class:is-missing={q.status !== 'ok'}>
+                  <div>
+                    <strong>{q.label}</strong>
+                    {#if q.status === 'ok' && q.approx != null}
+                      <p class="mercado-price-quote__approx">aprox. {formatCop(q.approx)}</p>
+                    {:else}
+                      <p class="muted" style="margin:4px 0 0">No lo encontré automático</p>
+                    {/if}
+                  </div>
+                  <div class="mercado-price-quote__actions">
+                    {#if q.status === 'ok' && q.approx != null}
+                      <button type="button" class="secondary-button" on:click={() => useApprox(q.approx)}>
+                        Usar
+                      </button>
+                    {/if}
+                    <a class="ghost-button" href={q.url} target="_blank" rel="noopener noreferrer">
+                      {q.status === 'ok' ? 'Ver' : 'Google'}
+                    </a>
+                  </div>
+                </div>
+              {/each}
+            </div>
+
+            {#if priceError}
+              <p class="mercado-price-search__fallback">{priceError}</p>
+              <a class="primary-button mercado-price-search__google" href={googleUrl} target="_blank" rel="noopener noreferrer">
+                Buscar en Google
+              </a>
+            {:else if priceQuotes.some((q) => q.status !== 'ok')}
+              <a class="secondary-button mercado-price-search__google" href={googleUrl} target="_blank" rel="noopener noreferrer">
+                Completar en Google
+              </a>
+            {/if}
+          {/if}
         </section>
       </div>
 
-      <footer class="modal__footer">
+      <footer class="modal__footer mercado-item-modal__footer">
         {#if mode === 'edit' && draft.id}
-          <button type="button" class="ghost-button" style="color:var(--danger)" on:click={remove}>Quitar del carrito</button>
+          <button type="button" class="ghost-button" style="color:var(--danger)" on:click={remove}>Quitar</button>
+        {:else}
+          <span></span>
         {/if}
         <div class="modal__actions-right">
           <button type="button" class="secondary-button" on:click={close}>Cancelar</button>
           <button type="button" class="primary-button" on:click={save}>
-            {mode === 'edit' || mode === 'adjust' ? 'Guardar cambios' : 'Sumar al carrito'}
+            {mode === 'edit' || mode === 'adjust' ? 'Guardar' : 'Sumar'}
           </button>
         </div>
       </footer>

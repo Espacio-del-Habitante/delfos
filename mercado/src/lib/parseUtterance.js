@@ -30,19 +30,11 @@ function parseMoneyToken(raw, milSuffix) {
   return n;
 }
 
-function extractMoney(text) {
-  const matches = [...text.matchAll(MONEY_RE)];
-  if (!matches.length) return { amount: null, span: null };
-  // Prefer the last money mention (price usually at the end).
-  const m = matches[matches.length - 1];
-  const amount = parseMoneyToken(m[1], Boolean(m[2]));
-  return { amount, span: { start: m.index, end: m.index + m[0].length } };
-}
-
 function extractQty(text) {
   const m = text.match(QTY_RE);
-  if (!m) return { qty: 1, unit: 'und', raw: null };
+  if (!m) return { qty: 1, unit: 'und', raw: null, span: null, hasUnit: false };
   const qty = Number(String(m[1]).replace(',', '.'));
+  const hasUnit = Boolean(m[2]);
   let unit = (m[2] || 'und').toLowerCase();
   if (unit.startsWith('libra') || unit === 'lb') unit = 'lb';
   else if (unit.startsWith('kilo') || unit === 'kg') unit = 'kg';
@@ -51,7 +43,32 @@ function extractQty(text) {
   else if (unit.startsWith('lata')) unit = 'lata';
   else if (unit.startsWith('bolsa')) unit = 'bolsa';
   else unit = 'und';
-  return { qty: Number.isFinite(qty) ? qty : 1, unit, raw: m[0] };
+  return {
+    qty: Number.isFinite(qty) ? qty : 1,
+    unit,
+    raw: m[0],
+    span: { start: m.index, end: m.index + m[0].length },
+    hasUnit,
+  };
+}
+
+function extractMoney(text, qtyInfo) {
+  const matches = [...text.matchAll(MONEY_RE)];
+  if (!matches.length) return { amount: null, span: null };
+  const candidates = matches.filter((m) => {
+    const start = m.index;
+    const end = start + m[0].length;
+    // "3 libras…" → el 3 es cantidad, no precio
+    if (qtyInfo?.hasUnit && qtyInfo.span) {
+      if (start < qtyInfo.span.end && end > qtyInfo.span.start) return false;
+    }
+    return true;
+  });
+  if (!candidates.length) return { amount: null, span: null };
+  // Prefer the last money mention (price usually at the end).
+  const m = candidates[candidates.length - 1];
+  const amount = parseMoneyToken(m[1], Boolean(m[2]));
+  return { amount, span: { start: m.index, end: m.index + m[0].length } };
 }
 
 function extractProduct(text, qtyRaw, moneySpan) {
@@ -112,14 +129,15 @@ export function parseUtterance(input) {
     return { intent, confidence: 0.95, raw };
   }
 
-  const { amount, span } = extractMoney(text);
-  let { qty, unit, raw: qtyRaw } = extractQty(text);
+  let qtyInfo = extractQty(text);
+  let { amount, span } = extractMoney(text, qtyInfo);
+  let { qty, unit, raw: qtyRaw, hasUnit } = qtyInfo;
   // "papa 8000" → precio, no cantidad 8000 und (solo si no hubo unidad explícita).
   if (
     amount != null &&
     qtyRaw &&
+    !hasUnit &&
     unit === 'und' &&
-    !/\b(libras?|lb|kilos?|kg|gramos?|g|unidades?|und|paquetes?|latas?|bolsas?)\b/i.test(qtyRaw) &&
     Number(String(qtyRaw).replace(/[^\d.,]/g, '').replace(',', '.')) === amount
   ) {
     qty = 1;
