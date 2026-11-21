@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { colors, radius, space } from '../theme';
+import { colors, radius, space, softRaised, softInset, softPressed, type } from '../theme';
 import { formatCop } from '../lib/format';
 import { categoryMeta } from '../lib/categories';
 import { UNITS, convertQty } from '../lib/units';
@@ -65,87 +65,118 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.sheetWrap}
-      >
-        <View style={styles.sheet}>
-          <View style={styles.grabber} />
-          <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.eyebrow}>
-                {meta.emoji} {meta.label}
-              </Text>
-              <Text style={styles.title}>Editar</Text>
-            </View>
-            <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
-              <Text style={styles.closeTxt}>×</Text>
-            </Pressable>
-          </View>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.sheetWrap}
+        >
+          <View style={styles.sheet}>
+            <View style={styles.grabber} />
 
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-            <Text style={styles.label}>Producto</Text>
-            <TextInput style={styles.input} value={name} onChangeText={setName} />
-
-            <Text style={styles.label}>Cantidad</Text>
-            <View style={styles.stepper}>
-              <Pressable style={styles.stepBtn} onPress={() => bump(-1)}>
-                <Text style={styles.stepTxt}>−</Text>
+            <View style={styles.header}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.eyebrow}>
+                  {meta.emoji}  {meta.label}
+                </Text>
+                <Text style={styles.title}>Editar</Text>
+              </View>
+              <Pressable
+                onPress={onClose}
+                hitSlop={12}
+                style={({ pressed }) => [styles.closeBtn, pressed && styles.closeBtnPressed]}
+              >
+                <Text style={styles.closeTxt}>×</Text>
               </Pressable>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.body}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.label}>Producto</Text>
               <TextInput
-                style={[styles.input, styles.stepInput]}
-                value={qty}
-                onChangeText={setQty}
-                keyboardType="decimal-pad"
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholderTextColor={colors.muted}
               />
-              <Pressable style={styles.stepBtn} onPress={() => bump(1)}>
-                <Text style={styles.stepTxt}>+</Text>
-              </Pressable>
-            </View>
 
-            <Text style={styles.label}>Unidad</Text>
-            <View style={styles.units}>
-              {UNITS.map((u) => (
+              <Text style={styles.label}>Cantidad</Text>
+              <View style={styles.stepper}>
                 <Pressable
-                  key={u.id}
-                  style={[styles.unit, unit === u.id && styles.unitOn]}
-                  onPress={() => pickUnit(u.id)}
+                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
+                  onPress={() => bump(-1)}
                 >
-                  <Text style={[styles.unitTxt, unit === u.id && styles.unitTxtOn]}>{u.id}</Text>
+                  <Text style={styles.stepTxt}>−</Text>
                 </Pressable>
-              ))}
-            </View>
+                <TextInput
+                  style={[styles.input, styles.stepInput]}
+                  value={qty}
+                  onChangeText={setQty}
+                  keyboardType="decimal-pad"
+                />
+                <Pressable
+                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
+                  onPress={() => bump(1)}
+                >
+                  <Text style={styles.stepTxt}>+</Text>
+                </Pressable>
+              </View>
 
-            <Text style={styles.label}>Precio (COP)</Text>
-            <TextInput
-              style={styles.input}
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="number-pad"
-              placeholder="Ej. 8000"
-              placeholderTextColor={colors.muted}
-            />
-            {!!amount && (
-              <Text style={styles.hint}>{formatCop(Number(String(amount).replace(/\D/g, '')))}</Text>
-            )}
-          </ScrollView>
+              <Text style={styles.label}>Unidad</Text>
+              <View style={styles.units}>
+                {UNITS.map((u) => {
+                  const on = unit === u.id;
+                  return (
+                    <Pressable
+                      key={u.id}
+                      style={[styles.unit, on ? styles.unitOn : null]}
+                      onPress={() => pickUnit(u.id)}
+                    >
+                      <Text style={[styles.unitTxt, on && styles.unitTxtOn]}>{u.id}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-          <View style={styles.footer}>
-            <Pressable onPress={() => onRemove(item.id)}>
-              <Text style={styles.remove}>Quitar</Text>
-            </Pressable>
-            <View style={styles.footerRight}>
-              <Pressable style={styles.secondary} onPress={onClose}>
-                <Text style={styles.secondaryTxt}>Cancelar</Text>
+              <Text style={styles.label}>Precio</Text>
+              <TextInput
+                style={styles.input}
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+              />
+              {!!amount && (
+                <Text style={styles.hint}>
+                  {formatCop(Number(String(amount).replace(/\D/g, '')))}
+                </Text>
+              )}
+            </ScrollView>
+
+            <View style={styles.footer}>
+              <Pressable onPress={() => onRemove(item.id)} hitSlop={8}>
+                <Text style={styles.remove}>Quitar</Text>
               </Pressable>
-              <Pressable style={styles.primary} onPress={save}>
-                <Text style={styles.primaryTxt}>Guardar</Text>
-              </Pressable>
+              <View style={styles.footerRight}>
+                <Pressable
+                  style={({ pressed }) => [styles.secondary, pressed && styles.secondaryPressed]}
+                  onPress={onClose}
+                >
+                  <Text style={styles.secondaryTxt}>Cancelar</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]}
+                  onPress={save}
+                >
+                  <Text style={styles.primaryTxt}>Guardar</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -159,105 +190,175 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    backgroundColor: 'rgba(42, 47, 58, 0.18)',
   },
-  sheetWrap: {
-    justifyContent: 'flex-end',
-  },
+  sheetWrap: { justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: colors.surface,
+    width: '100%',
+    alignSelf: 'stretch',
+    backgroundColor: colors.bg,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
-    maxHeight: '90%',
-    paddingBottom: space.md,
+    maxHeight: '92%',
+    paddingBottom: space.lg,
+    ...softRaised('md'),
   },
   grabber: {
     alignSelf: 'center',
-    width: 40,
-    height: 4,
+    width: 44,
+    height: 5,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(15, 23, 42, 0.18)',
-    marginTop: 8,
-    marginBottom: 4,
+    backgroundColor: colors.softDark,
+    marginTop: 12,
+    marginBottom: 8,
+    opacity: 0.55,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
-    gap: space.sm,
+    gap: space.md,
   },
-  eyebrow: { color: colors.primary, fontWeight: '600', fontSize: 13, marginBottom: 2 },
-  title: { fontSize: 22, fontWeight: '700', color: colors.text, letterSpacing: -0.4, fontFamily: 'Inter_700Bold' },
+  eyebrow: {
+    color: colors.muted,
+    fontWeight: '600',
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  title: { ...type.title, fontSize: 26 },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(18, 36, 26, 0.06)',
+    ...softRaised('sm'),
+  },
+  closeBtnPressed: {
+    ...softPressed(),
+    transform: [{ scale: 0.97 }],
   },
   closeTxt: { fontSize: 22, color: colors.muted, lineHeight: 24 },
-  body: { padding: space.lg, gap: 8, paddingBottom: 24 },
-  label: { color: colors.muted, fontSize: 13, fontWeight: '600', marginTop: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-    backgroundColor: '#fff',
+  body: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
+    paddingBottom: space.xl,
+    gap: 10,
   },
-  hint: { color: colors.muted, fontSize: 13 },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  label: { ...type.label, marginTop: space.md },
+  input: {
+    ...softInset('md'),
+    borderRadius: radius.md,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    fontSize: 17,
+    color: colors.text,
+    fontFamily: 'Inter_400Regular',
+    width: '100%',
+  },
+  hint: {
+    color: colors.muted,
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    marginTop: 4,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+  },
   stepBtn: {
     width: 48,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(27, 122, 74, 0.1)',
+    flexShrink: 0,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    ...softRaised('sm'),
   },
-  stepTxt: { fontSize: 22, color: colors.primaryDark, fontWeight: '600' },
-  stepInput: { flex: 1, textAlign: 'center' },
-  units: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  stepBtnPressed: {
+    ...softPressed(),
+    transform: [{ scale: 0.97 }],
+  },
+  stepTxt: {
+    fontSize: 22,
+    color: colors.accent,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  stepInput: {
+    flex: 1,
+    minWidth: 0,
+    textAlign: 'center',
+    fontFamily: 'Inter_700Bold',
+    fontWeight: '700',
+  },
+  units: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   unit: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(27, 122, 74, 0.16)',
-    backgroundColor: 'rgba(240, 253, 244, 0.9)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: radius.sm,
+    minWidth: 48,
+    alignItems: 'center',
+    ...softRaised('sm'),
   },
-  unitOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  unitTxt: { fontWeight: '600', color: colors.text, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  unitTxtOn: { color: '#fff' },
+  unitOn: {
+    ...softPressed(),
+  },
+  unitTxt: {
+    fontWeight: '600',
+    color: colors.muted,
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  unitTxtOn: { color: colors.text },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: space.lg,
-    paddingTop: space.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 10,
+    paddingTop: space.md,
+    gap: 12,
   },
-  remove: { color: colors.danger, fontWeight: '600', paddingVertical: 12 },
-  footerRight: { flexDirection: 'row', gap: 8, flex: 1, justifyContent: 'flex-end' },
+  remove: {
+    color: colors.danger,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    paddingVertical: 14,
+  },
+  footerRight: { flexDirection: 'row', gap: 12, flex: 1, justifyContent: 'flex-end' },
   secondary: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: 'rgba(27, 122, 74, 0.08)',
-  },
-  secondaryTxt: { color: colors.primaryDark, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  primary: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 18,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+    ...softRaised('sm'),
   },
-  primaryTxt: { color: '#fff', fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  secondaryPressed: {
+    ...softPressed(),
+    transform: [{ scale: 0.97 }],
+  },
+  secondaryTxt: {
+    color: colors.muted,
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  primary: {
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    borderRadius: radius.sm,
+    backgroundColor: colors.accent,
+    shadowColor: '#2a2f3a',
+    shadowOffset: { width: 4, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  primaryPressed: { transform: [{ scale: 0.97 }], opacity: 0.92 },
+  primaryTxt: {
+    color: '#f7f8fa',
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+  },
 });

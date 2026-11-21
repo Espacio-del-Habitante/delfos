@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { colors, radius, space } from '../theme';
+import { colors, radius, space, softRaised, softInset, softPressed, type } from '../theme';
 import { formatCop, formatQty } from '../lib/format';
 import { categoryMeta } from '../lib/categories';
 import { parseUtterance, findItemMatches } from '../lib/parseUtterance';
@@ -288,48 +288,48 @@ export function MercadoScreen() {
           <Text style={styles.emptyIcon}>🛒</Text>
           <Text style={styles.emptyTitle}>Sin mercado abierto</Text>
           <Text style={styles.emptyText}>Un toque y empiezas a sumar.</Text>
-          <Pressable style={styles.primaryBtn} onPress={onStart}>
+          <Pressable
+            style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+            onPress={onStart}
+          >
             <Text style={styles.primaryBtnTxt}>Empezar</Text>
           </Pressable>
         </View>
       ) : (
         <>
           <View style={styles.hero}>
-            <Text style={styles.heroLabel}>Total del carrito</Text>
-            <Text style={styles.heroAmount}>{formatCop(total)}</Text>
+            <Text style={styles.heroLabel}>Total</Text>
+            <Text style={[styles.heroAmount, over && styles.heroAmountOver]}>{formatCop(total)}</Text>
             <View style={styles.heroStats}>
-              <View>
+              <View style={styles.heroStat}>
                 <Text style={styles.heroStatLabel}>Presupuesto</Text>
                 <Text style={styles.heroStatValue}>{formatCop(budget)}</Text>
               </View>
-              <View>
+              <View style={styles.heroStat}>
                 <Text style={styles.heroStatLabel}>Ítems</Text>
                 <Text style={styles.heroStatValue}>{trip.items.length}</Text>
               </View>
-            </View>
-            <View style={styles.heroFooter}>
-              <Text style={styles.heroStatus}>{over ? 'Sobre presupuesto' : 'Dentro del presupuesto'}</Text>
-              <View style={styles.pill}>
-                <Text style={styles.pillTxt}>{pct}% usado</Text>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatLabel}>Usado</Text>
+                <Text style={styles.heroStatValue}>{pct}%</Text>
               </View>
             </View>
-            {budget > 0 && (
-              <View style={styles.budgetBar}>
-                <View style={[styles.budgetFill, { width: `${pct}%` }, over && styles.budgetOver]} />
-              </View>
-            )}
           </View>
 
           {!!recent.length && !trip.items.length && (
             <View style={styles.chipsBlock}>
-              <Text style={styles.chipsLabel}>⚡ De antes — un toque</Text>
+              <Text style={styles.chipsLabel}>Recientes</Text>
               <View style={styles.chipsRow}>
                 {recent.map((p) => {
                   const meta = categoryMeta(p.category);
                   return (
-                    <Pressable key={p.name} style={styles.chip} onPress={() => void quickAdd(p)}>
-                      <Text>
-                        {meta.emoji} {p.name}
+                    <Pressable
+                      key={p.name}
+                      style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+                      onPress={() => void quickAdd(p)}
+                    >
+                      <Text style={styles.chipTxt}>
+                        {meta.emoji}  {p.name}
                       </Text>
                     </Pressable>
                   );
@@ -342,8 +342,9 @@ export function MercadoScreen() {
             data={items}
             keyExtractor={(it) => it.id}
             contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              <View style={[styles.card, styles.center, { padding: space.lg }]}>
+              <View style={[styles.card, styles.center, { padding: space.xl }]}>
                 <Text style={styles.emptyIcon}>🧺</Text>
                 <Text style={styles.emptyTitle}>Carrito vacío</Text>
                 <Text style={styles.emptyText}>Escribe o dicta abajo — se suma al toque.</Text>
@@ -352,27 +353,31 @@ export function MercadoScreen() {
             renderItem={({ item }) => {
               const meta = categoryMeta(item.category);
               return (
-                <Pressable style={styles.item} onPress={() => setEditItem(item)}>
-                  <Text style={styles.itemEmoji}>{meta.emoji}</Text>
+                <Pressable
+                  style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+                  onPress={() => setEditItem(item)}
+                >
+                  <View style={styles.itemIcon}>
+                    <Text style={styles.itemEmoji}>{meta.emoji}</Text>
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemName}>{item.name}</Text>
                     <Text style={styles.itemMeta}>
                       {formatQty(item.qty, item.unit)} · {meta.label}
                     </Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
-                      {item.amount == null ? 'sin precio' : formatCop(item.amount)}
-                    </Text>
-                    <Text style={styles.itemHint}>tocar</Text>
-                  </View>
+                  <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
+                    {item.amount == null ? '—' : formatCop(item.amount)}
+                  </Text>
                 </Pressable>
               );
             }}
             ListFooterComponent={
-              <Pressable style={styles.payRow} onPress={onFinish}>
+              <Pressable
+                style={({ pressed }) => [styles.payRow, pressed && styles.itemPressed]}
+                onPress={onFinish}
+              >
                 <Text style={styles.payTitle}>Cerrar mercado</Text>
-                <Text style={styles.payHint}>terminar viaje</Text>
               </Pressable>
             }
           />
@@ -380,24 +385,30 @@ export function MercadoScreen() {
       )}
 
       {trip && (
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <View style={styles.composerRow}>
             <TextInput
               style={styles.composerInput}
               value={draft}
               onChangeText={setDraft}
-              placeholder={listening ? 'Escuchando…' : 'papa 8 mil · Enter'}
+              placeholder={listening ? 'Escuchando…' : 'papa 8 mil'}
               placeholderTextColor={colors.muted}
               returnKeyType="done"
               onSubmitEditing={() => void submitDraft()}
               editable={!listening}
             />
             <Pressable
-              style={[styles.mic, listening && styles.micOn]}
+              style={({ pressed }) => [
+                styles.mic,
+                listening && styles.micOn,
+                pressed && styles.micPressed,
+              ]}
               onPress={() => void onMic()}
               accessibilityLabel={listening ? 'Detener dictado' : 'Dictar'}
             >
-              <Text style={styles.micIcon}>{listening ? '■' : 'Mic'}</Text>
+              <Text style={[styles.micIcon, listening && styles.micIconOn]}>
+                {listening ? '■' : 'Mic'}
+              </Text>
             </Pressable>
           </View>
           {listening && <Text style={styles.listenHint}>Escuchando — toca para cortar</Text>}
@@ -438,170 +449,193 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: space.lg,
-    marginBottom: space.md,
+    gap: 14,
+    paddingHorizontal: space.xl,
+    marginBottom: space.lg,
   },
   logoMark: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.heroTo,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    ...softRaised('sm'),
   },
-  logoGlyph: { fontSize: 18 },
-  brand: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.6,
-    fontFamily: 'Inter_800ExtraBold',
-  },
+  logoGlyph: { fontSize: 20 },
+  brand: { ...type.brand, fontSize: 28 },
   hero: {
-    marginHorizontal: space.lg,
-    marginBottom: space.md,
-    padding: space.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.heroFrom,
-    overflow: 'hidden',
+    marginHorizontal: space.xl,
+    marginBottom: space.lg,
+    padding: space.xl,
+    borderRadius: radius.lg,
+    ...softRaised('md'),
   },
-  heroLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
-  heroAmount: { color: '#fff', fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 4 },
-  heroStats: { flexDirection: 'row', gap: 28, marginTop: 14 },
-  heroStatLabel: { color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '600' },
-  heroStatValue: { color: '#fff', fontWeight: '700', marginTop: 2 },
-  heroFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 14,
+  heroLabel: { ...type.label },
+  heroAmount: {
+    ...type.brand,
+    fontSize: 36,
+    marginTop: 6,
+    letterSpacing: -1.2,
   },
-  heroStatus: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
-  pill: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  pillTxt: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  budgetBar: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginTop: 14,
-    overflow: 'hidden',
-  },
-  budgetFill: { height: '100%', backgroundColor: colors.soft },
-  budgetOver: { backgroundColor: '#fecaca' },
-  chipsBlock: { paddingHorizontal: space.lg, marginBottom: space.sm },
-  chipsLabel: {
-    fontSize: 12,
-    color: colors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 8,
-  },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    backgroundColor: 'rgba(240, 253, 244, 0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(27, 122, 74, 0.18)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  list: { paddingHorizontal: space.lg, paddingBottom: 120, gap: 10 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  emptyIcon: { fontSize: 36, marginBottom: 8 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, fontFamily: 'Inter_700Bold' },
-  emptyText: { color: colors.muted, textAlign: 'center', marginTop: 4, marginBottom: 14 },
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 22,
+  heroAmountOver: { color: colors.danger },
+  heroStats: { flexDirection: 'row', gap: 12, marginTop: space.lg },
+  heroStat: {
+    flex: 1,
     paddingVertical: 12,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    borderRadius: radius.sm,
+    ...softInset('sm'),
   },
-  primaryBtnTxt: { color: '#fff', fontWeight: '700' },
+  heroStatLabel: { ...type.label, fontSize: 10 },
+  heroStatValue: {
+    color: colors.text,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    marginTop: 4,
+    fontSize: 14,
+  },
+  chipsBlock: { paddingHorizontal: space.xl, marginBottom: space.md },
+  chipsLabel: { ...type.label, marginBottom: 12 },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip: {
+    borderRadius: radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    ...softRaised('sm'),
+  },
+  chipPressed: { ...softPressed(), transform: [{ scale: 0.97 }] },
+  chipTxt: { color: colors.text, fontFamily: 'Inter_600SemiBold', fontWeight: '600' },
+  list: { paddingHorizontal: space.xl, paddingBottom: 140, gap: 14 },
+  card: {
+    borderRadius: radius.lg,
+    ...softRaised('md'),
+  },
+  emptyIcon: { fontSize: 36, marginBottom: 10 },
+  emptyTitle: { ...type.title, fontSize: 18 },
+  emptyText: {
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 18,
+    fontFamily: 'Inter_400Regular',
+  },
+  primaryBtn: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: radius.sm,
+    shadowColor: '#2a2f3a',
+    shadowOffset: { width: 4, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  primaryBtnPressed: { transform: [{ scale: 0.97 }], opacity: 0.92 },
+  primaryBtnTxt: { color: '#f7f8fa', fontWeight: '700', fontFamily: 'Inter_700Bold' },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.surface,
+    gap: 14,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: space.md,
+    ...softRaised('sm'),
   },
-  itemEmoji: { fontSize: 22 },
-  itemName: { fontWeight: '700', color: colors.text, fontSize: 16 },
-  itemMeta: { color: colors.muted, fontSize: 13, marginTop: 2 },
-  itemAmt: { fontWeight: '700', color: colors.text },
-  itemAmtMissing: { color: colors.primary, fontWeight: '600', fontSize: 13 },
-  itemHint: { color: colors.muted, fontSize: 11, marginTop: 2 },
-  payRow: {
-    marginTop: 8,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: space.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  payTitle: { fontWeight: '700', color: colors.text },
-  payHint: { color: colors.muted },
-  composer: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 10,
-    shadowColor: '#12241a',
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  composerRow: { flexDirection: 'row', gap: 8 },
-  composerInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-    backgroundColor: '#fff',
-  },
-  mic: {
-    width: 52,
-    height: 52,
+  itemPressed: { ...softPressed(), transform: [{ scale: 0.985 }] },
+  itemIcon: {
+    width: 44,
+    height: 44,
     borderRadius: 16,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    ...softInset('sm'),
   },
-  micOn: { backgroundColor: colors.micListen },
-  micIcon: { fontSize: 20, color: '#fff' },
-  listenHint: { marginTop: 8, color: colors.danger, fontWeight: '600', fontSize: 12 },
+  itemEmoji: { fontSize: 20 },
+  itemName: {
+    fontWeight: '700',
+    color: colors.text,
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+  },
+  itemMeta: { color: colors.muted, fontSize: 13, marginTop: 3, fontFamily: 'Inter_400Regular' },
+  itemAmt: {
+    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+  },
+  itemAmtMissing: { color: colors.muted, fontWeight: '600' },
+  payRow: {
+    marginTop: 6,
+    borderRadius: radius.md,
+    padding: space.lg,
+    alignItems: 'center',
+    ...softRaised('sm'),
+  },
+  payTitle: {
+    fontWeight: '600',
+    color: colors.muted,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  composer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 8,
+    borderRadius: radius.lg,
+    padding: 12,
+    ...softRaised('md'),
+  },
+  composerRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  composerInput: {
+    flex: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: colors.text,
+    fontFamily: 'Inter_400Regular',
+    ...softInset('md'),
+  },
+  mic: {
+    width: 54,
+    height: 54,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...softRaised('sm'),
+  },
+  micOn: {
+    backgroundColor: colors.micListen,
+    shadowColor: colors.micListen,
+  },
+  micPressed: { transform: [{ scale: 0.97 }] },
+  micIcon: {
+    fontSize: 13,
+    color: colors.accent,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+  },
+  micIconOn: { color: '#fff' },
+  listenHint: {
+    marginTop: 10,
+    color: colors.danger,
+    fontWeight: '600',
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    textAlign: 'center',
+  },
   toast: {
     position: 'absolute',
     alignSelf: 'center',
-    backgroundColor: 'rgba(18, 36, 26, 0.92)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: radius.pill,
+    ...softRaised('sm'),
   },
-  toastTxt: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  toastTxt: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
 });
