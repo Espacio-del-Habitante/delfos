@@ -35,8 +35,9 @@
     <div class="mercado-page-header__brand">
       <img class="mercado-page-header__mark" src="/icon.svg" alt="" width="44" height="44" />
       <div>
+        <p class="mercado-page-header__eyebrow">🌾 Cosecha local</p>
         <h1 class="mercado-page-header__title">Deméter</h1>
-        <p class="mercado-page-header__sub">Mercado local · hermana de Delfos</p>
+        <p class="mercado-page-header__sub">Hermana de Delfos · mercado en el bolsillo</p>
       </div>
     </div>
   </header>

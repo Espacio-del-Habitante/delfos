@@ -294,6 +294,7 @@
 {#if !trip}
   <section class="manual-card">
     <div class="empty-state">
+      <div class="empty-state__icon" aria-hidden="true">🛒</div>
       <p class="empty-state__title">Sin mercado abierto</p>
       <p class="empty-state__text">Un toque y empiezas a sumar.</p>
       <button type="button" class="primary-button" style="margin-top:14px" on:click={newTrip}>Empezar</button>
@@ -301,21 +302,28 @@
   </section>
 {:else}
   <div class="mercado-stack mercado-trip">
-    <section class="hero-card mercado-hero-compact" aria-live="polite">
-      <div class="mercado-hero-compact__row">
+    <section class="hero-card mercado-hero" aria-live="polite">
+      <p class="hero-card__label">Total del carrito</p>
+      <p class="hero-card__amount amount">{formatCop(total)}</p>
+      <div class="hero-card__stats">
         <div>
-          <p class="hero-card__label" style="margin:0">Carrito</p>
-          <p class="hero-card__amount amount" style="margin:4px 0 0">{formatCop(total)}</p>
+          <p class="hero-card__stat-label">Presupuesto</p>
+          <p class="hero-card__stat-value amount">{formatCop(budget)}</p>
         </div>
-        <div class="mercado-hero-compact__right">
-          <span class="pill">{trip.items.length} ítems</span>
-          {#if budget}
-            <span class="pill">{pct}%{over ? '!' : ''}</span>
-          {/if}
+        <div>
+          <p class="hero-card__stat-label">Ítems</p>
+          <p class="hero-card__stat-value">{trip.items.length}</p>
         </div>
       </div>
+      <div class="hero-card__footer">
+        <span class="hero-card__status">
+          <span class="hero-card__status-dot" aria-hidden="true"></span>
+          <span>{over ? 'Sobre presupuesto' : 'Dentro del presupuesto'}</span>
+        </span>
+        <span class="pill">{pct}% usado</span>
+      </div>
       {#if budget}
-        <div class="mercado-budget-bar" class:is-over={over} style="margin-top:12px">
+        <div class="mercado-budget-bar" class:is-over={over} style="margin-top:14px">
           <span style={`width:${pct}%`}></span>
         </div>
       {/if}
@@ -323,10 +331,14 @@
 
     {#if recent.length && !trip.items.length}
       <section class="mercado-chips" aria-label="Recientes">
-        <p class="mercado-chips__label">De antes — un toque</p>
+        <p class="mercado-chips__label">⚡ De antes — un toque</p>
         <div class="mercado-chips__row">
           {#each recent as p}
-            <button type="button" class="mercado-chip" on:click={() => quickAdd(p)}>{p.name}</button>
+            {@const meta = categoryMeta(p.category)}
+            <button type="button" class="mercado-chip" on:click={() => quickAdd(p)}>
+              <span class="emoji-char" aria-hidden="true">{meta.emoji}</span>
+              {p.name}
+            </button>
           {/each}
         </div>
       </section>
@@ -351,16 +363,20 @@
     <section class="manual-card" aria-label="Carrito">
       {#if !trip.items.length}
         <div class="empty-state" style="padding:8px 0">
-          <p class="empty-state__title">Vacío</p>
+          <div class="empty-state__icon" aria-hidden="true">🧺</div>
+          <p class="empty-state__title">Carrito vacío</p>
           <p class="empty-state__text">Dicta o escribe abajo. Ej: “papa 8 mil”.</p>
         </div>
       {:else}
         {#each [...trip.items].reverse() as item}
           {@const meta = categoryMeta(item.category)}
           <div class="mercado-item">
-            <div>
-              <p class="mercado-item__name">{item.name}</p>
-              <p class="mercado-item__meta">{formatQty(item.qty, item.unit)} · {meta.label}</p>
+            <div class="mercado-item__main">
+              <span class="mercado-item__emoji emoji-char" aria-hidden="true">{meta.emoji}</span>
+              <div>
+                <p class="mercado-item__name">{item.name}</p>
+                <p class="mercado-item__meta">{formatQty(item.qty, item.unit)} · {meta.label}</p>
+              </div>
             </div>
             <div class="mercado-item__right">
               {#if editingId === item.id}

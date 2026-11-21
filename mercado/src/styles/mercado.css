@@ -1,8 +1,8 @@
 /* Deméter — aparte de Delfos. Paleta verde (cosecha) sobre el CSS base vendored. */
 
 :root {
-  --font: 'Source Sans 3', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
-  --font-display: Fraunces, Georgia, serif;
+  /* Misma familia que Delfos; solo cambia la paleta. */
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --bg: #f2f7f3;
   --surface: #ffffff;
   --surface-soft: rgba(255, 255, 255, 0.82);
@@ -16,17 +16,19 @@
   --warning: #ca8a04;
   --danger: #dc2626;
   --shadow-soft: 0 18px 40px rgba(18, 36, 26, 0.08);
-  --shadow-hero: 0 24px 48px rgba(27, 122, 74, 0.24);
+  --shadow-hero: 0 28px 56px rgba(27, 122, 74, 0.28);
   --glass-pill-bg: rgba(18, 36, 26, 0.92);
   --island-bg: #14241b;
   --island-fill: #0e1a14;
 }
 
 body {
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
   background:
-    radial-gradient(1100px 560px at 8% -12%, rgba(34, 197, 94, 0.14), transparent 55%),
-    radial-gradient(900px 480px at 100% 0%, rgba(21, 128, 61, 0.1), transparent 52%),
-    linear-gradient(180deg, rgba(15, 41, 28, 0.03), transparent 220px),
+    radial-gradient(1100px 560px at 8% -12%, rgba(34, 197, 94, 0.18), transparent 55%),
+    radial-gradient(900px 480px at 100% 0%, rgba(21, 128, 61, 0.14), transparent 52%),
+    radial-gradient(700px 420px at 50% 110%, rgba(134, 239, 172, 0.16), transparent 60%),
     var(--bg);
 }
 
@@ -36,28 +38,6 @@ body {
 
 .app-shell {
   padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
-}
-
-.mercado-hero-compact {
-  padding: 18px 20px !important;
-}
-
-.mercado-hero-compact__row {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.mercado-hero-compact__right {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
-.mercado-hero-compact .hero-card__amount {
-  font-size: 1.65rem;
 }
 
 .mercado-chips__label {
@@ -75,6 +55,9 @@ body {
 }
 
 .mercado-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid rgba(27, 122, 74, 0.18);
   background: rgba(240, 253, 244, 0.95);
   color: var(--text-strong);
@@ -83,6 +66,7 @@ body {
   font: inherit;
   font-size: 0.88rem;
   font-weight: 600;
+  box-shadow: 0 8px 18px rgba(18, 36, 26, 0.06);
 }
 
 .mercado-chip:active {
@@ -186,8 +170,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 22px;
-  padding: 4px 0 2px;
+  margin-bottom: 18px;
+  padding: 2px 0;
 }
 
 .mercado-page-header__brand {
@@ -197,20 +181,29 @@ body {
 }
 
 .mercado-page-header__mark {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
   object-fit: cover;
-  box-shadow: 0 10px 24px rgba(15, 41, 28, 0.22);
+  box-shadow: 0 14px 28px rgba(15, 41, 28, 0.22);
   flex-shrink: 0;
+}
+
+.mercado-page-header__eyebrow {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary);
 }
 
 .mercado-page-header__title {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.7rem, 5vw, 2rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  font-family: var(--font);
+  font-size: clamp(1.55rem, 4.6vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
   line-height: 1.05;
   color: var(--text-strong);
 }
@@ -219,8 +212,46 @@ body {
   margin: 4px 0 0;
   font-size: 0.82rem;
   font-weight: 500;
-  letter-spacing: 0.01em;
   color: var(--text-muted);
+}
+
+.mercado-hero.hero-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(134, 239, 172, 0.35), transparent 55%),
+    linear-gradient(145deg, #0f291c 0%, #1b7a4a 55%, #15803d 100%);
+  box-shadow: var(--shadow-hero);
+}
+
+.mercado-hero.hero-card::after {
+  content: '🌾';
+  position: absolute;
+  right: 18px;
+  bottom: 10px;
+  font-size: 3.4rem;
+  opacity: 0.18;
+  pointer-events: none;
+  font-family: var(--font-emoji);
+}
+
+.mercado-item__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mercado-item__emoji {
+  font-size: 1.25rem;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.mercado-cat-pill {
+  gap: 6px;
+  background: rgba(27, 122, 74, 0.12);
+  color: var(--primary);
 }
 
 .mercado-stack {
@@ -293,7 +324,9 @@ body {
   border-radius: var(--radius-md);
   padding: 20px;
   color: #fff;
-  background: linear-gradient(160deg, #0f291c, #166534 68%, #15803d);
+  background:
+    radial-gradient(120% 100% at 100% 0%, rgba(134, 239, 172, 0.28), transparent 50%),
+    linear-gradient(160deg, #0f291c, #166534 68%, #15803d);
   box-shadow: var(--shadow-soft);
 }
 
@@ -450,8 +483,14 @@ body {
 }
 
 .card-title {
-  font-family: var(--font-display);
-  letter-spacing: -0.02em;
+  font-family: var(--font);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.manual-card,
+.quick-entry-card {
+  box-shadow: 0 16px 36px rgba(18, 36, 26, 0.07);
 }
 
 .bottom-nav__item.is-active {

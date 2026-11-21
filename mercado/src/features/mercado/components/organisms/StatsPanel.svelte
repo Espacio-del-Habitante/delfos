@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getProducts, listTrips, tripTotal, categoryBreakdown } from '../../../../lib/store.js';
-  import { CATEGORIES } from '../../../../lib/categories.js';
+  import { CATEGORIES, categoryMeta } from '../../../../lib/categories.js';
   import { formatCop } from '../../../../lib/format.js';
 
   $: trips = listTrips().filter((t) => t.items?.length);
@@ -46,7 +46,7 @@
 
 <div class="mercado-stack">
   <section class="manual-card">
-    <h2 class="card-title" style="margin-top:0">Resumen</h2>
+    <h2 class="card-title" style="margin-top:0">📊 Resumen</h2>
     <div class="mercado-stat-grid">
       <div class="mercado-stat">
         <p class="mercado-stat__label">Cosechas</p>
@@ -63,7 +63,7 @@
     <p class="muted" style="color:rgba(255,255,255,0.7);margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em">
       Para redes
     </p>
-    <h2>Mi Deméter en números</h2>
+    <h2>🌿 Mi Deméter en números</h2>
     <p>
       {#if proteina >= harinas}
         Vas más en proteína ({formatCop(proteina)}) que en harinas ({formatCop(harinas)}).
@@ -80,7 +80,7 @@
       {#if amt > 0}
         <div style="margin:12px 0">
           <div style="display:flex;justify-content:space-between;gap:10px">
-            <span>{c.label}</span>
+            <span><span class="emoji-char" aria-hidden="true">{c.emoji}</span> {c.label}</span>
             <strong class="amount">{formatCop(amt)}</strong>
           </div>
           <div class="mercado-budget-bar" style="background:rgba(27,122,74,0.12);margin-top:8px">
@@ -96,9 +96,13 @@
     <p class="muted" style="margin:0 0 8px">Unitario vs compra pasada (local).</p>
     {#each sparkProducts as p}
       {@const delta = lastDelta(p.priceHistory)}
+      {@const meta = categoryMeta(p.category)}
       <div class="mercado-item">
         <div>
-          <p class="mercado-item__name">{p.name}</p>
+          <p class="mercado-item__name">
+            <span class="emoji-char" aria-hidden="true">{meta.emoji}</span>
+            {p.name}
+          </p>
           <p class="mercado-item__meta">
             {#if delta == null}
               sin delta

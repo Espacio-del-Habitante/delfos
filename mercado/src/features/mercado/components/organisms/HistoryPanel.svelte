@@ -28,7 +28,7 @@
 
 <div class="mercado-stack">
   <section class="manual-card">
-    <h2 class="card-title" style="margin-top:0">Historial de cosechas</h2>
+    <h2 class="card-title" style="margin-top:0">🌾 Historial de cosechas</h2>
     <p class="muted" style="margin:0 0 14px">Todo vive en este teléfono. Nada se sube solo.</p>
     <button type="button" class="secondary-button" on:click={reopen}>Nuevo mercado</button>
   </section>
@@ -50,7 +50,8 @@
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
         {#each Object.entries(breakdown(t.items)) as [cat, amt]}
           {@const meta = categoryMeta(cat)}
-          <span class="pill" style="background:rgba(27,122,74,0.12);color:var(--primary)">
+          <span class="pill mercado-cat-pill">
+            <span class="emoji-char" aria-hidden="true">{meta.emoji}</span>
             {meta.label} {formatCop(amt)}
           </span>
         {/each}
@@ -59,6 +60,7 @@
   {:else}
     <section class="manual-card">
       <div class="empty-state">
+        <div class="empty-state__icon" aria-hidden="true">📜</div>
         <p class="empty-state__title">Sin historial aún</p>
         <p class="empty-state__text">Cuando cierres un mercado, aparece aquí.</p>
       </div>
