@@ -137,18 +137,17 @@ function rememberProduct(item: CartItem) {
   };
   prev.category = item.category || prev.category;
   prev.name = item.name || prev.name;
-  if (unitPrice != null && Number.isFinite(unitPrice)) {
-    prev.priceHistory.push({
-      date: todayIso(),
-      unitPrice,
-      qty: item.qty,
-      unit: item.unit,
-      amount: item.amount,
-      tripId: cache.activeTripId,
-    });
-    // ponytail: last 40 points
-    if (prev.priceHistory.length > 40) prev.priceHistory = prev.priceHistory.slice(-40);
-  }
+  // Siempre guarda qty/unidad (hábitos); unitPrice 0 si aún no hay precio.
+  prev.priceHistory.push({
+    date: todayIso(),
+    unitPrice: unitPrice != null && Number.isFinite(unitPrice) ? unitPrice : 0,
+    qty: item.qty,
+    unit: item.unit,
+    amount: item.amount,
+    tripId: cache.activeTripId,
+  });
+  // ponytail: last 40 points
+  if (prev.priceHistory.length > 40) prev.priceHistory = prev.priceHistory.slice(-40);
   cache.products[key] = prev;
 }
 
@@ -219,13 +218,134 @@ export function findCartItemByName(name: string) {
 export function lastPriceFor(name: string) {
   const key = nameKey(name);
   const hist = cache.products[key]?.priceHistory || [];
-  const last = hist.at(-1);
+  const last = [...hist].reverse().find((h) => Number(h.unitPrice) > 0) || hist.at(-1);
   if (!last) return null;
   const unitPrice = Number(last.unitPrice);
-  if (!Number.isFinite(unitPrice)) return null;
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+    return {
+      unitPrice: 0,
+      unit: last.unit || 'und',
+      qty: Number(last.qty) || 1,
+      amount: last.amount ?? null,
+      amountFor: (_q: number) => (last.amount != null ? Number(last.amount) : null),
+    };
+  }
   return {
     unitPrice,
     unit: last.unit || 'und',
+    qty: Number(last.qty) || 1,
+    amount: last.amount ?? null,
     amountFor: (q: number) => Math.round(unitPrice * q),
+  };
+}
+
+function isLastCalendarMonth(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return d.getFullYear() === last.getFullYear() && d.getMonth() === last.getMonth();
+}
+
+export type HistorySuggestion = {
+  name: string;
+  qty: number;
+  unit: string;
+  amount: number | null;
+  category: string;
+  source: 'last-month' | 'usual' | 'last';
+  label: string;
+};
+
+/** Moda de qty+unidad; prioriza compras del mes pasado. */
+export function suggestFromHistory(name: string): HistorySuggestion | null {
+  const product = cache.products[nameKey(name)];
+  const hist = product?.priceHistory || [];
+  if (!product || !hist.length) return null;
+
+  const lastMonth = hist.filter((h) => isLastCalendarMonth(h.date));
+  const pool = lastMonth.length ? lastMonth : hist.slice(-8);
+  const counts = new Map<string, { n: number; sample: (typeof hist)[0] }>();
+  for (const h of pool) {
+    const k = `${Number(h.qty)}|${h.unit || 'und'}`;
+    const prev = counts.get(k);
+    if (prev) prev.n += 1;
+    else counts.set(k, { n: 1, sample: h });
+  }
+  let best = pool[pool.length - 1];
+  let bestN = 0;
+  for (const { n, sample } of counts.values()) {
+    if (n >= bestN) {
+      bestN = n;
+      best = sample;
+    }
+  }
+
+  const qty = Number(best.qty) || 1;
+  const unit = best.unit || 'und';
+  const unitPrice = Number(best.unitPrice);
+  const amount =
+    best.amount != null
+      ? Number(best.amount)
+      : unitPrice > 0
+        ? Math.round(unitPrice * qty)
+        : null;
+
+  const source = lastMonth.length ? 'last-month' : bestN > 1 ? 'usual' : 'last';
+  const prefix =
+    source === 'last-month' ? 'Como el mes pasado' : source === 'usual' ? 'Lo de siempre' : 'Última vez';
+
+  return {
+    name: product.name,
+    qty,
+    unit,
+    amount: amount != null && Number.isFinite(amount) ? amount : null,
+    category: product.category || 'otros',
+    source,
+    label: `${prefix} · ${qty} ${unit}`,
+  };
+}
+
+/** Chips rápidos: hábitos recientes no vacíos. */
+export function recentHabitSuggestions(limit = 6): HistorySuggestion[] {
+  const rows = Object.values(cache.products)
+    .filter((p) => (p.priceHistory || []).length)
+    .map((p) => suggestFromHistory(p.name))
+    .filter((s): s is HistorySuggestion => Boolean(s))
+    .sort((a, b) => {
+      const rank = (s: HistorySuggestion) =>
+        s.source === 'last-month' ? 0 : s.source === 'usual' ? 1 : 2;
+      return rank(a) - rank(b);
+    });
+  const seen = new Set<string>();
+  const out: HistorySuggestion[] = [];
+  for (const s of rows) {
+    const k = nameKey(s.name);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** Test helper: seed product habit without UI. */
+export function _seedProductForTests(
+  name: string,
+  entries: Array<{ date: string; qty: number; unit: string; amount?: number | null; unitPrice?: number }>,
+) {
+  const key = nameKey(name);
+  cache.products[key] = {
+    name,
+    category: 'otros',
+    photos: [],
+    priceHistory: entries.map((e) => ({
+      date: e.date,
+      qty: e.qty,
+      unit: e.unit,
+      amount: e.amount ?? null,
+      unitPrice: e.unitPrice ?? (e.amount && e.qty ? Number(e.amount) / e.qty : 0),
+      tripId: null,
+    })),
   };
 }

@@ -102,6 +102,9 @@ export type ParsedItem = {
   unit: string;
   amount: number | null;
   category: string;
+  /** True si el usuario dijo cantidad/unidad o precio en la frase. */
+  qtyExplicit?: boolean;
+  amountExplicit?: boolean;
 };
 
 export function parseUtterance(input: string) {
@@ -128,7 +131,15 @@ export function parseUtterance(input: string) {
 
   const name = extractProduct(text, qtyRaw, span);
   const category = categorizeProduct(name);
-  const item: ParsedItem = { name, qty, unit, amount: amount ?? null, category };
+  const item: ParsedItem = {
+    name,
+    qty,
+    unit,
+    amount: amount ?? null,
+    category,
+    qtyExplicit: Boolean(qtyRaw),
+    amountExplicit: amount != null,
+  };
 
   if (intent === 'remove') {
     return { intent, item, confidence: name !== 'producto' ? 0.8 : 0.4, raw };

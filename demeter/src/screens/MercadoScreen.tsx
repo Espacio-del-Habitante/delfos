@@ -28,9 +28,11 @@ import {
   closeTrip,
   findCartItemByName,
   lastPriceFor,
-  getProducts,
+  suggestFromHistory,
+  recentHabitSuggestions,
   type CartItem,
   type Trip,
+  type HistorySuggestion,
 } from '../lib/store';
 import {
   startListening,
@@ -94,16 +96,9 @@ export function MercadoScreen() {
   const pct = budget > 0 ? Math.min(100, Math.round((total / budget) * 100)) : 0;
   const over = budget > 0 && total > budget;
 
-  const recent = useMemo(() => {
+  const habits = useMemo(() => {
     tick;
-    return Object.values(getProducts())
-      .filter((p) => (p.priceHistory || []).length)
-      .sort((a, b) =>
-        String(b.priceHistory.at(-1)?.date || '').localeCompare(
-          String(a.priceHistory.at(-1)?.date || ''),
-        ),
-      )
-      .slice(0, 6);
+    return recentHabitSuggestions(8).filter((h) => !findCartItemByName(h.name));
   }, [tick]);
 
   async function ensureTrip(): Promise<Trip> {
@@ -112,20 +107,42 @@ export function MercadoScreen() {
     return startTrip({ budget: getState().settings.budgetDefault });
   }
 
-  async function commitAdd(parsedItem: {
-    name: string;
-    qty: number;
-    unit: string;
-    amount: number | null;
-    category: string;
-  }) {
+  async function commitAdd(
+    parsedItem: {
+      name: string;
+      qty: number;
+      unit: string;
+      amount: number | null;
+      category: string;
+      qtyExplicit?: boolean;
+      amountExplicit?: boolean;
+    },
+    opts?: { fromHabit?: boolean },
+  ) {
     await ensureTrip();
     const item = { ...parsedItem };
-    const prev = lastPriceFor(item.name);
-    if (item.amount == null && prev) {
-      item.amount = prev.amountFor(Number(item.qty) || 1);
-      if (!item.unit || item.unit === 'und') item.unit = prev.unit;
+    const habit = suggestFromHistory(item.name);
+    const bare = !item.qtyExplicit && !item.amountExplicit;
+
+    // Solo nombre → llena qty/unidad/precio como el mes pasado / última vez.
+    if (habit && (bare || opts?.fromHabit)) {
+      if (!item.qtyExplicit || opts?.fromHabit) {
+        item.qty = habit.qty;
+        item.unit = habit.unit;
+      }
+      if (!item.amountExplicit || opts?.fromHabit) {
+        item.amount = habit.amount;
+      }
+      if (!item.category || item.category === 'otros') item.category = habit.category;
+    } else {
+      const prev = lastPriceFor(item.name);
+      if (item.amount == null && prev) {
+        const amt = prev.amountFor(Number(item.qty) || 1);
+        if (amt != null) item.amount = amt;
+        if (!item.unit || item.unit === 'und') item.unit = prev.unit;
+      }
     }
+
     const qty = Number(item.qty) || 1;
     const unit = item.unit || 'und';
     const existing = findCartItemByName(item.name);
@@ -147,7 +164,8 @@ export function MercadoScreen() {
         amount: item.amount ?? null,
         category: item.category || 'otros',
       });
-      showToast(`Sumé ${item.name}`);
+      if (habit && (bare || opts?.fromHabit)) showToast(`${habit.label}`);
+      else showToast(`Sumé ${item.name}`);
     }
   }
 
@@ -247,19 +265,19 @@ export function MercadoScreen() {
     ]);
   }
 
-  async function quickAdd(product: { name: string; category: string; priceHistory: any[] }) {
-    const last = product.priceHistory.at(-1);
-    const qty = Number(last?.qty) || 1;
-    const unit = last?.unit || 'und';
-    const amount =
-      last?.unitPrice != null ? Math.round(Number(last.unitPrice) * qty) : last?.amount ?? null;
-    await commitAdd({
-      name: product.name,
-      qty,
-      unit,
-      amount,
-      category: product.category || 'otros',
-    });
+  async function quickHabit(h: HistorySuggestion) {
+    await commitAdd(
+      {
+        name: h.name,
+        qty: h.qty,
+        unit: h.unit,
+        amount: h.amount,
+        category: h.category,
+        qtyExplicit: true,
+        amountExplicit: h.amount != null,
+      },
+      { fromHabit: true },
+    );
   }
 
   if (!ready) {
@@ -325,20 +343,28 @@ export function MercadoScreen() {
             )}
           </View>
 
-          {!!recent.length && !trip.items.length && (
+          {!!habits.length && (
             <View style={styles.chipsBlock}>
-              <Text style={styles.chipsLabel}>De antes — un toque</Text>
+              <Text style={styles.chipsLabel}>
+                {habits.some((h) => h.source === 'last-month')
+                  ? 'Como el mes pasado — un toque'
+                  : 'Repetir — un toque'}
+              </Text>
               <View style={styles.chipsRow}>
-                {recent.map((p) => {
-                  const meta = categoryMeta(p.category);
+                {habits.map((h) => {
+                  const meta = categoryMeta(h.category);
                   return (
                     <Pressable
-                      key={p.name}
+                      key={h.name}
                       style={({ pressed }) => [styles.chip, pressed && { transform: [{ scale: 0.97 }] }]}
-                      onPress={() => void quickAdd(p)}
+                      onPress={() => void quickHabit(h)}
                     >
                       <Text style={styles.chipTxt}>
-                        {meta.emoji}  {p.name}
+                        {meta.emoji}  {h.name}
+                      </Text>
+                      <Text style={styles.chipMeta}>
+                        {h.qty} {h.unit}
+                        {h.amount != null ? ` · ${formatCop(h.amount)}` : ''}
                       </Text>
                     </Pressable>
                   );
@@ -539,11 +565,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(240, 253, 244, 0.95)',
     borderWidth: 1,
     borderColor: 'rgba(27, 122, 74, 0.18)',
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    maxWidth: 200,
   },
   chipTxt: { color: colors.text, fontFamily: 'Inter_600SemiBold', fontWeight: '600' },
+  chipMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 2,
+    fontFamily: 'Inter_400Regular',
+  },
   list: { paddingHorizontal: space.lg, paddingBottom: 120, gap: 10 },
   card: {
     ...card(),
