@@ -1,0 +1,193 @@
+/* Overrides mínimos: Mercado es mobile-first y vive aparte de Delfos. */
+
+.mercado-bottom-nav.bottom-nav {
+  display: flex;
+}
+
+.mercado-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.mercado-page-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mercado-page-header__mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.mercado-page-header__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.mercado-page-header__sub {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.mercado-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mercado-budget-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+.mercado-budget-bar > span {
+  display: block;
+  height: 100%;
+  background: #fff;
+  border-radius: inherit;
+  transition: width 220ms var(--ease-out);
+}
+
+.mercado-budget-bar.is-over > span {
+  background: #fecaca;
+}
+
+.mercado-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.mercado-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.mercado-item:first-child {
+  padding-top: 0;
+}
+
+.mercado-item__name {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.mercado-item__meta {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.mercado-item__amt {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+}
+
+.mercado-confirm {
+  border: 1px dashed rgba(79, 70, 229, 0.35);
+  background: rgba(238, 242, 255, 0.65);
+}
+
+.mercado-share-card {
+  border-radius: var(--radius-md);
+  padding: 20px;
+  color: #fff;
+  background: linear-gradient(160deg, #111827, #312e81 70%);
+  box-shadow: var(--shadow-soft);
+}
+
+.mercado-share-card h2 {
+  margin: 6px 0 10px;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.mercado-share-card p {
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.45;
+}
+
+.mercado-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.mercado-stat {
+  background: rgba(246, 247, 251, 0.9);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.mercado-stat__label {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mercado-stat__value {
+  margin: 6px 0 0;
+  font-size: 1.15rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.mercado-spark {
+  width: 100%;
+  height: 56px;
+  margin-top: 8px;
+}
+
+.mercado-receipt-preview {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+}
+
+.mercado-mic.primary-button {
+  min-width: 52px;
+  min-height: 52px;
+  padding: 0;
+  border-radius: 16px;
+  font-size: 1.2rem;
+}
+
+.mercado-mic.is-listening {
+  background: var(--danger);
+  box-shadow: 0 12px 28px rgba(239, 68, 68, 0.28);
+}
+
+.mercado-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.mercado-input-row input {
+  flex: 1;
+}
+
+.manual-form input[type='file'] {
+  padding: 10px 12px;
+}

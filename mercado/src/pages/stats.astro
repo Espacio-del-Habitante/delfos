@@ -1,0 +1,8 @@
+---
+import MercadoLayout from '../layouts/MercadoLayout.astro';
+import MercadoScreen from '../features/mercado/screen/MercadoScreen.svelte';
+---
+
+<MercadoLayout title="Stats — Mercado">
+  <MercadoScreen client:load tab="stats" />
+</MercadoLayout>

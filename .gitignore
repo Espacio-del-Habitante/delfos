@@ -7,6 +7,7 @@ delfos.db
 .DS_Store
 node_modules/
 mercado/dist/
+mercado/.astro/
 
 # Datos locales del usuario (no versionar finanzas personales)
 backend/data/delfos_data.json
