@@ -8,6 +8,7 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -42,12 +43,47 @@ import {
 } from '../lib/speech';
 import { ItemEditSheet } from '../components/ItemEditSheet';
 
+/** Micrófono dibujado con Views — sin dependencia de iconos. */
+function MicGlyph({ color = '#fff' }: { color?: string }) {
+  return (
+    <View style={glyph.box} accessibilityElementsHidden>
+      <View style={[glyph.head, { backgroundColor: color }]} />
+      <View style={[glyph.yoke, { borderColor: color }]} />
+      <View style={[glyph.stem, { backgroundColor: color }]} />
+      <View style={[glyph.base, { backgroundColor: color }]} />
+    </View>
+  );
+}
+
+function StopGlyph({ color = '#fff' }: { color?: string }) {
+  return <View style={[glyph.stop, { backgroundColor: color }]} accessibilityElementsHidden />;
+}
+
+const glyph = StyleSheet.create({
+  box: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
+  head: { width: 8, height: 12, borderRadius: 4 },
+  yoke: {
+    position: 'absolute',
+    bottom: 3,
+    width: 14,
+    height: 8,
+    borderWidth: 2,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  stem: { position: 'absolute', bottom: 1, width: 2, height: 4, borderRadius: 1 },
+  base: { position: 'absolute', bottom: 0, width: 10, height: 2, borderRadius: 1 },
+  stop: { width: 12, height: 12, borderRadius: 3 },
+});
+
 export function MercadoScreen() {
   const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
   const [draft, setDraft] = useState('');
   const [listening, setListening] = useState(false);
+  const micPulse = useRef(new Animated.Value(0)).current;
   const [toast, setToast] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<CartItem | null>(null);
 
@@ -224,6 +260,22 @@ export function MercadoScreen() {
     await applyText(text);
   }
 
+  useEffect(() => {
+    if (!listening) {
+      micPulse.stopAnimation();
+      micPulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(micPulse, { toValue: 1, duration: 850, useNativeDriver: true }),
+        Animated.timing(micPulse, { toValue: 0, duration: 850, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [listening, micPulse]);
+
   async function onMic() {
     if (listening) {
       stopListening();
@@ -231,7 +283,7 @@ export function MercadoScreen() {
     }
     try {
       if (!speechAvailable()) {
-        showToast('Dictado no disponible — escribe');
+        showToast('Dictado no disponible. Escribe abajo');
         return;
       }
       setDraft('');
@@ -439,19 +491,45 @@ export function MercadoScreen() {
               onSubmitEditing={() => void submitDraft()}
               editable={!listening}
             />
-            <Pressable
-              style={({ pressed }) => [
-                styles.mic,
-                listening && styles.micOn,
-                pressed && { transform: [{ scale: 0.97 }] },
-              ]}
-              onPress={() => void onMic()}
-              accessibilityLabel={listening ? 'Detener dictado' : 'Dictar'}
-            >
-              <Text style={styles.micIcon}>{listening ? '■' : 'Mic'}</Text>
-            </Pressable>
+            <View style={styles.micWrap}>
+              {listening && (
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.micPulse,
+                    {
+                      opacity: micPulse.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: micPulse.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 1.5],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              )}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.mic,
+                  listening && styles.micOn,
+                  pressed && { transform: [{ scale: 0.96 }] },
+                ]}
+                onPress={() => void onMic()}
+                accessibilityRole="button"
+                accessibilityLabel={listening ? 'Detener dictado' : 'Dictar con la voz'}
+                accessibilityState={{ selected: listening }}
+              >
+                {listening ? <StopGlyph /> : <MicGlyph />}
+              </Pressable>
+            </View>
           </View>
-          {listening && <Text style={styles.listenHint}>Escuchando — toca para cortar</Text>}
+          {listening && <Text style={styles.listenHint}>Escuchando. Toca para cortar</Text>}
         </View>
       )}
 
@@ -674,21 +752,37 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily: 'Inter_400Regular',
   },
+  micWrap: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micPulse: {
+    position: 'absolute',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.micListen,
+  },
   mic: {
     width: 52,
     height: 52,
-    borderRadius: 16,
+    borderRadius: 26,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.32,
+    shadowRadius: 16,
+    elevation: 5,
   },
-  micOn: { backgroundColor: colors.micListen },
-  micIcon: { fontSize: 13, color: '#fff', fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  micOn: {
+    backgroundColor: colors.micListen,
+    shadowColor: colors.micListen,
+    shadowOpacity: 0.4,
+  },
   listenHint: {
     marginTop: 8,
     color: colors.danger,
