@@ -224,11 +224,26 @@ body {
   background: rgba(27, 122, 74, 0.12);
 }
 
-.secondary-button {
-  background: #e8f8ee;
-  color: #166534;
+.primary-button {
+  background: var(--primary);
+  box-shadow: 0 12px 28px rgba(27, 122, 74, 0.28);
 }
 
-.secondary-button:hover {
-  background: #dcfce7;
+@media (hover: hover) and (pointer: fine) {
+  .primary-button:hover {
+    background: #166534;
+    box-shadow: 0 16px 32px rgba(27, 122, 74, 0.32);
+  }
+}
+
+.secondary-button {
+  color: #166534;
+  background: rgba(27, 122, 74, 0.08);
+  border: 1px solid rgba(27, 122, 74, 0.14);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .secondary-button:hover {
+    background: rgba(27, 122, 74, 0.14);
+  }
 }
