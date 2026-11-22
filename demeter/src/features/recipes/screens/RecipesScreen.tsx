@@ -58,13 +58,13 @@ export function RecipesScreen() {
       setRecipes(res.recipes);
       setSource(res.source);
       if (res.notice) showToast(res.notice, res.noticeTone || 'warn');
-      else if (res.recipes.length) showToast('Listo · toca una card para ver el detalle', 'info');
+      else if (res.recipes.length) showToast('Listo · toca una card y cocina la idea', 'info');
     } catch (e) {
-      const msg = friendlyError(e, 'No se pudieron proponer recetas');
+      const msg = friendlyError(e, 'No salieron recetas esta vez');
       showToast(msg, 'error');
       setInfo({
-        title: 'No pudimos armar recetas',
-        body: `${msg}\n\nRevisa la conexión o la IA en Ajustes. Mientras tanto puedes seguir sumando al carrito.`,
+        title: 'Las recetas se tomaron el día',
+        body: `${msg}\n\nRevisa la red o la IA en Ajustes. Mientras, sigue sumando al carrito — luego lo intentamos otra vez.`,
       });
     } finally {
       setBusy(false);
@@ -76,8 +76,8 @@ export function RecipesScreen() {
       <StatusBar style="dark" />
       <Text style={styles.title}>Recetas</Text>
       <Text style={styles.lead}>
-        Aquí verás propuestas de recetas para tu mercado — con lo que estás comprando
-        ahora. Toca una card para ver la preparación completa.
+        Ideas para cocinar con lo que vas metiendo al carrito. Toca una card y te
+        contamos el paso a paso.
       </Text>
 
       <ScrollView
@@ -92,16 +92,16 @@ export function RecipesScreen() {
           <Text style={styles.cardLabel}>Perfil · {meta.chip}</Text>
           <Text style={styles.muted}>
             {items.length
-              ? `${items.length} ítem${items.length === 1 ? '' : 's'} en el carrito · ${formatCop(tripTotal(trip))}`
-              : 'Carrito vacío — suma productos en Mercado y vuelve.'}
+              ? `${items.length} cosa${items.length === 1 ? '' : 's'} en el carrito · ${formatCop(tripTotal(trip))}`
+              : 'Carrito vacío · suma en Mercado y vuelve a cocinar ideas.'}
           </Text>
           {!aiReady(getAiSettings()) ? (
             <Text style={styles.hint}>
-              Sin IA configurada: usamos ideas locales. En Ajustes puedes activar Gemini /
-              Ollama para propuestas más creativas.
+              Sin IA aún: usamos ideas caseras. En Ajustes puedes encender Gemini u Ollama
+              para sorprenderte más.
             </Text>
           ) : (
-            <Text style={styles.hint}>IA lista · las propuestas se piden bajo demanda.</Text>
+            <Text style={styles.hint}>IA lista · pide propuestas cuando quieras.</Text>
           )}
           <Pressable
             disabled={busy || !items.length}
@@ -117,15 +117,15 @@ export function RecipesScreen() {
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnTxt}>Proponer recetas</Text>
+              <Text style={styles.btnTxt}>¿Qué cocino?</Text>
             )}
           </Pressable>
         </View>
 
         {source ? (
           <Text style={styles.source}>
-            Fuente: {source === 'ai' ? 'IA' : 'ideas locales'}
-            {recipes.some((r) => r.imageUrl) ? ' · con foto' : ''}
+            {source === 'ai' ? 'Con ayuda de la IA' : 'Ideas caseras del carrito'}
+            {recipes.some((r) => r.imageUrl) ? ' · con fotito' : ''}
           </Text>
         ) : null}
 
@@ -164,7 +164,7 @@ export function RecipesScreen() {
                 Te falta: {r.missing.join(', ')}
               </Text>
             )}
-            <Text style={styles.tapHint}>Toca para ver pasos completos →</Text>
+            <Text style={styles.tapHint}>Toca para ver cómo se hace →</Text>
           </Pressable>
         ))}
       </ScrollView>

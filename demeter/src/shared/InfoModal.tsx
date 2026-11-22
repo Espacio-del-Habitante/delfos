@@ -14,7 +14,7 @@ export function InfoModal({
   visible,
   title,
   body,
-  confirmLabel = 'Entendido',
+  confirmLabel = 'Dale',
   onClose,
 }: Props) {
   return (

@@ -67,7 +67,7 @@ async function main() {
 
     // Intentar cerrar sin mercado / vacío
     await page.getByRole('tab', { name: 'Mercado' }).click({ force: true }).catch(() => {});
-    const closeBtn = page.getByRole('button', { name: 'Cerrar mercado' });
+    const closeBtn = page.getByRole('button', { name: /Cerrar compra|Cerrar mercado/i });
     if (await closeBtn.count()) {
       const disabled = await closeBtn.getAttribute('aria-disabled');
       step('cerrar sin ítems deshabilitado o ausente', disabled === 'true' || disabled === '');
@@ -137,21 +137,21 @@ async function main() {
     // Recetas sin IA / con carrito
     await page.getByRole('tab', { name: 'Recetas' }).click({ force: true });
     await page.waitForTimeout(500);
-    await page.getByText(/Proponer recetas/i).click({ force: true });
+    await page.getByText(/¿Qué cocino\?|Proponer/i).click({ force: true });
     await page.waitForTimeout(4500);
     const recText = await page.evaluate(() => document.body.innerText);
     step('recetas: no Failed to fetch crudo', !/Failed to fetch/i.test(recText), recText.includes('IA no') ? 'toast/fallback' : '');
     step(
       'recetas: cards o aviso controlado',
-      /Toca para ver|Proponer|Suma algo|ideas locales|Listo/i.test(recText),
+      /Toca para ver|Qué cocino|Proponer|Suma algo|ideas|Listo|cocinar/i.test(recText),
     );
 
     if (/Toca para ver/i.test(recText)) {
       await page.getByText(/Toca para ver/i).first().click({ force: true });
       await page.waitForTimeout(600);
       const det = await page.evaluate(() => document.body.innerText);
-      step('detalle receta abre', /Preparación/i.test(det));
-      await page.getByText(/^Cerrar$/i).click({ force: true }).catch(() => {});
+      step('detalle receta abre', /Cómo se hace|Preparación|min/i.test(det));
+      await page.getByText(/Listo, gracias|^Cerrar$/i).click({ force: true }).catch(() => {});
     }
 
     // Ajustes: backup basura

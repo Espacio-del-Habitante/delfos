@@ -207,12 +207,12 @@ export function exportBackupObject(): BackupPayload {
 }
 
 export async function restoreFromBackupObject(raw: unknown) {
-  if (!raw || typeof raw !== 'object') throw new Error('Backup vacío');
+  if (!raw || typeof raw !== 'object') throw new Error('Ese backup vino vacío');
   const payload = raw as Partial<BackupPayload> & { state?: Partial<State> };
   const state = payload.state;
-  if (!state || typeof state !== 'object') throw new Error('Backup sin state');
+  if (!state || typeof state !== 'object') throw new Error('Ese backup no trae datos');
   if (payload.app && payload.app !== 'mercapp') {
-    throw new Error('Este archivo no es un backup de MercApp');
+    throw new Error('Ese archivo no parece un backup de MercApp');
   }
 
   const settingsIn = (state.settings || {}) as Partial<AppSettings>;
@@ -277,7 +277,7 @@ export function getCustomCategories(): CategoryDef[] {
 
 export async function addCustomCategory(input: { label: string; emoji?: string }) {
   const label = String(input.label || '').trim();
-  if (!label) throw new Error('Nombre vacío');
+  if (!label) throw new Error('Ponle un nombre');
   const emoji = String(input.emoji || '🧺').trim() || '🧺';
   let id = slugCategory(label);
   const existing = getCustomCategories();
@@ -380,14 +380,14 @@ function historyFromClosed(
 
 export async function addItem(item: Omit<CartItem, 'id' | 'createdAt'> & { id?: string }) {
   const trip = getActiveTrip();
-  if (!trip || trip.status === 'closed') throw new Error('No hay mercado abierto');
+  if (!trip || trip.status === 'closed') throw new Error('Abre un mercado primero');
   const name = String(item.name || '').trim();
-  if (!name) throw new Error('Nombre vacío');
+  if (!name) throw new Error('Ponle un nombre');
   const qty = Number(item.qty);
-  if (!Number.isFinite(qty) || qty <= 0) throw new Error('Cantidad inválida');
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error('Esa cantidad no cuadra');
   const amount = item.amount == null ? null : Number(item.amount);
   if (amount != null && (!Number.isFinite(amount) || amount < 0)) {
-    throw new Error('Precio inválido');
+    throw new Error('Ese precio no cuadra');
   }
   const row: CartItem = {
     id: uid('item'),
@@ -407,23 +407,23 @@ export async function addItem(item: Omit<CartItem, 'id' | 'createdAt'> & { id?: 
 
 export async function updateItem(itemId: string, patch: Partial<CartItem>) {
   const trip = getActiveTrip();
-  if (!trip) throw new Error('No hay mercado abierto');
-  if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
+  if (!trip) throw new Error('Abre un mercado primero');
+  if (trip.status === 'closed') throw new Error('Ese mercado ya cerró');
   const row = trip.items.find((i) => i.id === itemId);
-  if (!row) throw new Error('Ítem no encontrado');
+  if (!row) throw new Error('Ese ítem ya no está en el carrito');
   if (patch.name != null) {
     const name = String(patch.name).trim();
-    if (!name) throw new Error('Nombre vacío');
+    if (!name) throw new Error('Ponle un nombre');
     patch = { ...patch, name };
   }
   if (patch.qty != null) {
     const qty = Number(patch.qty);
-    if (!Number.isFinite(qty) || qty <= 0) throw new Error('Cantidad inválida');
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error('Esa cantidad no cuadra');
     patch = { ...patch, qty };
   }
   if (patch.amount !== undefined && patch.amount != null) {
     const amount = Number(patch.amount);
-    if (!Number.isFinite(amount) || amount < 0) throw new Error('Precio inválido');
+    if (!Number.isFinite(amount) || amount < 0) throw new Error('Ese precio no cuadra');
     patch = { ...patch, amount };
   }
   Object.assign(row, patch);
@@ -434,8 +434,8 @@ export async function updateItem(itemId: string, patch: Partial<CartItem>) {
 
 export async function removeItem(itemId: string) {
   const trip = getActiveTrip();
-  if (!trip) throw new Error('No hay mercado abierto');
-  if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
+  if (!trip) throw new Error('Abre un mercado primero');
+  if (trip.status === 'closed') throw new Error('Ese mercado ya cerró');
   trip.items = trip.items.filter((i) => i.id !== itemId);
   await persist();
   return trip;
@@ -462,12 +462,12 @@ export async function setCheckout(receiptPatch: {
   notes?: string;
 } = {}) {
   const trip = getActiveTrip();
-  if (!trip) throw new Error('No hay mercado abierto');
-  if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
-  if (!trip.items.length) throw new Error('El carrito está vacío');
+  if (!trip) throw new Error('Abre un mercado primero');
+  if (trip.status === 'closed') throw new Error('Ese mercado ya cerró');
+  if (!trip.items.length) throw new Error('El carrito está vacío · suma algo primero');
   if (receiptPatch.ticketTotal != null) {
     const n = Number(receiptPatch.ticketTotal);
-    if (!Number.isFinite(n) || n < 0) throw new Error('Total de factura inválido');
+    if (!Number.isFinite(n) || n < 0) throw new Error('Ese total de factura no cuadra');
   }
   trip.status = 'checkout';
   trip.receipt = { ...(trip.receipt || {}), ...receiptPatch };
@@ -488,9 +488,9 @@ export async function markSynced(
 
 export async function closeTrip() {
   const trip = getActiveTrip();
-  if (!trip) throw new Error('No hay mercado abierto');
-  if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
-  if (!trip.items.length) throw new Error('El carrito está vacío');
+  if (!trip) throw new Error('Abre un mercado primero');
+  if (trip.status === 'closed') throw new Error('Ese mercado ya cerró');
+  if (!trip.items.length) throw new Error('El carrito está vacío · suma algo primero');
   // Commit hábitos solo al cerrar (Repetir = mercados cerrados).
   for (const item of trip.items) rememberProduct(item, trip.id);
   trip.status = 'closed';
@@ -590,7 +590,11 @@ export function suggestFromHistory(name: string): HistorySuggestion | null {
 
   const source = lastMonth.length ? 'last-month' : bestN > 1 ? 'usual' : 'last';
   const prefix =
-    source === 'last-month' ? 'Como el mes pasado' : source === 'usual' ? 'Lo de siempre' : 'Última vez';
+    source === 'last-month'
+      ? 'Como el mes pasado'
+      : source === 'usual'
+        ? 'Tu clásico'
+        : 'La última vez';
 
   return {
     name: product.name,

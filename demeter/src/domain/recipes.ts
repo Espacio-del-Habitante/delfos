@@ -46,10 +46,10 @@ const TEMPLATES: Array<{
       'Apaga, exprime limón o un toque de pimienta y sirve en bowl caliente.',
     ],
     profiles: ['fitness'],
-    vibe: 'Alto en proteína',
+    vibe: 'Proteína sin drama',
     emoji: '🥗',
     description:
-      'Un plato completo y ligero: proteína magra con verdura rápida. Ideal post-entreno o almuerzo de semana.',
+      'Completo y ligero: proteína magra con verdura rápida. Ideal post-entreno o almuerzo de semana.',
     imageQuery: 'chicken',
   },
   {
@@ -64,10 +64,10 @@ const TEMPLATES: Array<{
       'Al servir, remueve y endulza solo si hace falta.',
     ],
     profiles: ['fitness'],
-    vibe: 'Desayuno fácil',
+    vibe: 'Desayuno en piloto automático',
     emoji: '🥣',
     description:
-      'Desayuno frío que se arma la noche anterior. Fibra + proteína sin cocinar en la mañana.',
+      'Se arma la noche anterior. Fibra + proteína y cero sartén en la mañana.',
     imageQuery: 'oatmeal',
   },
   {
@@ -101,7 +101,7 @@ const TEMPLATES: Array<{
     profiles: ['divertido'],
     vibe: 'Chucherías con estilo',
     emoji: '🍿',
-    description: 'No es cocina gourmet: es permiso de picar bonito. Perfecta para el perfil Divertido.',
+    description: 'No es gourmet: es permiso de picar bonito. Perfecta para el mood Divertido.',
     imageQuery: 'dessert',
   },
   {
@@ -152,7 +152,7 @@ const TEMPLATES: Array<{
     profiles: ['fitness', 'divertido', 'excentrico'],
     vibe: 'Usa lo del carrito',
     emoji: '🍳',
-    description: 'La receta comodín: aromáticos + proteína + lo que haya. Sirve para vaciar la bolsa del mercado.',
+    description: 'La comodín: aromáticos + proteína + lo que haya. Para vaciar la bolsa sin inventar mucho.',
     imageQuery: 'stir fry',
   },
 ];

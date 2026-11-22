@@ -218,11 +218,11 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
       setPriceQuotes(res.quotes);
       setGoogleUrl(res.googleUrl);
       if (!res.found) {
-        setPriceError('No encontré precios automáticos. Ábrelo en Google aquí mismo.');
+        setPriceError('No hallé precios solos. Ábrelo en Google aquí mismito.');
       }
     } catch {
       setPriceQuotes([]);
-      setPriceError('No pude consultar precios ahora. Ábrelo en Google aquí mismo.');
+      setPriceError('La búsqueda se trabó. Ábrelo en Google aquí mismito.');
       setGoogleUrl(googlePriceUrl(q));
     } finally {
       setPriceLoading(false);
@@ -354,7 +354,7 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                   <Text style={styles.unitPriceHint}>≈ {unitPriceLine}</Text>
                 ) : (
                   <Text style={styles.unitPriceHintMuted}>
-                    Escribe el total; al subir la cantidad se recalcula.
+                    Pon el total; si subes la cantidad, recalculamos.
                   </Text>
                 )}
               </View>
@@ -365,7 +365,7 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                   onPress={() => void onPhotoAndSearch()}
                 >
                   <Text style={styles.photoBtnTxt}>
-                    {photoDataUrl ? 'Cambiar foto y buscar' : 'Foto y buscar precios'}
+                    {photoDataUrl ? 'Otra foto y buscar' : 'Foto + buscar precios'}
                   </Text>
                 </Pressable>
                 {photoDataUrl ? (
@@ -382,14 +382,14 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                 }}
               >
                 <Text style={styles.extrasToggleTxt}>
-                  {extrasOpen ? '▾' : '▸'}  Comparar precios web
+                  {extrasOpen ? '▾' : '▸'}  ¿Cuánto cuesta afuera?
                 </Text>
               </Pressable>
 
               {extrasOpen && (
                 <View style={styles.priceSearch} accessibilityLabel="Comparar precios">
                   <View style={styles.priceSearchHead}>
-                    <Text style={styles.priceSearchTitle}>¿Cuánto cuesta afuera?</Text>
+                    <Text style={styles.priceSearchTitle}>Precios en la calle</Text>
                     <Pressable
                       onPress={() => void loadPrices()}
                       disabled={priceLoading || !name.trim()}
@@ -449,12 +449,12 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                                     </Text>
                                   ) : (
                                     <Text style={styles.muted}>
-                                      Sin empaque detectado · no puedo comparar por unidad
+                                      Sin empaque claro · no comparamos por unidad
                                     </Text>
                                   )}
                                 </>
                               ) : (
-                                <Text style={styles.muted}>Sin precio auto</Text>
+                                <Text style={styles.muted}>Sin precio automático</Text>
                               )}
                             </View>
                             <View style={styles.quoteActions}>

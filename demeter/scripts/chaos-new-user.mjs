@@ -48,23 +48,25 @@ function normalizeShopProfile(raw) {
   return id === 'fitness' || id === 'divertido' || id === 'excentrico' ? id : 'fitness';
 }
 
-function friendlyError(err, fallback = 'Algo salió mal. Intenta de nuevo.') {
+function friendlyError(err, fallback = 'Uy, algo se torció. Prueba otra vez.') {
   const msg = String(
     err && typeof err === 'object' && 'message' in err ? err.message : err || '',
   ).trim();
   if (!msg) return fallback;
   if (/failed to fetch|network request failed|load failed|net::|econnrefused|cors/i.test(msg)) {
-    return 'No hubo conexión con el servicio. Revisa red o la URL en Ajustes.';
+    return 'Sin señal con el servicio. Mira tu red o la URL en Ajustes.';
   }
-  if (/timeout|timed out|aborted/i.test(msg)) return 'Tardó demasiado. Intenta de nuevo.';
+  if (/timeout|timed out|aborted/i.test(msg)) return 'Se demoró demasiado. Dale otra pasada.';
   if (msg.length <= 140 && !/^[A-Za-z]+Error\b/.test(msg) && !/^HTTP\s*\d/i.test(msg)) return msg;
   return fallback;
 }
 
 function validateBackup(raw) {
-  if (!raw || typeof raw !== 'object') throw new Error('Backup vacío');
-  if (raw.app && raw.app !== 'mercapp') throw new Error('Este archivo no es un backup de MercApp');
-  if (!raw.state || typeof raw.state !== 'object') throw new Error('Backup sin state');
+  if (!raw || typeof raw !== 'object') throw new Error('Ese backup vino vacío');
+  if (raw.app && raw.app !== 'mercapp') {
+    throw new Error('Ese archivo no parece un backup de MercApp');
+  }
+  if (!raw.state || typeof raw.state !== 'object') throw new Error('Ese backup no trae datos');
   return true;
 }
 

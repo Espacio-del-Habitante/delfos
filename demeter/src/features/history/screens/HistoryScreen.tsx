@@ -68,18 +68,19 @@ export function HistoryScreen({ onNewTrip }: Props) {
   async function onSyncPending() {
     const settings = getState().settings;
     if (!settings.delfosApiBase?.trim()) {
-      setSyncMsg('Configura la URL de Delfos en Ajustes');
+      setSyncMsg('Pon la URL de Delfos en Ajustes y listo');
       return;
     }
     setSyncing(true);
     setSyncMsg(null);
     try {
       const res = await syncAllPendingToDelfos(settings);
-      if (res.total === 0) setSyncMsg('Nada pendiente');
-      else if (res.fail === 0) setSyncMsg(`Sync ✓ ${res.ok} mercado${res.ok === 1 ? '' : 's'}`);
-      else setSyncMsg(`Sync ${res.ok} ok · ${res.fail} falló`);
+      if (res.total === 0) setSyncMsg('Nada pendiente · estás al día');
+      else if (res.fail === 0)
+        setSyncMsg(`¡Listo! ${res.ok} mercado${res.ok === 1 ? '' : 's'} en Delfos`);
+      else setSyncMsg(`${res.ok} bien · ${res.fail} se trabaron`);
     } catch (e: unknown) {
-      setSyncMsg(friendlyError(e, 'No se pudo sincronizar con Delfos'));
+      setSyncMsg(friendlyError(e, 'No pudimos hablar con Delfos ahora'));
     } finally {
       setSyncing(false);
     }
@@ -101,7 +102,7 @@ export function HistoryScreen({ onNewTrip }: Props) {
       <StatusBar style="dark" />
       <View style={styles.header}>
         <Text style={styles.title}>Historial</Text>
-        <Text style={styles.sub}>Cosechas en este teléfono. Nada se sube solo.</Text>
+        <Text style={styles.sub}>Tus mercados cerrados viven aquí, en este teléfono.</Text>
       </View>
 
       {!ready ? (
@@ -117,7 +118,7 @@ export function HistoryScreen({ onNewTrip }: Props) {
                 onPress={reopen}
                 style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
               >
-                <Text style={styles.ctaTxt}>Nuevo mercado</Text>
+                <Text style={styles.ctaTxt}>Abrir mercado nuevo</Text>
               </Pressable>
               {pendingCount > 0 && (
                 <Pressable
@@ -141,8 +142,8 @@ export function HistoryScreen({ onNewTrip }: Props) {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Sin historial aún</Text>
-              <Text style={styles.muted}>Cuando cierres un mercado, aparece aquí.</Text>
+              <Text style={styles.emptyTitle}>Aún no hay cosechas</Text>
+              <Text style={styles.muted}>Cuando cierres una compra, aparece por aquí.</Text>
             </View>
           }
           renderItem={({ item: t }) => (
@@ -254,13 +255,13 @@ function TripDetail({
         </Text>
       </View>
 
-      <Text style={styles.section}>Qué compramos</Text>
+      <Text style={styles.section}>Lo que llevaste</Text>
       <FlatList
         data={t.items}
         keyExtractor={(it) => it.id}
         contentContainerStyle={{ paddingBottom, gap: 10 }}
         ListEmptyComponent={
-          <Text style={styles.muted}>Este mercado no tiene ítems.</Text>
+          <Text style={styles.muted}>Este mercado quedó sin ítems. Raro, pero pasa.</Text>
         }
         renderItem={({ item }) => {
           const meta = categoryMeta(item.category, getCustomCategories());

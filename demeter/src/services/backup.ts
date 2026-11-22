@@ -47,7 +47,7 @@ export async function restoreBackupFromText(raw: string) {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error('JSON inválido');
+    throw new Error('Ese JSON no se entiende');
   }
   return restoreFromBackupObject(parsed);
 }
@@ -69,7 +69,7 @@ export function pickBackupFileWeb(): Promise<string> {
       }
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+      reader.onerror = () => reject(new Error('No pudimos leer ese archivo'));
       reader.readAsText(file);
     };
     input.click();

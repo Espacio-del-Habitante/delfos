@@ -12,7 +12,7 @@ type Props = {
 export function ProfilePicker({ value, onChange, compact }: Props) {
   return (
     <View style={styles.wrap} accessibilityRole="radiogroup">
-      {!compact ? <Text style={styles.label}>Tu perfil de mercado</Text> : null}
+      {!compact ? <Text style={styles.label}>¿Con qué mood mercas hoy?</Text> : null}
       <View style={styles.row}>
         {SHOP_PROFILES.map((p) => {
           const on = value === p.id;

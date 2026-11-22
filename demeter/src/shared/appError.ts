@@ -2,7 +2,7 @@
 
 export function friendlyError(
   err: unknown,
-  fallback = 'Algo salió mal. Intenta de nuevo.',
+  fallback = 'Uy, algo se torció. Prueba otra vez.',
 ): string {
   const msg = String(
     err && typeof err === 'object' && 'message' in err
@@ -13,25 +13,25 @@ export function friendlyError(
   if (!msg) return fallback;
 
   if (/failed to fetch|network request failed|load failed|net::|econnrefused|cors/i.test(msg)) {
-    return 'No hubo conexión con el servicio. Revisa red o la URL en Ajustes.';
+    return 'Sin señal con el servicio. Mira tu red o la URL en Ajustes.';
   }
   if (/timeout|timed out|aborted/i.test(msg)) {
-    return 'Tardó demasiado. Intenta de nuevo.';
+    return 'Se demoró demasiado. Dale otra pasada.';
   }
   if (/api key|falta api|unauthorized|401/i.test(msg)) {
-    return 'Falta o falló la API key. Revísala en Ajustes.';
+    return 'Falta (o falló) la API key. Revísala en Ajustes.';
   }
   if (/403|forbidden/i.test(msg)) {
-    return 'El servicio rechazó la petición (permisos).';
+    return 'Ese servicio dijo “no” (permisos).';
   }
   if (/404|not found/i.test(msg)) {
-    return 'No encontramos ese recurso.';
+    return 'No encontramos eso por ningún lado.';
   }
   if (/5\d\d|internal server|bad gateway/i.test(msg)) {
-    return 'El servicio falló un momento. Prueba otra vez.';
+    return 'El servicio está de malas hoy. Intenta en un rato.';
   }
   if (/json|unexpected token|syntaxerror/i.test(msg)) {
-    return 'La respuesta no se pudo leer. Intenta de nuevo.';
+    return 'Esa respuesta vino rara. Prueba de nuevo.';
   }
 
   // Mensajes cortos en español / ya amigables: se quedan.
@@ -43,7 +43,7 @@ export function friendlyError(
 }
 
 export function friendlyNotice(kind: 'ai-fallback' | 'empty-cart' | 'offline-ok'): string {
-  if (kind === 'ai-fallback') return 'La IA no respondió · te mostramos ideas locales';
-  if (kind === 'empty-cart') return 'Suma algo al carrito para proponer recetas';
-  return 'Listo · modo sin conexión';
+  if (kind === 'ai-fallback') return 'La IA no contestó · te dejamos ideas caseras';
+  if (kind === 'empty-cart') return 'Primero suma algo al carrito y luego cocinamos ideas';
+  return 'Listo · seguimos offline sin drama';
 }

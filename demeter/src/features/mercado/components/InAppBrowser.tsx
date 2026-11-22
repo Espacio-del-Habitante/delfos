@@ -52,11 +52,11 @@ export function InAppBrowser({
         setHits(res.hits);
         setGoogleUrl(res.googleUrl);
         setOrganizedBy(res.organizedBy);
-        if (!res.hits.length) setError('Sin resultados. Prueba Google.');
+        if (!res.hits.length) setError('Nada claro por aquí · prueba Google.');
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setError(friendlyError(e, 'No pude buscar precios ahora'));
+        setError(friendlyError(e, 'No pudimos buscar precios ahora'));
         setGoogleUrl(
           `https://www.google.com/search?hl=es-419&gl=co&q=${encodeURIComponent(`${query} precio Colombia`)}`,
         );
@@ -106,13 +106,13 @@ export function InAppBrowser({
           {loading ? (
             <View style={styles.loading}>
               <ActivityIndicator color={colors.primary} />
-              <Text style={styles.muted}>Buscando y organizando…</Text>
+              <Text style={styles.muted}>Buscando precios…</Text>
             </View>
           ) : null}
 
           {!loading && hits.length > 0 ? (
             <Text style={styles.sourceHint}>
-              {organizedBy === 'ai' ? 'Organizado con tu IA' : 'Precios encontrados en la web'}
+              {organizedBy === 'ai' ? 'Tu IA armó la lista' : 'Lo que encontramos en la web'}
             </Text>
           ) : null}
 
@@ -145,7 +145,7 @@ export function InAppBrowser({
                   {h.approx != null ? (
                     <Text style={styles.hitApprox}>{formatCop(h.approx)}</Text>
                   ) : (
-                    <Text style={styles.muted}>Sin precio claro</Text>
+                    <Text style={styles.muted}>Sin precio a la vista</Text>
                   )}
                   {h.approx != null && onUsePrice ? (
                     <Pressable style={styles.useBtn} onPress={() => onUsePrice(h.approx!)}>

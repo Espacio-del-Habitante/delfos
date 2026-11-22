@@ -137,10 +137,10 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     if (code === 'aborted') return;
     showToast(
       code === 'not-allowed'
-        ? 'Micrófono bloqueado'
+        ? 'El micrófono está bloqueado · dale permiso'
         : code === 'no-speech'
-          ? 'No detecté voz'
-          : 'Dictado no disponible — escribe',
+          ? 'No te oí · prueba otra vez o escribe'
+          : 'Dictado no disponible · escribe aquí',
     );
   });
 
@@ -245,7 +245,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
         amount: item.amount ?? existing.amount,
         category: existing.category || item.category,
       });
-      showToast(`+ ${existing.name}`);
+      showToast(`Otra vez · ${existing.name}`);
     } else {
       await addItem({
         name: item.name,
@@ -255,22 +255,22 @@ export function MercadoScreen({ onOpenSettings }: Props) {
         category: item.category || 'otros',
       });
       if (habit && (bare || opts?.fromHabit)) showToast(`${habit.label}`);
-      else showToast(`Sumé ${item.name}`);
+      else showToast(`Listo · sumé ${item.name}`);
     }
   }
 
   async function applyText(text: string) {
     const parsed = parseUtterance(text);
     if (parsed.intent === 'unknown' || parsed.confidence < 0.35) {
-      showToast('No entendí. Ej: “papa 8 mil”');
+      showToast('No te pillé. Prueba: “papa 8 mil”');
       return;
     }
     if (parsed.intent === 'checkout') {
-      showToast('Cierra el mercado cuando termines');
+      showToast('Cuando termines, dale a Cerrar compra');
       return;
     }
     if (parsed.intent === 'sync') {
-      showToast('Sync: ve a Historial o Ajustes para enviar pendientes');
+      showToast('Para mandar a Delfos: Historial o Ajustes');
       return;
     }
 
@@ -288,13 +288,13 @@ export function MercadoScreen({ onOpenSettings }: Props) {
         await commitAdd(parsed.item);
         return;
       }
-      showToast('No está en el carrito');
+      showToast('Eso no está en el carrito todavía');
       return;
     }
     const m = matches[0];
     if (parsed.intent === 'remove') {
       await removeItem(m.id);
-      showToast('Quitado');
+      showToast('Fuera del carrito');
       return;
     }
     await updateItem(m.id, {
@@ -302,7 +302,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
       unit: parsed.item.unit || m.unit,
       amount: parsed.item.amount ?? m.amount,
     });
-    showToast(`Actualicé ${m.name}`);
+    showToast(`Actualizado · ${m.name}`);
   }
 
   applyTextRef.current = applyText;
@@ -348,28 +348,28 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     try {
       setComposerOpen(true);
       if (!speechAvailable()) {
-        showToast('Dictado no disponible. Escribe aquí');
+        showToast('El mic no está disponible · escribe aquí');
         setTimeout(() => draftRef.current?.focus(), 80);
         return;
       }
       setDraft('');
-      showToast('Escuchando…');
+      showToast('Te escucho…');
       await startListening('es-CO');
     } catch (e: unknown) {
-      showToast(friendlyError(e, 'No se pudo usar el micrófono'));
+      showToast(friendlyError(e, 'El mic se puso tímido. Escribe o reintenta.'));
       setListening(false);
     }
   }
 
   async function onStart() {
     await startTrip({ budget: getState().settings.budgetDefault });
-    showToast('Mercado abierto');
+    showToast('¡Mercado abierto! A sumar');
   }
 
   function onFinish() {
     const t = getActiveTrip();
     if (!t?.items?.length) {
-      showToast('Suma algo antes de cerrar');
+      showToast('Suma algo antes de cerrar · el carrito está vacío');
       return;
     }
     setCheckoutOpen(true);
@@ -440,7 +440,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
           <Pressable
             onPress={onOpenSettings}
             style={({ pressed }) => [styles.settingsBtn, pressed && { transform: [{ scale: 0.97 }] }]}
-            accessibilityLabel="Configuración"
+            accessibilityLabel="Ajustes"
             accessibilityRole="button"
           >
             <Text style={styles.settingsTxt}>⚙</Text>
@@ -463,21 +463,21 @@ export function MercadoScreen({ onOpenSettings }: Props) {
       {!trip ? (
         <View style={[styles.card, styles.center, { margin: space.lg, padding: space.xl }]}>
           <Text style={styles.emptyIcon}>🛒</Text>
-          <Text style={styles.emptyTitle}>Sin mercado abierto</Text>
-          <Text style={styles.emptyText}>Abre un mercado y empieza a sumar.</Text>
+          <Text style={styles.emptyTitle}>¿Listos para el mercado?</Text>
+          <Text style={styles.emptyText}>Abre uno y vamos sumando en el carrito.</Text>
           <TourTarget id="tour-start" style={styles.primaryBtn}>
             <Pressable
               style={({ pressed }) => [styles.primaryBtn, pressed && { transform: [{ scale: 0.97 }] }]}
               onPress={onStart}
             >
-              <Text style={styles.primaryBtnTxt}>🚀 Empezar</Text>
+              <Text style={styles.primaryBtnTxt}>¡Empezar!</Text>
             </Pressable>
           </TourTarget>
         </View>
       ) : (
         <>
           <View style={styles.hero}>
-            <Text style={styles.heroLabel}>Total del carrito</Text>
+            <Text style={styles.heroLabel}>Vas llevando</Text>
             <Text style={styles.heroAmount}>{formatCop(total)}</Text>
             <View style={styles.heroStats}>
               <View>
@@ -491,7 +491,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
             </View>
             <View style={styles.heroFooter}>
               <Text style={styles.heroStatus}>
-                {over ? 'Sobre presupuesto' : 'Dentro del presupuesto'}
+                {over ? 'Uy, te pasaste' : 'Vas bien con el presupuesto'}
               </Text>
               <View style={styles.pill}>
                 <Text style={styles.pillTxt}>{pct}% usado</Text>
@@ -512,7 +512,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel="Ver estadísticas de este mercado"
               >
-                <Text style={styles.statsBtnTxt}>Ver estadísticas</Text>
+                <Text style={styles.statsBtnTxt}>Cómo va este mercado</Text>
               </Pressable>
             </View>
           )}
@@ -562,7 +562,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
               {!!profileHints.length && (
                 <>
                   <Text style={[styles.chipsLabel, habits.length ? { marginTop: 10 } : null]}>
-                    Deberías sumar · {shopProfileMeta(shopProfile).label}
+                    Tip · {shopProfileMeta(shopProfile).label}
                   </Text>
                   <View style={styles.chipsRow}>
                     {profileHints.map((h) => {
@@ -610,8 +610,8 @@ export function MercadoScreen({ onOpenSettings }: Props) {
             ListEmptyComponent={
               <View style={[styles.card, styles.center, { padding: space.lg }]}>
                 <Text style={styles.emptyIcon}>🧺</Text>
-                <Text style={styles.emptyTitle}>Carrito vacío</Text>
-                <Text style={styles.emptyText}>Toca + para escribir o dictar.</Text>
+                <Text style={styles.emptyTitle}>Carrito en cero</Text>
+                <Text style={styles.emptyText}>Toca + para escribir o dictar lo que llevas.</Text>
               </View>
             }
             renderItem={({ item }) => {
@@ -675,7 +675,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                   style={styles.composerInput}
                   value={draft}
                   onChangeText={setDraft}
-                  placeholder={listening ? 'Escuchando…' : 'papa 8 mil · Enter'}
+                  placeholder={listening ? 'Te escucho…' : 'Ej: papa 8 mil · Enter'}
                   placeholderTextColor={colors.muted}
                   returnKeyType="done"
                   onSubmitEditing={() => void submitDraft()}
@@ -719,7 +719,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                   </Pressable>
                 </View>
               </View>
-              {listening && <Text style={styles.listenHint}>Escuchando. Toca para cortar</Text>}
+              {listening && <Text style={styles.listenHint}>Te escucho · toca para cortar</Text>}
             </View>
           ) : (
             <View style={styles.fabRow}>
@@ -732,10 +732,10 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                   pressed && trip?.items?.length ? { opacity: 0.92 } : null,
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel="Cerrar mercado"
+                accessibilityLabel="Cerrar compra"
                 accessibilityState={{ disabled: !trip?.items?.length }}
               >
-                <Text style={styles.closeFabTxt}>Cerrar mercado</Text>
+                <Text style={styles.closeFabTxt}>Cerrar compra</Text>
               </Pressable>
               <Pressable
                 onPress={openComposer}
@@ -764,13 +764,13 @@ export function MercadoScreen({ onOpenSettings }: Props) {
           if (!editItem) return;
           void updateItem(editItem.id, patch).then(() => {
             setEditItem(null);
-            showToast('Guardado');
+            showToast('Quedó guardado');
           });
         }}
         onRemove={(id) => {
           void removeItem(id).then(() => {
             setEditItem(null);
-            showToast('Quitado');
+            showToast('Fuera del carrito');
           });
         }}
       />

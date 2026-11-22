@@ -105,7 +105,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
       const res = await listAiModels(cfg);
       setModels(res.models);
       setModelSource(res.source);
-      setModelError(res.error ? friendlyError(res.error, 'No se pudieron listar modelos') : null);
+      setModelError(res.error ? friendlyError(res.error, 'No salieron modelos esta vez') : null);
     } finally {
       setLoadingModels(false);
     }
@@ -139,7 +139,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
         delfosApiBase: delfosUrl.trim(),
       });
       await updateAiSettings(ai);
-      showToast('Guardado');
+      showToast('Quedó guardado');
     } finally {
       setSaving(false);
     }
@@ -163,7 +163,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
   async function syncPending() {
     const url = delfosUrl.trim() || getState().settings.delfosApiBase || '';
     if (!url) {
-      setSyncMsg('Pon la URL de Delfos arriba y guarda');
+      setSyncMsg('Pon la URL de Delfos arriba y guarda primero');
       return;
     }
     setSyncing(true);
@@ -172,11 +172,12 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
       await updateSettings({ delfosApiBase: url });
       const res = await syncAllPendingToDelfos(getState().settings);
       setPendingCount(pendingSyncTrips().length);
-      if (res.total === 0) setSyncMsg('Nada pendiente');
-      else if (res.fail === 0) setSyncMsg(`Sync ✓ ${res.ok} mercado${res.ok === 1 ? '' : 's'}`);
-      else setSyncMsg(`Sync ${res.ok} ok · ${res.fail} falló`);
+      if (res.total === 0) setSyncMsg('Nada pendiente · estás al día');
+      else if (res.fail === 0)
+        setSyncMsg(`¡Listo! ${res.ok} mercado${res.ok === 1 ? '' : 's'} en Delfos`);
+      else setSyncMsg(`${res.ok} bien · ${res.fail} se trabaron`);
     } catch (e: unknown) {
-      setSyncMsg(friendlyError(e, 'No se pudo sincronizar con Delfos'));
+      setSyncMsg(friendlyError(e, 'No pudimos hablar con Delfos ahora'));
     } finally {
       setSyncing(false);
     }
@@ -202,7 +203,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
         ) : (
           <View style={{ width: 40 }} />
         )}
-        <Text style={styles.title}>Configuración</Text>
+        <Text style={styles.title}>Ajustes</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -210,21 +211,21 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
         contentContainerStyle={[styles.body, { paddingBottom: contentBottomPad(insets.bottom, 32) }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.section}>🧭 Tour</Text>
+        <Text style={styles.section}>Tour</Text>
         <View style={styles.card}>
           <Text style={styles.hint}>
-            Recorre MercApp paso a paso: carrito, historial, gadgets y sync.
+            Un paseo corto por MercApp: carrito, recetas, historial, gadgets y sync.
           </Text>
           <Pressable
             onPress={() => onReplayTour?.()}
             style={({ pressed }) => [styles.tourBtn, pressed && styles.tourBtnPressed]}
             accessibilityLabel="Ver tour de MercApp otra vez"
           >
-            <Text style={styles.tourBtnTxt}>🎬 Ver tour otra vez</Text>
+            <Text style={styles.tourBtnTxt}>Ver el tour otra vez</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.section}>🛒 Mercado</Text>
+        <Text style={styles.section}>Mercado</Text>
         <View style={styles.card}>
           <Text style={styles.label}>Presupuesto por defecto (COP)</Text>
           <TextInput
@@ -246,8 +247,8 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
             placeholderTextColor={colors.muted}
           />
           <Text style={styles.hintSmall}>
-            Los mercados viven en el teléfono. Puedes acumular meses sin sync y luego enviar
-            todos los pendientes de una vez. OCR de factura queda opcional y aparte.
+            Los mercados viven en tu teléfono. Puedes acumular meses y mandar el lote a Delfos
+            cuando quieras. El OCR de factura es opcional y aparte.
           </Text>
           <Pressable
             disabled={syncing}
@@ -272,14 +273,13 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
         <Text style={styles.section}>Perfil de mercado</Text>
         <View style={styles.card}>
           <Text style={styles.hintSmall}>
-            Guía las recomendaciones de “deberías sumar” y el tono de las recetas. También lo
-            puedes cambiar en el home.
+            Marca el mood del mercado: tips y recetas se alinean. También lo cambias en el home.
           </Text>
           <ProfilePicker
             value={shopProfile}
             onChange={(id: ShopProfileId) => {
               setShopProfileState(id);
-              void setShopProfile(id).then(() => showToast('Perfil guardado'));
+              void setShopProfile(id).then(() => showToast('Mood guardado'));
             }}
           />
         </View>
@@ -287,8 +287,8 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
         <Text style={styles.section}>Backup</Text>
         <View style={styles.card}>
           <Text style={styles.hintSmall}>
-            Exporta todo (mercados, productos, ajustes, perfil) a un JSON. Luego puedes
-            recuperarlo en este u otro dispositivo.
+            Saca una copia de seguridad (mercados, productos, ajustes, perfil). Luego la
+            recuperas aquí o en otro dispositivo.
           </Text>
           <Pressable
             disabled={backupBusy}
@@ -304,7 +304,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                       : `Listo para compartir · ${res.name}`,
                   );
                 } catch (e: unknown) {
-                  setBackupMsg(friendlyError(e, 'No se pudo exportar el backup'));
+                  setBackupMsg(friendlyError(e, 'No pudimos exportar el backup'));
                 } finally {
                   setBackupBusy(false);
                 }
@@ -317,7 +317,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
             {backupBusy ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
-              <Text style={styles.syncBtnTxt}>Exportar backup</Text>
+              <Text style={styles.syncBtnTxt}>Sacar backup</Text>
             )}
           </Pressable>
 
@@ -331,10 +331,10 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                   try {
                     const text = await pickBackupFileWeb();
                     await restoreBackupFromText(text);
-                    setBackupMsg('Backup restaurado');
+                    setBackupMsg('Backup restaurado · bienvenido de vuelta');
                     showToast('Datos recuperados');
                   } catch (e: unknown) {
-                    setBackupMsg(friendlyError(e, 'No se pudo importar el backup'));
+                    setBackupMsg(friendlyError(e, 'No pudimos importar ese archivo'));
                   } finally {
                     setBackupBusy(false);
                   }
@@ -348,7 +348,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
               accessibilityRole="button"
               accessibilityLabel="Importar backup desde archivo"
             >
-              <Text style={styles.syncBtnTxt}>Importar desde archivo</Text>
+              <Text style={styles.syncBtnTxt}>Traer desde archivo</Text>
             </Pressable>
           ) : null}
 
@@ -372,10 +372,10 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                 try {
                   await restoreBackupFromText(backupPaste);
                   setBackupPaste('');
-                  setBackupMsg('Backup restaurado');
+                  setBackupMsg('Backup restaurado · bienvenido de vuelta');
                   showToast('Datos recuperados');
                 } catch (e: unknown) {
-                  setBackupMsg(friendlyError(e, 'No se pudo importar el backup'));
+                  setBackupMsg(friendlyError(e, 'Ese JSON no se dejó restaurar'));
                 } finally {
                   setBackupBusy(false);
                 }
@@ -386,10 +386,10 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
               }
               Alert.alert(
                 'Restaurar backup',
-                'Esto reemplaza mercados y ajustes locales. ¿Seguro?',
+                'Esto reemplaza mercados y ajustes de este teléfono. ¿Seguro?',
                 [
-                  { text: 'Cancelar', style: 'cancel' },
-                  { text: 'Restaurar', style: 'destructive', onPress: () => void go() },
+                  { text: 'Mejor no', style: 'cancel' },
+                  { text: 'Sí, restaurar', style: 'destructive', onPress: () => void go() },
                 ],
               );
             }}
@@ -407,7 +407,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
           {backupMsg ? <Text style={styles.hintSmall}>{backupMsg}</Text> : null}
         </View>
 
-        <Text style={styles.section}>📂 Categorías propias</Text>
+        <Text style={styles.section}>Categorías propias</Text>
         <View style={styles.card}>
           <Text style={styles.hintSmall}>
             Como en Delfos: créalas aquí y elígelas al editar un producto.
@@ -436,9 +436,9 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                 try {
                   await addCustomCategory({ label: newCatLabel, emoji: newCatEmoji });
                   setNewCatLabel('');
-                  showToast('Categoría creada');
+                  showToast('Categoría lista');
                 } catch (e: any) {
-                  showToast(e?.message || 'No se pudo crear');
+                  showToast(e?.message || 'No pudimos crear esa categoría');
                 }
               })();
             }}
@@ -447,7 +447,9 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
             <Text style={styles.syncBtnTxt}>Crear categoría</Text>
           </Pressable>
           {customCats.length === 0 ? (
-            <Text style={[styles.hintSmall, { marginTop: 10 }]}>Aún no tienes categorías propias.</Text>
+            <Text style={[styles.hintSmall, { marginTop: 10 }]}>
+              Aún no tienes categorías propias. Cuando quieras.
+            </Text>
           ) : (
             customCats.map((c) => (
               <View key={c.id} style={styles.catRow}>
@@ -462,17 +464,17 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
           )}
         </View>
 
-        <Text style={styles.section}>Lenguajes (IA)</Text>
+        <Text style={styles.section}>IA</Text>
         <Text style={styles.hint}>
-          Como en Delfos: Ollama local o nube (Gemini / OpenRouter). En MercApp la key queda en este
-          dispositivo.
+          Como en Delfos: Ollama en casa o nube (Gemini / OpenRouter). En MercApp la key se queda
+          en este dispositivo.
         </Text>
 
         <View style={styles.card}>
           <View style={styles.rowBetween}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={styles.label}>Permitir nube</Text>
-              <Text style={styles.hintSmall}>Si está apagado, siempre usa Ollama local</Text>
+              <Text style={styles.hintSmall}>Si está apagado, siempre usamos Ollama local</Text>
             </View>
             <Switch
               value={ai.cloud_enabled}
@@ -501,7 +503,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
               );
             })}
           </View>
-          <Text style={styles.hintSmall}>Efectivo ahora: {providerMeta(eff).label}</Text>
+          <Text style={styles.hintSmall}>Ahora mismo: {providerMeta(eff).label}</Text>
         </View>
 
         <View style={styles.card}>
@@ -545,7 +547,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry
-                placeholder={ai.api_key ? maskKey(ai.api_key) : 'pega tu key'}
+                placeholder={ai.api_key ? maskKey(ai.api_key) : 'pega tu key aquí'}
                 placeholderTextColor={colors.muted}
               />
             </>
@@ -586,7 +588,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
             onPress={() => void test()}
             disabled={testing}
           >
-            <Text style={styles.secondaryTxt}>{testing ? 'Probando…' : 'Probar conexión'}</Text>
+            <Text style={styles.secondaryTxt}>{testing ? 'Probando…' : 'Probar'}</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.primary, pressed && { transform: [{ scale: 0.97 }] }]}

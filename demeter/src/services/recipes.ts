@@ -55,13 +55,13 @@ export async function proposeRecipes(opts?: {
         recipes = parsed;
         source = 'ai';
       } else {
-        notice = 'La IA no trajo recetas claras · usamos ideas locales';
+        notice = 'La IA se enredó · te dejamos ideas caseras del carrito';
         noticeTone = 'warn';
       }
     } catch (e) {
       notice = friendlyError(e, friendlyNotice('ai-fallback'));
       // Si friendlyError devolvió mensaje genérico de red, preferir el notice de fallback
-      if (/conexión|tardó|servicio/i.test(notice)) {
+      if (/señal|demoró|servicio|conexión|tardó/i.test(notice)) {
         notice = friendlyNotice('ai-fallback');
       }
       noticeTone = 'warn';

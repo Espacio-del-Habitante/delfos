@@ -43,7 +43,7 @@ export const mercappTourConfig = {
   nextButtonText: 'Siguiente',
   prevButtonText: 'Atrás',
   skipButtonText: 'Omitir',
-  doneButtonText: 'Empezar',
+  doneButtonText: '¡Vamos!',
   renderTooltip: (props: Parameters<typeof MercappTooltip>[0]) => (
     <MercappTooltip {...props} />
   ),
@@ -54,8 +54,8 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
     {
       id: 'welcome',
       targetId: 'tour-brand',
-      title: '👋 Hola',
-      description: 'Esto es MercApp. Te muestro lo esencial en menos de un minuto.',
+      title: 'Hola',
+      description: 'Esto es MercApp: tu compañera de mercado. Te muestro lo esencial en un minutito.',
       targetStyle: { borderRadius: 16 },
       tooltipPosition: 'bottom',
       before: async () => {
@@ -66,8 +66,8 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
     {
       id: 'carrito',
       targetId: 'tour-start',
-      title: '🛒 El carrito',
-      description: 'Toca Empezar y suma con el mic o el teclado. El total se mueve solo.',
+      title: 'El carrito',
+      description: 'Dale a Empezar y suma con el mic o el teclado. El total se mueve solito.',
       targetStyle: { borderRadius: 999 },
       tooltipPosition: 'bottom',
     },
@@ -75,7 +75,7 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
       id: 'nav-recetas',
       targetId: 'tour-nav-recetas',
       title: 'Recetas',
-      description: 'Con lo del carrito te proponemos qué cocinar — a demanda, con o sin IA.',
+      description: 'Con lo del carrito te sugerimos qué cocinar — cuando tú digas, con o sin IA.',
       targetStyle: { borderRadius: 22 },
       tooltipPosition: 'top',
       before: async () => {
@@ -86,8 +86,8 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
     {
       id: 'nav-historial',
       targetId: 'tour-nav-historial',
-      title: '🕘 Historial',
-      description: 'Cada mercado que cierras queda guardado aquí, listo para revisarlo.',
+      title: 'Historial',
+      description: 'Cada compra que cierras queda aquí, lista para revisarla cuando quieras.',
       targetStyle: { borderRadius: 22 },
       tooltipPosition: 'top',
       before: async () => {
@@ -98,8 +98,8 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
     {
       id: 'nav-stats',
       targetId: 'tour-nav-stats',
-      title: '📊 Números',
-      description: 'Mira en qué se te va la plata: proteína, harinas y lo demás, en gráficos claros.',
+      title: 'Números',
+      description: 'Mira en qué se te va la plata: proteína, harinas y compañía, clarito.',
       targetStyle: { borderRadius: 22 },
       tooltipPosition: 'top',
       before: async () => {
@@ -118,8 +118,8 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
     {
       id: 'nav-ajustes',
       targetId: 'tour-nav-ajustes',
-      title: '⚙️ Ajustes',
-      description: 'Presupuesto, IA y sync con Delfos. Tus datos se quedan en el teléfono.',
+      title: 'Ajustes',
+      description: 'Presupuesto, perfil, IA, backup y sync con Delfos. Tus datos se quedan en el teléfono.',
       targetStyle: { borderRadius: 22 },
       tooltipPosition: 'top',
       before: async () => {
@@ -130,8 +130,8 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
     {
       id: 'done',
       targetId: 'tour-brand',
-      title: '✨ Listo',
-      description: 'Prueba dictar “pollo 25 mil”. Si te pasas del presupuesto, MercApp te avisa.',
+      title: 'Listo',
+      description: 'Prueba dictar “pollo 25 mil”. Si te pasas del presupuesto, te avisamos sin juicio.',
       targetStyle: { borderRadius: 16 },
       tooltipPosition: 'bottom',
       before: async () => {

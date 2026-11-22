@@ -64,18 +64,18 @@ export function RecipeDetailSheet({ recipe, visible, onClose }: Props) {
 
           {!!recipe.uses.length && (
             <View style={styles.block}>
-              <Text style={styles.blockLabel}>Con lo del carrito</Text>
+              <Text style={styles.blockLabel}>Ya lo tienes</Text>
               <Text style={styles.blockBody}>{recipe.uses.join(' · ')}</Text>
             </View>
           )}
           {!!recipe.missing.length && (
             <View style={styles.block}>
-              <Text style={[styles.blockLabel, { color: '#b45309' }]}>Te conviene sumar</Text>
+              <Text style={[styles.blockLabel, { color: '#b45309' }]}>Si quieres, suma</Text>
               <Text style={styles.blockBody}>{recipe.missing.join(' · ')}</Text>
             </View>
           )}
 
-          <Text style={styles.blockLabel}>Preparación</Text>
+          <Text style={styles.blockLabel}>Cómo se hace</Text>
           {recipe.steps.map((s, i) => (
             <View key={`${recipe.title}-d-${i}`} style={styles.stepRow}>
               <View style={styles.stepNum}>
@@ -91,7 +91,7 @@ export function RecipeDetailSheet({ recipe, visible, onClose }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Cerrar receta"
           >
-            <Text style={styles.closeTxt}>Cerrar</Text>
+            <Text style={styles.closeTxt}>Listo, gracias</Text>
           </Pressable>
         </ScrollView>
       </View>

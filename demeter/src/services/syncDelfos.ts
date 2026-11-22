@@ -12,16 +12,16 @@ import {
  */
 export async function syncTripToDelfos(trip: Trip, settings: AppSettings) {
   const base = String(settings.delfosApiBase || '').replace(/\/$/, '');
-  if (!base) throw new Error('Configura la URL de Delfos en Ajustes');
-  if (trip.status !== 'closed') throw new Error('Solo se sincronizan mercados cerrados');
-  if (!(trip.items?.length > 0)) throw new Error('El mercado no tiene ítems');
+  if (!base) throw new Error('Pon la URL de Delfos en Ajustes');
+  if (trip.status !== 'closed') throw new Error('Solo mandamos mercados ya cerrados');
+  if (!(trip.items?.length > 0)) throw new Error('Ese mercado no tiene ítems');
 
   const ticket = trip.receipt?.ticketTotal;
   const total =
     ticket != null && Number.isFinite(Number(ticket)) && Number(ticket) > 0
       ? Number(ticket)
       : tripTotal(trip);
-  if (!total || total <= 0) throw new Error('El total del mercado es 0');
+  if (!total || total <= 0) throw new Error('Ese mercado suma 0 · nada que mandar');
 
   const body = {
     amount: total,
