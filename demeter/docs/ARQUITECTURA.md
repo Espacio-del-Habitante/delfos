@@ -58,11 +58,18 @@ App.tsx
 - Por producto: compras / meses distintos × cantidad moda × último unitario.
 - UI en Stats: “Tu ritmo · Mercado ideal mensual” (estimación, no presupuesto fijo).
 
+## Stats en vivo (antes de cerrar)
+
+- En Mercado, bloque “En este mercado” bajo el hero del carrito abierto.
+- Reusa `categoryBars([trip])` + `shareBlurb(categoryBreakdown(trip))` del domain de Stats.
+- Barras por categoría + lean proteína vs harinas; desaparece si el carrito está vacío.
+
 ## Features vs PWA `mercado/`
 
 | Capacidad | Estado Expo |
 |-----------|-------------|
 | Carrito + voz + hábitos | ✅ |
+| Stats en vivo del carrito (categoría) | ✅ en Mercado antes de cerrar |
 | FAB escritura + mic | ✅ |
 | Búsqueda de precios + cards | ✅ |
 | Historial + detalle compras | ✅ |

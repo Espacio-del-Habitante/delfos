@@ -16,6 +16,7 @@ import { colors, radius, space, card, field, type } from '../../../shared/theme'
 import { formatCop, formatQty } from '../../../shared/format';
 import { categoryMeta } from '../../../domain/categories';
 import { parseUtterance, findItemMatches } from '../../../domain/parseUtterance';
+import { categoryBars, categoryBreakdown, shareBlurb } from '../../../domain/stats';
 import {
   initStore,
   subscribe,
@@ -144,6 +145,15 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     tick;
     return recentHabitSuggestions(8).filter((h) => !findCartItemByName(h.name));
   }, [tick]);
+
+  const liveCats = useMemo(() => {
+    void tick;
+    if (!trip?.items?.length) return { bars: [] as ReturnType<typeof categoryBars>, blurb: null as ReturnType<typeof shareBlurb> | null };
+    return {
+      bars: categoryBars([trip]),
+      blurb: shareBlurb(categoryBreakdown(trip)),
+    };
+  }, [tick, trip]);
 
   async function ensureTrip(): Promise<Trip> {
     const t = getActiveTrip();
@@ -412,6 +422,34 @@ export function MercadoScreen({ onOpenSettings }: Props) {
               </View>
             )}
           </View>
+
+          {liveCats.bars.length > 0 && (
+            <View style={styles.liveStats}>
+              <Text style={styles.liveStatsTitle}>En este mercado</Text>
+              {liveCats.blurb && (
+                <Text style={styles.liveStatsBlurb}>
+                  {liveCats.blurb.lean === 'proteina'
+                    ? `Vas más en proteína (${formatCop(liveCats.blurb.proteina)}) que en harinas (${formatCop(liveCats.blurb.harinas)}).`
+                    : `Vas más en harinas (${formatCop(liveCats.blurb.harinas)}) que en proteína (${formatCop(liveCats.blurb.proteina)}).`}
+                </Text>
+              )}
+              {liveCats.bars.map((b) => (
+                <View key={b.id} style={styles.liveBarRow}>
+                  <View style={styles.liveBarHead}>
+                    <Text style={styles.liveBarLabel}>
+                      {b.emoji} {b.label}
+                    </Text>
+                    <Text style={styles.liveBarAmt}>
+                      {formatCop(b.amount)} · {b.pct}%
+                    </Text>
+                  </View>
+                  <View style={styles.liveBarTrack}>
+                    <View style={[styles.liveBarFill, { width: `${Math.max(b.pct, 3)}%` as `${number}%` }]} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
 
           {!!habits.length && (
             <View style={styles.chipsBlock}>
@@ -706,6 +744,54 @@ const styles = StyleSheet.create({
   },
   budgetFill: { height: '100%', backgroundColor: colors.soft },
   budgetOver: { backgroundColor: '#fecaca' },
+  liveStats: {
+    marginHorizontal: space.lg,
+    marginTop: space.sm,
+    marginBottom: space.sm,
+    ...card(),
+    padding: space.md,
+    gap: 8,
+  },
+  liveStatsTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+    color: colors.text,
+  },
+  liveStatsBlurb: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: colors.muted,
+    lineHeight: 18,
+  },
+  liveBarRow: { gap: 5 },
+  liveBarHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  liveBarLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: colors.text,
+    flexShrink: 1,
+  },
+  liveBarAmt: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: colors.primary,
+  },
+  liveBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(27,122,74,0.12)',
+    overflow: 'hidden',
+  },
+  liveBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 3,
+  },
   chipsBlock: { paddingHorizontal: space.lg, marginBottom: space.md },
   chipsLabel: {
     fontSize: 12,
