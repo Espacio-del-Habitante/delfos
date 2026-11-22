@@ -364,25 +364,27 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <StatusBar style="dark" />
 
-      <TourTarget id="tour-brand" style={styles.brandTour}>
-        <View style={styles.brandRow}>
-          <View style={styles.logoMark}>
-            <Text style={styles.logoGlyph}>🌿</Text>
+      <View style={styles.brandRow}>
+        <TourTarget id="tour-brand" style={styles.brandTour}>
+          <View style={styles.brandMark}>
+            <View style={styles.logoMark}>
+              <Text style={styles.logoGlyph}>🌿</Text>
+            </View>
+            <Text style={styles.brand}>MercApp</Text>
           </View>
-          <Text style={styles.brand}>MercApp</Text>
-          <View style={{ flex: 1 }} />
-          {onOpenSettings && (
-            <Pressable
-              onPress={onOpenSettings}
-              style={({ pressed }) => [styles.settingsBtn, pressed && { transform: [{ scale: 0.97 }] }]}
-              accessibilityLabel="Configuración"
-              accessibilityRole="button"
-            >
-              <Text style={styles.settingsTxt}>⚙</Text>
-            </Pressable>
-          )}
-        </View>
-      </TourTarget>
+        </TourTarget>
+        <View style={{ flex: 1 }} />
+        {onOpenSettings && (
+          <Pressable
+            onPress={onOpenSettings}
+            style={({ pressed }) => [styles.settingsBtn, pressed && { transform: [{ scale: 0.97 }] }]}
+            accessibilityLabel="Configuración"
+            accessibilityRole="button"
+          >
+            <Text style={styles.settingsTxt}>⚙</Text>
+          </Pressable>
+        )}
+      </View>
 
       {!trip ? (
         <View style={[styles.card, styles.center, { margin: space.lg, padding: space.xl }]}>
@@ -670,7 +672,8 @@ export function MercadoScreen({ onOpenSettings }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   center: { alignItems: 'center', justifyContent: 'center' },
-  brandTour: { borderRadius: 16, alignSelf: 'stretch' },
+  brandTour: { borderRadius: 16, alignSelf: 'flex-start' },
+  brandMark: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -4,8 +4,8 @@ import type { BottomNavId } from '../../shared/BottomNav';
 import { colors } from '../../shared/theme';
 import { MercappTooltip } from './MercappTooltip';
 
-/** v2: nuevo visual + copys (fuerza un replay limpio). */
-export const MERCAPP_TOUR_ID = 'mercapp-welcome-v2';
+/** v3: flecha del tooltip + card centrada en el logo. */
+export const MERCAPP_TOUR_ID = 'mercapp-welcome-v3';
 
 export const mercappTourTheme = createTheme({
   tooltipStyles: {

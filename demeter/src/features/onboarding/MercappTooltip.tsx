@@ -1,31 +1,45 @@
-import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import type { TooltipProps } from '@wrack/react-native-tour-guide';
 import { colors, radius } from '../../shared/theme';
 
 const CARD_W = 312;
+const ARROW = 12;
+const GAP = 10;
 
 /** Extrae emoji inicial del título si viene embebido. */
 function splitEmoji(title?: string) {
   const t = String(title || '').trim();
-  const m = t.match(/^(\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*)\s*(.*)$/u);
+  const m = t.match(
+    /^(\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*)\s*(.*)$/u,
+  );
   if (m) return { emoji: m[1], rest: m[2] || t };
   return { emoji: '🌿', rest: t };
 }
 
 /**
- * Tooltip custom MercApp: card centrada en X, anclada al hueco libre
- * arriba/abajo del spotlight (sin flecha rara).
+ * Tooltip MercApp: card anclada al target, centrada bajo/sobre el foco,
+ * con “poquito” (flecha) apuntando al elemento.
  */
 export function MercappTooltip({
   title,
   description,
   position,
+  tooltipPosition: tipPos = 'auto',
   currentStep,
   totalSteps,
   onNext,
   onPrev,
   onSkip,
   targetHeight = 0,
+  targetWidth = 0,
   screenWidth = 0,
   screenHeight = 0,
   insets = { top: 0, bottom: 0, left: 0, right: 0 },
@@ -40,47 +54,59 @@ export function MercappTooltip({
   const W = screenWidth || win.width;
   const H = screenHeight || win.height;
   const { emoji, rest } = splitEmoji(title);
+  const [cardH, setCardH] = useState(236);
 
   const targetTop = position.y;
   const targetBottom = position.y + targetHeight;
+  const targetMidX = position.x + targetWidth / 2;
   const targetMidY = targetTop + targetHeight / 2;
-  const safeTop = insets.top + 16;
-  const safeBottom = H - insets.bottom - 16;
-  const estimatedCardH = 236;
-  const cardLeft = Math.max(16, (W - CARD_W) / 2);
+  const safeTop = insets.top + 12;
+  const safeBottom = H - insets.bottom - 12;
 
-  // Targets del bottom nav: card arriba, centrada en el hueco libre.
-  // Targets del header: card debajo, con aire.
-  // Otros: el hueco más grande, card centrada en ese hueco.
+  let placeBelow: boolean;
+  if (tipPos === 'bottom') placeBelow = true;
+  else if (tipPos === 'top') placeBelow = false;
+  else if (targetMidY > H * 0.58) placeBelow = false;
+  else if (targetMidY < H * 0.32) placeBelow = true;
+  else placeBelow = safeBottom - targetBottom >= targetTop - safeTop;
+
+  // Ancla horizontal al target. Si el foco está a la izquierda (logo),
+  // la card se corre para que el logo quede sobre el tercio izquierdo —
+  // centrar 312px bajo un logo pegado al borde es imposible.
+  const leftBias = targetMidX < W * 0.38 ? 0.3 : targetMidX > W * 0.62 ? 0.7 : 0.5;
+  let cardLeft = targetMidX - CARD_W * leftBias;
+  cardLeft = Math.max(14, Math.min(cardLeft, W - CARD_W - 14));
+
   let cardTop: number;
-  if (targetMidY > H * 0.62) {
-    const gapEnd = Math.max(safeTop + 8, targetTop - 20);
-    cardTop = safeTop + Math.max(0, (gapEnd - safeTop - estimatedCardH) / 2);
-  } else if (targetMidY < H * 0.28) {
-    cardTop = Math.min(targetBottom + 18, safeBottom - estimatedCardH);
+  if (placeBelow) {
+    cardTop = targetBottom + GAP + ARROW;
+    if (cardTop + cardH > safeBottom) {
+      cardTop = Math.max(safeTop + ARROW, safeBottom - cardH);
+    }
   } else {
-    const spaceAbove = targetTop - safeTop;
-    const spaceBelow = safeBottom - targetBottom;
-    if (spaceBelow >= spaceAbove) {
-      cardTop = targetBottom + 18;
-      if (cardTop + estimatedCardH > safeBottom) {
-        cardTop = Math.max(safeTop, safeBottom - estimatedCardH);
-      }
-    } else {
-      cardTop = Math.max(safeTop, targetTop - estimatedCardH - 18);
+    cardTop = targetTop - GAP - ARROW - cardH;
+    if (cardTop < safeTop) {
+      cardTop = safeTop;
     }
   }
 
-  // currentStep viene 0-based en esta lib
+  // Poquito alineado al centro del target.
+  let arrowLeft = targetMidX - cardLeft - ARROW;
+  arrowLeft = Math.max(20, Math.min(arrowLeft, CARD_W - 20 - ARROW * 2));
+
   const stepNum = Math.min(totalSteps, Math.max(1, currentStep + 1));
   const isLast = isLastStep || stepNum >= totalSteps;
-  const nextLabel =
-    isLast
-      ? config?.doneButtonText || 'Listo'
-      : config?.nextButtonText || 'Siguiente';
+  const nextLabel = isLast
+    ? config?.doneButtonText || 'Listo'
+    : config?.nextButtonText || 'Siguiente';
   const prevLabel = config?.prevButtonText || 'Atrás';
   const skipLabel = config?.skipButtonText || 'Omitir';
   const progress = stepNum / Math.max(totalSteps, 1);
+
+  function onCardLayout(e: LayoutChangeEvent) {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0 && Math.abs(h - cardH) > 2) setCardH(h);
+  }
 
   return (
     <View
@@ -88,7 +114,17 @@ export function MercappTooltip({
       style={[styles.layer, { width: W, height: H }]}
       accessibilityViewIsModal
     >
-      <View style={[styles.card, { left: cardLeft, top: cardTop, width: CARD_W }]}>
+      <View
+        onLayout={onCardLayout}
+        style={[styles.card, { left: cardLeft, top: cardTop, width: CARD_W }]}
+      >
+        {/* Poquito / caret hacia el target */}
+        {placeBelow ? (
+          <View style={[styles.arrowUp, { left: arrowLeft }]} />
+        ) : (
+          <View style={[styles.arrowDown, { left: arrowLeft }]} />
+        )}
+
         {!hideSkipButton && (
           <Pressable
             onPress={onSkip}
@@ -167,6 +203,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 28,
     elevation: 16,
+  },
+  arrowUp: {
+    position: 'absolute',
+    top: -ARROW + 1,
+    width: 0,
+    height: 0,
+    borderStyle: 'solid',
+    borderLeftWidth: ARROW,
+    borderRightWidth: ARROW,
+    borderBottomWidth: ARROW,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#fff',
+  },
+  arrowDown: {
+    position: 'absolute',
+    bottom: -ARROW + 1,
+    width: 0,
+    height: 0,
+    borderStyle: 'solid',
+    borderLeftWidth: ARROW,
+    borderRightWidth: ARROW,
+    borderTopWidth: ARROW,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#fff',
   },
   skip: {
     position: 'absolute',
