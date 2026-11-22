@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { colors, radius, space, field, type, card } from '../theme';
+import { colors, radius, space, field, type, card } from '../../../shared/theme';
 import {
   AI_PROVIDERS,
   effectiveProvider,
@@ -21,20 +21,21 @@ import {
   testAiConnection,
   type AiProviderId,
   type AiSettings,
-} from '../lib/aiSettings';
+} from '../../../services/aiSettings';
 import {
   getAiSettings,
   getState,
   subscribe,
   updateAiSettings,
   updateSettings,
-} from '../lib/store';
+} from '../../../services/store';
 
-type Props = { onBack: () => void };
+type Props = { onBack?: () => void };
 
 export function SettingsScreen({ onBack }: Props) {
   const insets = useSafeAreaInsets();
   const [budget, setBudget] = useState(String(getState().settings.budgetDefault || 200000));
+  const [delfosUrl, setDelfosUrl] = useState(getState().settings.delfosApiBase || '');
   const [ai, setAi] = useState<AiSettings>(getAiSettings());
   const [models, setModels] = useState<string[]>([]);
   const [modelSource, setModelSource] = useState('');
@@ -88,7 +89,10 @@ export function SettingsScreen({ onBack }: Props) {
     setSaving(true);
     try {
       const budgetN = Number(String(budget).replace(/\D/g, '')) || 200000;
-      await updateSettings({ budgetDefault: budgetN });
+      await updateSettings({
+        budgetDefault: budgetN,
+        delfosApiBase: delfosUrl.trim(),
+      });
       await updateAiSettings(ai);
       showToast('Guardado');
     } finally {
@@ -114,15 +118,19 @@ export function SettingsScreen({ onBack }: Props) {
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <StatusBar style="dark" />
       <View style={styles.topBar}>
-        <Pressable
-          onPress={onBack}
-          hitSlop={10}
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
-          accessibilityLabel="Atrás"
-          accessibilityRole="button"
-        >
-          <Text style={styles.backTxt}>‹</Text>
-        </Pressable>
+        {onBack ? (
+          <Pressable
+            onPress={onBack}
+            hitSlop={10}
+            style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+            accessibilityLabel="Atrás"
+            accessibilityRole="button"
+          >
+            <Text style={styles.backTxt}>‹</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
         <Text style={styles.title}>Configuración</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -139,6 +147,20 @@ export function SettingsScreen({ onBack }: Props) {
             placeholder="200000"
             placeholderTextColor={colors.muted}
           />
+          <Text style={[styles.label, { marginTop: 14 }]}>URL de Delfos (sync)</Text>
+          <TextInput
+            style={styles.input}
+            value={delfosUrl}
+            onChangeText={setDelfosUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="https://tu-delfos:5000"
+            placeholderTextColor={colors.muted}
+          />
+          <Text style={styles.hintSmall}>
+            Al cerrar un mercado puedes enviar el total como un gasto. OCR de factura queda
+            opcional y aparte.
+          </Text>
         </View>
 
         <Text style={styles.section}>Lenguajes (IA)</Text>

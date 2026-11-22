@@ -12,13 +12,13 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { colors, radius, space, field, type, card } from '../theme';
-import { categoryMeta } from '../lib/categories';
-import { UNITS, convertQty } from '../lib/units';
-import { formatCop } from '../lib/format';
-import { fetchPriceQuotes, googlePriceUrl, type PriceQuote } from '../lib/priceSearch';
-import { pickProductPhoto } from '../lib/pickPhoto';
-import type { CartItem } from '../lib/store';
+import { colors, radius, space, field, type, card } from '../../../shared/theme';
+import { categoryMeta } from '../../../domain/categories';
+import { UNITS, convertQty } from '../../../domain/units';
+import { formatCop } from '../../../shared/format';
+import { fetchPriceQuotes, googlePriceUrl, type PriceQuote } from '../../../services/priceSearch';
+import { pickProductPhoto } from '../../../services/pickPhoto';
+import type { CartItem } from '../../../services/store';
 import { VerticalWheel } from './VerticalWheel';
 import { InAppBrowser } from './InAppBrowser';
 

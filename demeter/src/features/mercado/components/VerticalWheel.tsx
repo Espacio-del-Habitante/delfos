@@ -11,7 +11,7 @@ import {
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
-import { colors } from '../theme';
+import { colors } from '../../../shared/theme';
 
 const ITEM_H = 48;
 const VISIBLE = 3;

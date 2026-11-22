@@ -11,9 +11,9 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { colors, radius, space, type, card } from '../theme';
-import { formatCop } from '../lib/format';
-import { fetchWebSearchResults, type SearchHit } from '../lib/webSearch';
+import { colors, radius, space, type, card } from '../../../shared/theme';
+import { formatCop } from '../../../shared/format';
+import { fetchWebSearchResults, type SearchHit } from '../../../services/webSearch';
 
 type Props = {
   visible: boolean;

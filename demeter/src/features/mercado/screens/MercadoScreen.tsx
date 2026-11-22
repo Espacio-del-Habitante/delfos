@@ -6,17 +6,16 @@ import {
   Pressable,
   StyleSheet,
   FlatList,
-  Alert,
   ActivityIndicator,
   Animated,
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { colors, radius, space, card, field, type } from '../theme';
-import { formatCop, formatQty } from '../lib/format';
-import { categoryMeta } from '../lib/categories';
-import { parseUtterance, findItemMatches } from '../lib/parseUtterance';
+import { colors, radius, space, card, field, type } from '../../../shared/theme';
+import { formatCop, formatQty } from '../../../shared/format';
+import { categoryMeta } from '../../../domain/categories';
+import { parseUtterance, findItemMatches } from '../../../domain/parseUtterance';
 import {
   initStore,
   subscribe,
@@ -27,7 +26,6 @@ import {
   updateItem,
   removeItem,
   tripTotal,
-  closeTrip,
   findCartItemByName,
   lastPriceFor,
   suggestFromHistory,
@@ -35,14 +33,15 @@ import {
   type CartItem,
   type Trip,
   type HistorySuggestion,
-} from '../lib/store';
+} from '../../../services/store';
 import {
   startListening,
   stopListening,
   speechAvailable,
   useSpeechRecognitionEvent,
-} from '../lib/speech';
+} from '../../../services/speech';
 import { ItemEditSheet } from '../components/ItemEditSheet';
+import { CheckoutSheet } from '../components/CheckoutSheet';
 
 /** SVG en data-URI: viewBox cuadrado → centro geométrico fiable en el botón. */
 const MIC_URI =
@@ -83,6 +82,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
   const micPulse = useRef(new Animated.Value(0)).current;
   const [toast, setToast] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<CartItem | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -297,21 +297,8 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     showToast('Mercado abierto');
   }
 
-  async function onFinish() {
-    Alert.alert('Cerrar mercado', '¿Cerrar y empezar otro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            await closeTrip();
-            await startTrip({ budget: getState().settings.budgetDefault });
-            showToast('Mercado cerrado');
-          })();
-        },
-      },
-    ]);
+  function onFinish() {
+    setCheckoutOpen(true);
   }
 
   async function quickHabit(h: HistorySuggestion) {
@@ -365,7 +352,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
         <View style={[styles.card, styles.center, { margin: space.lg, padding: space.xl }]}>
           <Text style={styles.emptyIcon}>🛒</Text>
           <Text style={styles.emptyTitle}>Sin mercado abierto</Text>
-          <Text style={styles.emptyText}>Un toque y empiezas a sumar.</Text>
+          <Text style={styles.emptyText}>Abre un mercado y empieza a sumar.</Text>
           <Pressable
             style={({ pressed }) => [styles.primaryBtn, pressed && { transform: [{ scale: 0.97 }] }]}
             onPress={onStart}
@@ -487,7 +474,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
       )}
 
       {trip && (
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.composer, { paddingBottom: 10 }]}>
           <View style={styles.composerRow}>
             <TextInput
               style={styles.composerInput}
@@ -565,6 +552,15 @@ export function MercadoScreen({ onOpenSettings }: Props) {
           });
         }}
       />
+
+      {trip && (
+        <CheckoutSheet
+          visible={checkoutOpen}
+          trip={trip}
+          onClose={() => setCheckoutOpen(false)}
+          onDone={(msg) => showToast(msg)}
+        />
+      )}
     </View>
   );
 }

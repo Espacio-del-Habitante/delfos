@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
-import { MercadoScreen } from './src/screens/MercadoScreen';
-import { SettingsScreen } from './src/screens/SettingsScreen';
-import { colors } from './src/theme';
+import { AppRoot } from './src/app/AppRoot';
+import { colors } from './src/shared/theme';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -13,7 +11,6 @@ export default function App() {
     Inter_700Bold,
     Inter_800ExtraBold,
   });
-  const [screen, setScreen] = useState<'mercado' | 'settings'>('mercado');
 
   if (!fontsLoaded) {
     return (
@@ -25,11 +22,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      {screen === 'settings' ? (
-        <SettingsScreen onBack={() => setScreen('mercado')} />
-      ) : (
-        <MercadoScreen onOpenSettings={() => setScreen('settings')} />
-      )}
+      <AppRoot />
     </SafeAreaProvider>
   );
 }

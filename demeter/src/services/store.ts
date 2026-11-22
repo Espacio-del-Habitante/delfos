@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { uid, todayIso } from './format';
+import { uid, todayIso } from '../shared/format';
 import { DEFAULT_AI, type AiSettings } from './aiSettings';
 
 const KEY = 'demeter_mercado_v1';
@@ -38,6 +38,9 @@ export type AppSettings = {
   budgetDefault: number;
   currency: string;
   ai: AiSettings;
+  /** Base URL de Delfos para sync de gasto (ej. https://host:5000) */
+  delfosApiBase?: string;
+  delfosAccountId?: string | null;
 };
 
 type State = {
@@ -48,7 +51,13 @@ type State = {
 };
 
 const DEFAULT: State = {
-  settings: { budgetDefault: 200000, currency: 'COP', ai: { ...DEFAULT_AI } },
+  settings: {
+    budgetDefault: 200000,
+    currency: 'COP',
+    ai: { ...DEFAULT_AI },
+    delfosApiBase: '',
+    delfosAccountId: null,
+  },
   activeTripId: null,
   trips: [],
   products: {},
@@ -222,6 +231,36 @@ export async function removeItem(itemId: string) {
 
 export function tripTotal(trip: Trip | null) {
   return (trip?.items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+}
+
+export function listTrips() {
+  return [...cache.trips].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+export async function setCheckout(receiptPatch: {
+  photoDataUrl?: string | null;
+  ticketTotal?: number | null;
+  notes?: string;
+} = {}) {
+  const trip = getActiveTrip();
+  if (!trip) throw new Error('No hay mercado abierto');
+  trip.status = 'checkout';
+  trip.receipt = { ...(trip.receipt || {}), ...receiptPatch };
+  await persist();
+  return trip;
+}
+
+export async function markSynced(
+  tripId: string,
+  syncInfo: { at: string; ok: boolean; error?: string; expenseId?: string },
+) {
+  const trip = cache.trips.find((t) => t.id === tripId);
+  if (!trip) return null;
+  trip.sync = syncInfo;
+  await persist();
+  return trip;
 }
 
 export async function closeTrip() {
