@@ -98,7 +98,7 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
     {
       id: 'gadgets',
       targetId: 'tour-gadgets',
-      title: '🎛️ Gadgets',
+      title: 'Gadgets',
       description: 'Arma tu panel: donut, barras, ritmo mensual… solo lo que te importa.',
       targetStyle: { borderRadius: 999 },
       tooltipPosition: 'bottom',

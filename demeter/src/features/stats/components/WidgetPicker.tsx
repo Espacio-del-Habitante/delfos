@@ -19,7 +19,7 @@ export function WidgetPicker({ selected, onChange }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>🎛️ Tus gadgets</Text>
+      <Text style={styles.title}>Tus gadgets</Text>
       <Text style={styles.sub}>Activa las tarjetas que quieres ver.</Text>
       <View style={styles.grid}>
         {STATS_WIDGETS.map((w) => {
@@ -41,7 +41,6 @@ export function WidgetPicker({ selected, onChange }: Props) {
                 <View style={[styles.radio, on && styles.radioOn]}>
                   {on ? <View style={styles.radioDot} /> : null}
                 </View>
-                <Text style={styles.cardEmoji}>{w.emoji}</Text>
                 <Text style={[styles.cardLabel, on && styles.cardLabelOn]} numberOfLines={2}>
                   {w.label}
                 </Text>
@@ -118,7 +117,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#fff',
   },
-  cardEmoji: { fontSize: 18 },
   cardLabel: {
     flex: 1,
     fontFamily: 'Inter_700Bold',

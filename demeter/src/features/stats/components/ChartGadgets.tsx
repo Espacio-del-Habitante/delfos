@@ -26,7 +26,7 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
 export function DonutCategories({ bars }: { bars: Bar[] }) {
   if (!bars.length) {
     return (
-      <ChartCard title="🍩 Donut · categorías">
+      <ChartCard title="Donut · categorías">
         <Text style={styles.muted}>Cierra mercados con precios para ver el reparto.</Text>
       </ChartCard>
     );
@@ -38,7 +38,7 @@ export function DonutCategories({ bars }: { bars: Bar[] }) {
   }));
   const total = bars.reduce((s, b) => s + b.amount, 0);
   return (
-    <ChartCard title="🍩 Donut · categorías">
+    <ChartCard title="Donut · categorías">
       <View style={styles.donutRow}>
         <PieChart
           data={data}
@@ -62,7 +62,7 @@ export function DonutCategories({ bars }: { bars: Bar[] }) {
                 style={[styles.swatch, { backgroundColor: CHART_PALETTE[i % CHART_PALETTE.length] }]}
               />
               <Text style={styles.legendTxt} numberOfLines={1}>
-                {b.emoji} {b.label}
+                {b.label}
               </Text>
               <Text style={styles.legendAmt}>{b.pct}%</Text>
             </View>
@@ -77,7 +77,7 @@ export function BarsCategories({ bars }: { bars: Bar[] }) {
   const { width } = useWindowDimensions();
   if (!bars.length) {
     return (
-      <ChartCard title="📊 Barras · categorías">
+      <ChartCard title="Barras · categorías">
         <Text style={styles.muted}>Sin datos de categoría aún.</Text>
       </ChartCard>
     );
@@ -85,14 +85,14 @@ export function BarsCategories({ bars }: { bars: Bar[] }) {
   const chartW = Math.min(width - 72, 340);
   const data = bars.map((b, i) => ({
     value: b.amount,
-    label: b.emoji,
+    label: b.label.slice(0, 3),
     frontColor: CHART_PALETTE[i % CHART_PALETTE.length],
     topLabelComponent: () => (
       <Text style={styles.barTop}>{Math.round(b.amount / 1000)}k</Text>
     ),
   }));
   return (
-    <ChartCard title="📊 Barras · categorías">
+    <ChartCard title="Barras · categorías">
       <BarChart
         data={data}
         width={chartW}
@@ -112,7 +112,7 @@ export function BarsCategories({ bars }: { bars: Bar[] }) {
       <View style={styles.barLegend}>
         {bars.map((b) => (
           <Text key={b.id} style={styles.barLegendTxt}>
-            {b.emoji} {b.label} · {formatCop(b.amount)}
+            {b.label} · {formatCop(b.amount)}
           </Text>
         ))}
       </View>
@@ -124,7 +124,7 @@ export function TrendMonthly({ series }: { series: MonthPoint[] }) {
   const { width } = useWindowDimensions();
   if (series.length < 2) {
     return (
-      <ChartCard title="📈 Gasto mensual">
+      <ChartCard title="Gasto mensual">
         <Text style={styles.muted}>
           Necesitas mercados en al menos 2 meses para ver la tendencia.
         </Text>
@@ -138,7 +138,7 @@ export function TrendMonthly({ series }: { series: MonthPoint[] }) {
     dataPointText: `${Math.round(p.value / 1000)}k`,
   }));
   return (
-    <ChartCard title="📈 Gasto mensual">
+    <ChartCard title="Gasto mensual">
       <LineChart
         data={data}
         width={chartW}

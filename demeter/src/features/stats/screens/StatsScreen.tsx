@@ -107,7 +107,7 @@ export function StatsScreen() {
     const idealLine =
       ideal.items.length > 0 ? `\nMercado ideal mensual ≈ ${formatCop(ideal.total)}` : '';
     await Share.share({
-      message: `🌿 Mi MercApp en números\n${trips.length} mercados · ${formatCop(yearTotal)}\n${blurbText()}${idealLine}`,
+      message: `Mi MercApp en números\n${trips.length} mercados · ${formatCop(yearTotal)}\n${blurbText()}${idealLine}`,
     });
   }
 
@@ -127,7 +127,7 @@ export function StatsScreen() {
         return (
           <View key={id} style={styles.shareCard}>
             <Text style={styles.shareEyebrow}>Para redes</Text>
-            <Text style={styles.shareTitle}>✨ Mi MercApp en números</Text>
+            <Text style={styles.shareTitle}>Mi MercApp en números</Text>
             <Text style={styles.shareBody}>{blurbText()}</Text>
             <Pressable
               onPress={shareCard}
@@ -144,7 +144,7 @@ export function StatsScreen() {
         return (
           <View key={id} style={styles.idealCard}>
             <Text style={styles.idealEyebrow}>Tu ritmo</Text>
-            <Text style={styles.cardTitle}>🧺 Mercado ideal mensual</Text>
+            <Text style={styles.cardTitle}>Mercado ideal mensual</Text>
             <Text style={styles.muted}>
               Estimado con lo que sueles comprar (frecuencia × cantidad típica × último precio).
               No es un presupuesto fijo.
@@ -161,10 +161,8 @@ export function StatsScreen() {
                   {data.ideal.monthsSampled === 1 ? '' : 'es'} de muestra
                 </Text>
                 {data.ideal.items.map((it) => {
-                  const meta = categoryMeta(it.category, data.catalog);
                   return (
                     <View key={it.name} style={styles.idealRow}>
-                      <Text style={styles.idealEmoji}>{meta.emoji}</Text>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.sparkName} numberOfLines={1}>
                           {it.name}
@@ -185,7 +183,7 @@ export function StatsScreen() {
       case 'prices':
         return (
           <View key={id} style={styles.card}>
-            <Text style={styles.cardTitle}>🏷️ Precios que cambian</Text>
+            <Text style={styles.cardTitle}>Precios que cambian</Text>
             <Text style={[styles.muted, { marginBottom: 8 }]}>
               Unitario vs compra pasada (local).
             </Text>
@@ -193,7 +191,6 @@ export function StatsScreen() {
               <Text style={styles.muted}>Repite productos en varios mercados para ver la línea.</Text>
             ) : (
               data.sparks.map((p) => {
-                const meta = categoryMeta(p.category, data.catalog);
                 const deltaTxt =
                   p.delta == null
                     ? 'sin delta'
@@ -205,9 +202,7 @@ export function StatsScreen() {
                 return (
                   <View key={p.name} style={styles.sparkRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sparkName}>
-                        {meta.emoji} {p.name}
-                      </Text>
+                      <Text style={styles.sparkName}>{p.name}</Text>
                       <Text style={styles.muted}>{deltaTxt}</Text>
                       <SparkBars history={p.history} />
                     </View>
@@ -232,20 +227,17 @@ export function StatsScreen() {
       >
         <View style={styles.headRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>📊 Estadísticas</Text>
+            <Text style={styles.title}>Estadísticas</Text>
             <Text style={styles.sub}>Solo mercados cerrados · datos históricos.</Text>
           </View>
-          <TourTarget id="tour-gadgets" style={styles.editBtn}>
+          <TourTarget id="tour-gadgets" style={styles.editHit}>
             <Pressable
               onPress={() => setEditGadgets((v) => !v)}
-              style={({ pressed }) => [
-                styles.editBtn,
-                editGadgets && styles.editBtnDone,
-                pressed && styles.editBtnPressed,
-              ]}
+              style={({ pressed }) => [styles.editHit, pressed && { opacity: 0.55 }]}
+              hitSlop={8}
               accessibilityLabel={editGadgets ? 'Listo con gadgets' : 'Elegir gadgets'}
             >
-              <Text style={styles.editBtnTxt}>
+              <Text style={[styles.editLink, editGadgets && styles.editLinkOn]}>
                 {editGadgets ? 'Listo' : 'Gadgets'}
               </Text>
             </Pressable>
@@ -272,21 +264,13 @@ const styles = StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
   title: { ...type.title, fontSize: 24 },
   sub: { ...type.label, marginTop: 4 },
-  editBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    marginTop: 4,
+  editHit: { marginTop: 6, paddingVertical: 2, paddingHorizontal: 2 },
+  editLink: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: colors.primary,
   },
-  editBtnDone: {
-    backgroundColor: colors.primaryDark,
-  },
-  editBtnPressed: {
-    transform: [{ scale: 0.97 }],
-    backgroundColor: colors.primaryDark,
-  },
-  editBtnTxt: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#fff' },
+  editLinkOn: { color: colors.primaryDark },
   muted: { ...type.label },
   card: { ...card(), padding: space.md, gap: 10 },
   cardTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
@@ -360,5 +344,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  idealEmoji: { fontSize: 20 },
 });
