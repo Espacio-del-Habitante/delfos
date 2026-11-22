@@ -14,7 +14,7 @@ import {
   getState,
   type Trip,
 } from '../../../services/store';
-import { BOTTOM_NAV_CLEARANCE } from '../../../shared/BottomNav';
+import { contentBottomPad } from '../../../shared/BottomNav';
 
 type Props = { onNewTrip?: () => void };
 
@@ -52,7 +52,7 @@ export function HistoryScreen({ onNewTrip }: Props) {
       <TripDetail
         trip={openTrip}
         paddingTop={insets.top + 8}
-        paddingBottom={insets.bottom + BOTTOM_NAV_CLEARANCE + 24}
+        paddingBottom={contentBottomPad(insets.bottom, 24)}
         onBack={() => setOpenId(null)}
       />
     );
@@ -72,7 +72,7 @@ export function HistoryScreen({ onNewTrip }: Props) {
         <FlatList
           data={trips}
           keyExtractor={(t) => t.id}
-          contentContainerStyle={{ paddingBottom: insets.bottom + BOTTOM_NAV_CLEARANCE + 24, gap: 12 }}
+          contentContainerStyle={{ paddingBottom: contentBottomPad(insets.bottom, 24), gap: 12 }}
           ListHeaderComponent={
             <Pressable
               onPress={reopen}

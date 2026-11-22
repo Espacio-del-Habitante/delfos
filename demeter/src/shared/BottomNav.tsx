@@ -4,8 +4,36 @@ import { colors } from './theme';
 
 export type BottomNavId = 'mercado' | 'historial' | 'stats' | 'ajustes';
 
-/** Altura aproximada de la píldora + gap inferior (sin safe-area). */
-export const BOTTOM_NAV_CLEARANCE = 68;
+/** Padding bajo la píldora respecto al home indicator (mínimo visual). */
+export const NAV_EDGE_PAD = 16;
+/** Altura de la píldora (padding 6 + ítem 44 + padding 6). */
+export const NAV_PILL_HEIGHT = 56;
+/** Gap entre píldora y FABs / composer. */
+export const BOTTOM_NAV_GAP = 14;
+export const FAB_SIZE = 56;
+
+/** @deprecated usar navDockBottom / floatingDockBottom con safe-area */
+export const BOTTOM_NAV_CLEARANCE = NAV_EDGE_PAD + NAV_PILL_HEIGHT;
+
+/** bottom style de la píldora: encima del safe area. */
+export function navDockBottom(safeBottom: number) {
+  return NAV_EDGE_PAD + Math.max(safeBottom, 0);
+}
+
+/** Distancia desde el borde inferior hasta el tope de la píldora. */
+export function navPillTop(safeBottom: number) {
+  return navDockBottom(safeBottom) + NAV_PILL_HEIGHT;
+}
+
+/** bottom style para FABs / composer: gap por encima de la píldora. */
+export function floatingDockBottom(safeBottom: number) {
+  return navPillTop(safeBottom) + BOTTOM_NAV_GAP;
+}
+
+/** Padding de listas para no quedar bajo nav + fab. */
+export function contentBottomPad(safeBottom: number, extra = FAB_SIZE + 16) {
+  return floatingDockBottom(safeBottom) + extra;
+}
 
 type Tab = { id: BottomNavId; label: string; uri: string };
 
@@ -51,7 +79,7 @@ type Props = {
 
 /**
  * Píldora flotante icon-only, como Delfos `.bottom-nav`.
- * Overlay absoluto — no empuja el layout.
+ * Respeta safe-area inferior.
  */
 export function BottomNav({ active, onChange }: Props) {
   const insets = useSafeAreaInsets();
@@ -59,7 +87,7 @@ export function BottomNav({ active, onChange }: Props) {
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.wrap, { bottom: 12 + Math.max(insets.bottom, 0) }]}
+      style={[styles.wrap, { bottom: navDockBottom(insets.bottom) }]}
     >
       <View style={styles.pill} accessibilityRole="tablist">
         {TABS.map((t) => {
@@ -107,7 +135,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.82)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.7)',
-    // Web glass; nativo cae a blanco translúcido (sin expo-blur)
     ...(Platform.OS === 'web'
       ? ({
           backdropFilter: 'blur(20px)',

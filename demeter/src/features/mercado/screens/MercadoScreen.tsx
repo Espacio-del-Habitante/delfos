@@ -42,7 +42,11 @@ import {
 } from '../../../services/speech';
 import { ItemEditSheet } from '../components/ItemEditSheet';
 import { CheckoutSheet } from '../components/CheckoutSheet';
-import { BOTTOM_NAV_CLEARANCE } from '../../../shared/BottomNav';
+import {
+  FAB_SIZE,
+  contentBottomPad,
+  floatingDockBottom,
+} from '../../../shared/BottomNav';
 
 /** SVG en data-URI: viewBox cuadrado → centro geométrico fiable en el botón. */
 const MIC_URI =
@@ -84,6 +88,9 @@ export function MercadoScreen({ onOpenSettings }: Props) {
   const [toast, setToast] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<CartItem | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  // RN tipado de TextInput cambia por SDK; solo necesitamos .focus()
+  const draftRef = useRef<any>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -97,7 +104,10 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     return subscribe(() => setTick((n) => n + 1));
   }, []);
 
-  useSpeechRecognitionEvent('start', () => setListening(true));
+  useSpeechRecognitionEvent('start', () => {
+    setListening(true);
+    setComposerOpen(true);
+  });
   useSpeechRecognitionEvent('end', () => setListening(false));
   useSpeechRecognitionEvent('result', (ev) => {
     const text = ev.results?.[0]?.transcript?.trim();
@@ -274,14 +284,26 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     return () => loop.stop();
   }, [listening, micPulse]);
 
+  function openComposer() {
+    setComposerOpen(true);
+    setTimeout(() => draftRef.current?.focus(), 80);
+  }
+
+  function closeComposer() {
+    if (listening) stopListening();
+    setComposerOpen(false);
+  }
+
   async function onMic() {
     if (listening) {
       stopListening();
       return;
     }
     try {
+      setComposerOpen(true);
       if (!speechAvailable()) {
-        showToast('Dictado no disponible. Escribe abajo');
+        showToast('Dictado no disponible. Escribe aquí');
+        setTimeout(() => draftRef.current?.focus(), 80);
         return;
       }
       setDraft('');
@@ -429,13 +451,16 @@ export function MercadoScreen({ onOpenSettings }: Props) {
           <FlatList
             data={items}
             keyExtractor={(it) => it.id}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[
+              styles.list,
+              { paddingBottom: contentBottomPad(insets.bottom, FAB_SIZE + 28) },
+            ]}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={[styles.card, styles.center, { padding: space.lg }]}>
                 <Text style={styles.emptyIcon}>🧺</Text>
                 <Text style={styles.emptyTitle}>Carrito vacío</Text>
-                <Text style={styles.emptyText}>Escribe o dicta abajo.</Text>
+                <Text style={styles.emptyText}>Toca + para escribir o dictar.</Text>
               </View>
             }
             renderItem={({ item }) => {
@@ -461,71 +486,97 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                 </Pressable>
               );
             }}
-            ListFooterComponent={
-              <Pressable
-                style={({ pressed }) => [styles.payRow, pressed && { opacity: 0.85 }]}
-                onPress={onFinish}
-              >
-                <Text style={styles.payTitle}>Cerrar mercado</Text>
-                <Text style={styles.payHint}>terminar viaje</Text>
-              </Pressable>
-            }
           />
         </>
       )}
 
       {trip && (
-        <View style={[styles.composer, { paddingBottom: 10, bottom: BOTTOM_NAV_CLEARANCE }]}>
-          <View style={styles.composerRow}>
-            <TextInput
-              style={styles.composerInput}
-              value={draft}
-              onChangeText={setDraft}
-              placeholder={listening ? 'Escuchando…' : 'papa 8 mil · Enter'}
-              placeholderTextColor={colors.muted}
-              returnKeyType="done"
-              onSubmitEditing={() => void submitDraft()}
-              editable={!listening}
-            />
-            <View style={styles.micWrap}>
-              {listening && (
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.micPulse,
-                    {
-                      opacity: micPulse.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.5, 0],
-                      }),
-                      transform: [
-                        {
-                          scale: micPulse.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [1, 1.5],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
+        <View
+          pointerEvents="box-none"
+          style={[styles.dock, { bottom: floatingDockBottom(insets.bottom) }]}
+        >
+          {composerOpen ? (
+            <View style={styles.composer}>
+              <View style={styles.composerRow}>
+                <Pressable
+                  onPress={closeComposer}
+                  style={({ pressed }) => [styles.composerClose, pressed && { opacity: 0.75 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar barra de escritura"
+                >
+                  <Text style={styles.composerCloseTxt}>✕</Text>
+                </Pressable>
+                <TextInput
+                  ref={draftRef}
+                  style={styles.composerInput}
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder={listening ? 'Escuchando…' : 'papa 8 mil · Enter'}
+                  placeholderTextColor={colors.muted}
+                  returnKeyType="done"
+                  onSubmitEditing={() => void submitDraft()}
+                  editable={!listening}
                 />
-              )}
+                <View style={styles.micWrap}>
+                  {listening && (
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[
+                        styles.micPulse,
+                        {
+                          opacity: micPulse.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.5, 0],
+                          }),
+                          transform: [
+                            {
+                              scale: micPulse.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [1, 1.5],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    />
+                  )}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.mic,
+                      listening && styles.micOn,
+                      pressed && { transform: [{ scale: 0.96 }] },
+                    ]}
+                    onPress={() => void onMic()}
+                    accessibilityRole="button"
+                    accessibilityLabel={listening ? 'Detener dictado' : 'Dictar con la voz'}
+                    accessibilityState={{ selected: listening }}
+                  >
+                    {listening ? <StopGlyph /> : <MicGlyph />}
+                  </Pressable>
+                </View>
+              </View>
+              {listening && <Text style={styles.listenHint}>Escuchando. Toca para cortar</Text>}
+            </View>
+          ) : (
+            <View style={styles.fabRow}>
               <Pressable
-                style={({ pressed }) => [
-                  styles.mic,
-                  listening && styles.micOn,
-                  pressed && { transform: [{ scale: 0.96 }] },
-                ]}
-                onPress={() => void onMic()}
+                onPress={onFinish}
+                style={({ pressed }) => [styles.closeFab, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
-                accessibilityLabel={listening ? 'Detener dictado' : 'Dictar con la voz'}
-                accessibilityState={{ selected: listening }}
+                accessibilityLabel="Cerrar mercado"
               >
-                {listening ? <StopGlyph /> : <MicGlyph />}
+                <Text style={styles.closeFabTxt}>Cerrar mercado</Text>
+              </Pressable>
+              <Pressable
+                onPress={openComposer}
+                style={({ pressed }) => [styles.addFab, pressed && { transform: [{ scale: 0.96 }] }]}
+                accessibilityRole="button"
+                accessibilityLabel="Agregar ítem"
+              >
+                <Text style={styles.addFabTxt}>+</Text>
               </Pressable>
             </View>
-          </View>
-          {listening && <Text style={styles.listenHint}>Escuchando. Toca para cortar</Text>}
+          )}
         </View>
       )}
 
@@ -694,7 +745,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
-  list: { paddingHorizontal: space.lg, paddingBottom: 160, gap: 10 },
+  list: { paddingHorizontal: space.lg, gap: 10 },
   card: {
     ...card(),
   },
@@ -737,25 +788,67 @@ const styles = StyleSheet.create({
   itemAmt: { fontWeight: '700', color: colors.text, fontFamily: 'Inter_700Bold' },
   itemAmtMissing: { color: colors.primary, fontWeight: '600', fontSize: 13 },
   itemHint: { color: colors.muted, fontSize: 11, marginTop: 2 },
-  payRow: {
-    marginTop: 8,
-    ...card(),
-    padding: space.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  payTitle: { fontWeight: '700', color: colors.text, fontFamily: 'Inter_700Bold' },
-  payHint: { color: colors.muted },
-  composer: {
+  dock: {
     position: 'absolute',
     left: 12,
     right: 12,
-    bottom: 0,
+    zIndex: 40,
+  },
+  fabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  closeFab: {
+    height: FAB_SIZE,
+    paddingHorizontal: 18,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 5,
+  },
+  closeFabTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 14 },
+  addFab: {
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    backgroundColor: colors.primaryDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  addFabTxt: {
+    color: '#fff',
+    fontSize: 28,
+    lineHeight: 30,
+    fontFamily: 'Inter_700Bold',
+    marginTop: -2,
+  },
+  composer: {
     ...card(),
     backgroundColor: colors.surfaceSoft,
     padding: 10,
   },
-  composerRow: { flexDirection: 'row', gap: 8 },
+  composerRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  composerClose: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.06)',
+  },
+  composerCloseTxt: { fontSize: 16, color: colors.muted, fontFamily: 'Inter_600SemiBold' },
   composerInput: {
     flex: 1,
     ...field(),
@@ -767,22 +860,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
   },
   micWrap: {
-    width: 52,
-    height: 52,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
   micPulse: {
     position: 'absolute',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
     backgroundColor: colors.micListen,
   },
   mic: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

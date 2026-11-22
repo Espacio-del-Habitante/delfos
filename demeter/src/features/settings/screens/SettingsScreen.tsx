@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors, radius, space, field, type, card } from '../../../shared/theme';
-import { BOTTOM_NAV_CLEARANCE } from '../../../shared/BottomNav';
+import { contentBottomPad } from '../../../shared/BottomNav';
 import {
   AI_PROVIDERS,
   effectiveProvider,
@@ -136,7 +136,10 @@ export function SettingsScreen({ onBack }: Props) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.body, { paddingBottom: contentBottomPad(insets.bottom, 32) }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.section}>Mercado</Text>
         <View style={styles.card}>
           <Text style={styles.label}>Presupuesto por defecto (COP)</Text>
@@ -329,7 +332,7 @@ const styles = StyleSheet.create({
   },
   backTxt: { fontSize: 28, lineHeight: 30, color: colors.text, marginTop: -2 },
   title: { ...type.title, fontSize: 18 },
-  body: { paddingHorizontal: space.lg, paddingBottom: 48 + BOTTOM_NAV_CLEARANCE, gap: 10 },
+  body: { paddingHorizontal: space.lg, gap: 10 },
   section: {
     ...type.label,
     textTransform: 'uppercase',
