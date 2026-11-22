@@ -246,11 +246,9 @@ export async function startTrip({ budget }: { budget?: number } = {}) {
   return trip;
 }
 
-function rememberProduct(item: CartItem) {
+function touchProductMeta(item: CartItem) {
   const key = nameKey(item.name);
   if (!key) return;
-  const unitPrice =
-    item.amount != null && item.qty ? Number(item.amount) / Number(item.qty) : null;
   const prev = cache.products[key] || {
     name: item.name,
     category: item.category,
@@ -259,18 +257,38 @@ function rememberProduct(item: CartItem) {
   };
   prev.category = item.category || prev.category;
   prev.name = item.name || prev.name;
-  // Siempre guarda qty/unidad (hábitos); unitPrice 0 si aún no hay precio.
+  cache.products[key] = prev;
+}
+
+/** Historial de precio/hábito: solo al cerrar el mercado (no mientras está open). */
+function rememberProduct(item: CartItem, tripId: string) {
+  const key = nameKey(item.name);
+  if (!key) return;
+  touchProductMeta(item);
+  const unitPrice =
+    item.amount != null && item.qty ? Number(item.amount) / Number(item.qty) : null;
+  const prev = cache.products[key]!;
   prev.priceHistory.push({
     date: todayIso(),
     unitPrice: unitPrice != null && Number.isFinite(unitPrice) ? unitPrice : 0,
     qty: item.qty,
     unit: item.unit,
     amount: item.amount,
-    tripId: cache.activeTripId,
+    tripId,
   });
   // ponytail: last 40 points
   if (prev.priceHistory.length > 40) prev.priceHistory = prev.priceHistory.slice(-40);
-  cache.products[key] = prev;
+}
+
+/** Solo entradas de mercados ya cerrados (Repetir / último precio). */
+function historyFromClosed(
+  hist: Product['priceHistory'] | undefined,
+): Product['priceHistory'] {
+  return (hist || []).filter((h) => {
+    if (!h.tripId) return false;
+    const t = cache.trips.find((x) => x.id === h.tripId);
+    return t?.status === 'closed';
+  });
 }
 
 export async function addItem(item: Omit<CartItem, 'id' | 'createdAt'> & { id?: string }) {
@@ -295,7 +313,7 @@ export async function addItem(item: Omit<CartItem, 'id' | 'createdAt'> & { id?: 
     createdAt: todayIso(),
   };
   trip.items.push(row);
-  rememberProduct(row);
+  touchProductMeta(row);
   await persist();
   return { trip, item: row };
 }
@@ -322,7 +340,7 @@ export async function updateItem(itemId: string, patch: Partial<CartItem>) {
     patch = { ...patch, amount };
   }
   Object.assign(row, patch);
-  rememberProduct(row);
+  touchProductMeta(row);
   await persist();
   return { trip, item: row };
 }
@@ -386,6 +404,8 @@ export async function closeTrip() {
   if (!trip) throw new Error('No hay mercado abierto');
   if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
   if (!trip.items.length) throw new Error('El carrito está vacío');
+  // Commit hábitos solo al cerrar (Repetir = mercados cerrados).
+  for (const item of trip.items) rememberProduct(item, trip.id);
   trip.status = 'closed';
   trip.closedAt = todayIso();
   cache.activeTripId = null;
@@ -407,7 +427,7 @@ export function findCartItemByName(name: string) {
 
 export function lastPriceFor(name: string) {
   const key = nameKey(name);
-  const hist = cache.products[key]?.priceHistory || [];
+  const hist = historyFromClosed(cache.products[key]?.priceHistory);
   const last = [...hist].reverse().find((h) => Number(h.unitPrice) > 0) || hist.at(-1);
   if (!last) return null;
   const unitPrice = Number(last.unitPrice);
@@ -447,10 +467,10 @@ export type HistorySuggestion = {
   label: string;
 };
 
-/** Moda de qty+unidad; prioriza compras del mes pasado. */
+/** Moda de qty+unidad; prioriza compras del mes pasado. Solo mercados cerrados. */
 export function suggestFromHistory(name: string): HistorySuggestion | null {
   const product = cache.products[nameKey(name)];
-  const hist = product?.priceHistory || [];
+  const hist = historyFromClosed(product?.priceHistory);
   if (!product || !hist.length) return null;
 
   const lastMonth = hist.filter((h) => isLastCalendarMonth(h.date));
@@ -496,10 +516,10 @@ export function suggestFromHistory(name: string): HistorySuggestion | null {
   };
 }
 
-/** Chips rápidos: hábitos recientes no vacíos. */
+/** Chips rápidos: hábitos de mercados cerrados. */
 export function recentHabitSuggestions(limit = 6): HistorySuggestion[] {
   const rows = Object.values(cache.products)
-    .filter((p) => (p.priceHistory || []).length)
+    .filter((p) => historyFromClosed(p.priceHistory).length)
     .map((p) => suggestFromHistory(p.name))
     .filter((s): s is HistorySuggestion => Boolean(s))
     .sort((a, b) => {
@@ -519,11 +539,23 @@ export function recentHabitSuggestions(limit = 6): HistorySuggestion[] {
   return out;
 }
 
-/** Test helper: seed product habit without UI. */
+/** Test helper: seed closed trip + product habit without UI. */
 export function _seedProductForTests(
   name: string,
   entries: Array<{ date: string; qty: number; unit: string; amount?: number | null; unitPrice?: number }>,
 ) {
+  const tripId = uid('trip');
+  cache.trips.unshift({
+    id: tripId,
+    createdAt: entries[0]?.date || todayIso(),
+    closedAt: entries.at(-1)?.date || todayIso(),
+    storeName: 'seed',
+    budget: 0,
+    status: 'closed',
+    items: [],
+    receipt: null,
+    sync: null,
+  });
   const key = nameKey(name);
   cache.products[key] = {
     name,
@@ -535,7 +567,7 @@ export function _seedProductForTests(
       unit: e.unit,
       amount: e.amount ?? null,
       unitPrice: e.unitPrice ?? (e.amount && e.qty ? Number(e.amount) / e.qty : 0),
-      tripId: null,
+      tripId,
     })),
   };
 }

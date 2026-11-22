@@ -32,4 +32,22 @@ assert.deepEqual(
   ['ok'],
 );
 
+// Repetir: no sugerir desde open
+function historyFromClosed(hist, trips) {
+  return (hist || []).filter((h) => trips.find((t) => t.id === h.tripId)?.status === 'closed');
+}
+assert.deepEqual(
+  historyFromClosed(
+    [
+      { tripId: 'a', qty: 1 },
+      { tripId: 'b', qty: 2 },
+    ],
+    [
+      { id: 'a', status: 'closed' },
+      { id: 'b', status: 'open' },
+    ],
+  ).map((h) => h.tripId),
+  ['a'],
+);
+
 console.log('storeGuards.check ok');

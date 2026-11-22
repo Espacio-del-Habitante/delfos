@@ -7,6 +7,14 @@ function isLastCalendarMonth(iso, now = new Date()) {
   return d.getFullYear() === last.getFullYear() && d.getMonth() === last.getMonth();
 }
 
+/** Solo historial de trips cerrados (Repetir). */
+function historyFromClosed(hist, trips) {
+  return (hist || []).filter((h) => {
+    if (!h.tripId) return false;
+    return trips.find((t) => t.id === h.tripId)?.status === 'closed';
+  });
+}
+
 function suggest(hist, now = new Date()) {
   const lastMonth = hist.filter((h) => isLastCalendarMonth(h.date, now));
   const pool = lastMonth.length ? lastMonth : hist.slice(-8);
@@ -53,5 +61,21 @@ const onlyOld = suggest(
 );
 assert.equal(onlyOld.source, 'usual');
 assert.equal(onlyOld.qty, 5);
+
+const trips = [
+  { id: 'closed1', status: 'closed' },
+  { id: 'open1', status: 'open' },
+];
+const mixed = [
+  { tripId: 'open1', date: '2026-02-05T00:00:00Z', qty: 9, unit: 'kg' },
+  { tripId: 'closed1', date: '2026-02-05T00:00:00Z', qty: 3, unit: 'lb' },
+  { tripId: 'closed1', date: '2026-02-20T00:00:00Z', qty: 3, unit: 'lb' },
+  { tripId: null, date: '2026-02-10T00:00:00Z', qty: 1, unit: 'und' },
+];
+const closedOnly = historyFromClosed(mixed, trips);
+assert.equal(closedOnly.length, 2);
+assert.equal(suggest(closedOnly, now).qty, 3);
+assert.equal(suggest(closedOnly, now).unit, 'lb');
+assert.equal(historyFromClosed([{ tripId: 'open1', qty: 1, unit: 'und' }], trips).length, 0);
 
 console.log('historySuggest check ok');
