@@ -406,12 +406,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
 
       {!trip ? (
         <View style={[styles.card, styles.center, { margin: space.lg, padding: space.xl }]}>
-          <Image
-            source={require('../../../../assets/mercapp-logo.png')}
-            style={styles.emptyLogo}
-            resizeMode="contain"
-            accessibilityLabel="MercApp"
-          />
+          <Text style={styles.emptyIcon}>🛒</Text>
           <Text style={styles.emptyTitle}>Sin mercado abierto</Text>
           <Text style={styles.emptyText}>Abre un mercado y empieza a sumar.</Text>
           <TourTarget id="tour-start" style={styles.primaryBtn}>
@@ -837,7 +832,6 @@ const styles = StyleSheet.create({
     ...card(),
   },
   emptyIcon: { fontSize: 36, marginBottom: 8 },
-  emptyLogo: { width: 120, height: 112, marginBottom: 8 },
   emptyTitle: { ...type.title, fontSize: 18 },
   emptyText: {
     color: colors.muted,
