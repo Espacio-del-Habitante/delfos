@@ -13,6 +13,7 @@ import {
   shareBlurb,
 } from '../../../domain/stats';
 import { initStore, subscribe, listTrips, getProducts } from '../../../services/store';
+import { BOTTOM_NAV_CLEARANCE } from '../../../shared/BottomNav';
 
 /** Mini sparkline sin dependencias: barras de altura relativa. */
 function SparkBars({ history }: { history: Array<{ unitPrice: number }> }) {
@@ -81,7 +82,7 @@ export function StatsScreen() {
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <StatusBar style="dark" />
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100, gap: 14 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + BOTTOM_NAV_CLEARANCE + 24, gap: 14 }}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>Estadísticas</Text>

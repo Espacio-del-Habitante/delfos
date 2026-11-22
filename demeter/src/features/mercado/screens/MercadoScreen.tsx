@@ -42,6 +42,7 @@ import {
 } from '../../../services/speech';
 import { ItemEditSheet } from '../components/ItemEditSheet';
 import { CheckoutSheet } from '../components/CheckoutSheet';
+import { BOTTOM_NAV_CLEARANCE } from '../../../shared/BottomNav';
 
 /** SVG en data-URI: viewBox cuadrado → centro geométrico fiable en el botón. */
 const MIC_URI =
@@ -474,7 +475,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
       )}
 
       {trip && (
-        <View style={[styles.composer, { paddingBottom: 10 }]}>
+        <View style={[styles.composer, { paddingBottom: 10, bottom: BOTTOM_NAV_CLEARANCE }]}>
           <View style={styles.composerRow}>
             <TextInput
               style={styles.composerInput}
@@ -693,7 +694,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
-  list: { paddingHorizontal: space.lg, paddingBottom: 120, gap: 10 },
+  list: { paddingHorizontal: space.lg, paddingBottom: 160, gap: 10 },
   card: {
     ...card(),
   },

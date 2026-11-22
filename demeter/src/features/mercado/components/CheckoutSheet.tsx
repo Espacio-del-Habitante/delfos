@@ -20,6 +20,7 @@ import {
   type Trip,
 } from '../../../services/store';
 import { syncTripToDelfos } from '../../../services/syncDelfos';
+import { BOTTOM_NAV_CLEARANCE } from '../../../shared/BottomNav';
 
 type Props = {
   visible: boolean;
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: space.md,
     right: space.md,
-    bottom: 24,
+    bottom: 24 + BOTTOM_NAV_CLEARANCE,
     padding: space.lg,
     gap: 10,
   },

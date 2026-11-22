@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors, radius, space, field, type, card } from '../../../shared/theme';
+import { BOTTOM_NAV_CLEARANCE } from '../../../shared/BottomNav';
 import {
   AI_PROVIDERS,
   effectiveProvider,
@@ -328,7 +329,7 @@ const styles = StyleSheet.create({
   },
   backTxt: { fontSize: 28, lineHeight: 30, color: colors.text, marginTop: -2 },
   title: { ...type.title, fontSize: 18 },
-  body: { paddingHorizontal: space.lg, paddingBottom: 48, gap: 10 },
+  body: { paddingHorizontal: space.lg, paddingBottom: 48 + BOTTOM_NAV_CLEARANCE, gap: 10 },
   section: {
     ...type.label,
     textTransform: 'uppercase',
