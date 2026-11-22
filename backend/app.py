@@ -26,10 +26,16 @@ from services import (
 app = Flask(__name__)
 # Dev/tunnel: el Origin no es localhost:4321. En producción el front sale del
 # mismo :5000 (same-origin) y CORS casi no aplica.
+# Mercado (PWA aparte) puede listar orígenes en DELFOS_CORS_ORIGINS (csv).
+_cors_extra = [
+    o.strip()
+    for o in os.getenv("DELFOS_CORS_ORIGINS", "").split(",")
+    if o.strip()
+]
 if config.FLASK_DEBUG:
     CORS(app)
 else:
-    CORS(app, origins=["http://localhost:4321"])
+    CORS(app, origins=["http://localhost:4321", *_cors_extra])
 
 
 def finance_response(extra=None):

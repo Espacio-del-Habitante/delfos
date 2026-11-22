@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "MercApp",
+    "slug": "demeter",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "demeter",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.delfos.demeter",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "MercApp usa el reconocimiento de voz para sumar productos al carrito.",
+        "NSMicrophoneUsageDescription": "MercApp usa el micrófono para dictar productos."
+      }
+    },
+    "android": {
+      "package": "app.delfos.demeter",
+      "adaptiveIcon": {
+        "backgroundColor": "#1b7a4a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "MercApp usa el micrófono para dictar productos.",
+          "speechRecognitionPermission": "MercApp usa el reconocimiento de voz para sumar al carrito."
+        }
+      ]
+    ]
+  }
+}
