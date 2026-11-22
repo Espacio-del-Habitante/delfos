@@ -36,10 +36,15 @@ export async function proposeRecipes(opts?: {
     if (parsed.length) return { recipes: parsed, source: 'ai' };
     return { recipes: local, source: 'local', error: 'IA sin recetas útiles · usé ideas locales' };
   } catch (e: any) {
+    const msg = String(e?.message || '');
+    const soft =
+      /failed to fetch|network|timeout|CORS/i.test(msg)
+        ? 'IA no alcanzó · usé ideas locales'
+        : msg || 'IA falló · usé ideas locales';
     return {
       recipes: local,
       source: 'local',
-      error: e?.message || 'IA falló · usé ideas locales',
+      error: soft,
     };
   }
 }
