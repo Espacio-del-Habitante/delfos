@@ -20,7 +20,7 @@ export function WidgetPicker({ selected, onChange }: Props) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Tus gadgets</Text>
-      <Text style={styles.sub}>Elige qué gráficos y tarjetas ver en Estadísticas.</Text>
+      <Text style={styles.sub}>Activa las tarjetas que quieres ver.</Text>
       <View style={styles.grid}>
         {STATS_WIDGETS.map((w) => {
           const on = selected.includes(w.id);
@@ -29,16 +29,23 @@ export function WidgetPicker({ selected, onChange }: Props) {
               key={w.id}
               onPress={() => toggle(w.id)}
               style={({ pressed }) => [
-                styles.chip,
-                on && styles.chipOn,
-                pressed && { transform: [{ scale: 0.97 }] },
+                styles.card,
+                on && styles.cardOn,
+                pressed && (on ? styles.cardOnPressed : styles.cardPressed),
               ]}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: on }}
               accessibilityLabel={`${w.label}. ${w.blurb}`}
             >
-              <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>{w.label}</Text>
-              <Text style={[styles.chipBlurb, on && styles.chipBlurbOn]} numberOfLines={2}>
+              <View style={styles.cardHead}>
+                <View style={[styles.radio, on && styles.radioOn]}>
+                  {on ? <View style={styles.radioDot} /> : null}
+                </View>
+                <Text style={[styles.cardLabel, on && styles.cardLabelOn]} numberOfLines={2}>
+                  {w.label}
+                </Text>
+              </View>
+              <Text style={[styles.cardBlurb, on && styles.cardBlurbOn]} numberOfLines={2}>
                 {w.blurb}
               </Text>
             </Pressable>
@@ -50,36 +57,79 @@ export function WidgetPicker({ selected, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 8 },
+  wrap: { gap: 10 },
   title: { ...type.title, fontSize: 16 },
-  sub: { ...type.label, marginBottom: 4 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
+  sub: { ...type.label, marginBottom: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  card: {
     width: '48%',
     flexGrow: 1,
-    minWidth: 140,
-    padding: space.sm,
-    borderRadius: radius.sm,
+    minWidth: 148,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.border,
-    gap: 2,
+    gap: 6,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 2,
   },
-  chipOn: {
-    backgroundColor: 'rgba(27,122,74,0.1)',
-    borderColor: 'rgba(27,122,74,0.35)',
+  cardOn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  chipLabel: {
+  cardPressed: {
+    transform: [{ scale: 0.97 }],
+    backgroundColor: '#eef2f0',
+    borderColor: '#c5d0ca',
+  },
+  cardOnPressed: {
+    transform: [{ scale: 0.97 }],
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
+  },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#9ca3af',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  radioOn: {
+    borderColor: '#fff',
+    backgroundColor: colors.primaryDark,
+  },
+  radioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  cardLabel: {
+    flex: 1,
     fontFamily: 'Inter_700Bold',
     fontSize: 13,
     color: colors.text,
   },
-  chipLabelOn: { color: colors.primaryDark },
-  chipBlurb: {
+  cardLabelOn: { color: '#fff' },
+  cardBlurb: {
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
     color: colors.muted,
-    lineHeight: 14,
+    lineHeight: 15,
+    paddingLeft: 28,
   },
-  chipBlurbOn: { color: '#3f6b52' },
+  cardBlurbOn: { color: '#dcfce7' },
 });

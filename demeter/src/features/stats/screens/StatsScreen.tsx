@@ -123,7 +123,10 @@ export function StatsScreen() {
             </Text>
             <Pressable
               onPress={shareCard}
-              style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.9 }]}
+              style={({ pressed }) => [
+                styles.shareBtn,
+                pressed && styles.shareBtnPressed,
+              ]}
             >
               <Text style={styles.shareBtnTxt}>Compartir</Text>
             </Pressable>
@@ -226,7 +229,11 @@ export function StatsScreen() {
           </View>
           <Pressable
             onPress={() => setEditGadgets((v) => !v)}
-            style={({ pressed }) => [styles.editBtn, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [
+              styles.editBtn,
+              editGadgets && styles.editBtnDone,
+              pressed && styles.editBtnPressed,
+            ]}
             accessibilityLabel={editGadgets ? 'Listo con gadgets' : 'Elegir gadgets'}
           >
             <Text style={styles.editBtnTxt}>{editGadgets ? 'Listo' : 'Gadgets'}</Text>
@@ -254,13 +261,20 @@ const styles = StyleSheet.create({
   title: { ...type.title, fontSize: 24 },
   sub: { ...type.label, marginTop: 4 },
   editBtn: {
-    backgroundColor: 'rgba(27,122,74,0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: radius.pill,
     marginTop: 4,
   },
-  editBtnTxt: { fontFamily: 'Inter_700Bold', fontSize: 13, color: colors.primaryDark },
+  editBtnDone: {
+    backgroundColor: colors.primaryDark,
+  },
+  editBtnPressed: {
+    transform: [{ scale: 0.97 }],
+    backgroundColor: colors.primaryDark,
+  },
+  editBtnTxt: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#fff' },
   muted: { ...type.label },
   card: { ...card(), padding: space.md, gap: 10 },
   cardTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
@@ -272,7 +286,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   shareEyebrow: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#bbf7d0',
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -280,7 +294,7 @@ const styles = StyleSheet.create({
   },
   shareTitle: { color: '#fff', fontFamily: 'Inter_800ExtraBold', fontSize: 20 },
   shareBody: {
-    color: 'rgba(255,255,255,0.92)',
+    color: '#ecfdf5',
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     lineHeight: 20,
@@ -288,12 +302,16 @@ const styles = StyleSheet.create({
   shareBtn: {
     alignSelf: 'flex-start',
     marginTop: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#fff',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: radius.pill,
   },
-  shareBtnTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 13 },
+  shareBtnPressed: {
+    transform: [{ scale: 0.97 }],
+    backgroundColor: '#dcfce7',
+  },
+  shareBtnTxt: { color: colors.primaryDark, fontFamily: 'Inter_700Bold', fontSize: 13 },
   sparkRow: {
     flexDirection: 'row',
     gap: 12,
