@@ -11,8 +11,9 @@ import type { TooltipProps } from '@wrack/react-native-tour-guide';
 import { colors, radius } from '../../shared/theme';
 
 const CARD_W = 312;
-const ARROW = 12;
-const GAP = 10;
+const CARD_W_NARROW = 268;
+const ARROW = 14;
+const GAP = 8;
 
 /** Extrae emoji inicial del título si viene embebido. */
 function splitEmoji(title?: string) {
@@ -70,12 +71,14 @@ export function MercappTooltip({
   else if (targetMidY < H * 0.32) placeBelow = true;
   else placeBelow = safeBottom - targetBottom >= targetTop - safeTop;
 
-  // Ancla horizontal al target. Si el foco está a la izquierda (logo),
-  // la card se corre para que el logo quede sobre el tercio izquierdo —
-  // centrar 312px bajo un logo pegado al borde es imposible.
-  const leftBias = targetMidX < W * 0.38 ? 0.3 : targetMidX > W * 0.62 ? 0.7 : 0.5;
-  let cardLeft = targetMidX - CARD_W * leftBias;
-  cardLeft = Math.max(14, Math.min(cardLeft, W - CARD_W - 14));
+  // Ancla horizontal al target. Logo a la izquierda → card más angosta
+  // y sesgada para sentarse bajo el branding, no al centro de la pantalla.
+  const nearLeft = targetMidX < W * 0.4;
+  const nearRight = targetMidX > W * 0.6;
+  const width = nearLeft || nearRight ? CARD_W_NARROW : CARD_W;
+  const anchor = nearLeft ? 0.28 : nearRight ? 0.72 : 0.5;
+  let cardLeft = targetMidX - width * anchor;
+  cardLeft = Math.max(12, Math.min(cardLeft, W - width - 12));
 
   let cardTop: number;
   if (placeBelow) {
@@ -92,7 +95,7 @@ export function MercappTooltip({
 
   // Poquito alineado al centro del target.
   let arrowLeft = targetMidX - cardLeft - ARROW;
-  arrowLeft = Math.max(20, Math.min(arrowLeft, CARD_W - 20 - ARROW * 2));
+  arrowLeft = Math.max(18, Math.min(arrowLeft, width - 18 - ARROW * 2));
 
   const stepNum = Math.min(totalSteps, Math.max(1, currentStep + 1));
   const isLast = isLastStep || stepNum >= totalSteps;
@@ -116,7 +119,7 @@ export function MercappTooltip({
     >
       <View
         onLayout={onCardLayout}
-        style={[styles.card, { left: cardLeft, top: cardTop, width: CARD_W }]}
+        style={[styles.card, { left: cardLeft, top: cardTop, width }]}
       >
         {/* Poquito / caret hacia el target */}
         {placeBelow ? (
