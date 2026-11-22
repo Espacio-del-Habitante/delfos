@@ -384,12 +384,12 @@ export function MercadoScreen({ onOpenSettings }: Props) {
 
       <View style={styles.brandRow}>
         <TourTarget id="tour-brand" style={styles.brandTour}>
-          <View style={styles.brandMark}>
-            <View style={styles.logoMark}>
-              <Text style={styles.logoGlyph}>🌿</Text>
-            </View>
-            <Text style={styles.brand}>MercApp</Text>
-          </View>
+          <Image
+            source={require('../../../../assets/mercapp-logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+            accessibilityLabel="MercApp"
+          />
         </TourTarget>
         <View style={{ flex: 1 }} />
         {onOpenSettings && (
@@ -406,7 +406,12 @@ export function MercadoScreen({ onOpenSettings }: Props) {
 
       {!trip ? (
         <View style={[styles.card, styles.center, { margin: space.lg, padding: space.xl }]}>
-          <Text style={styles.emptyIcon}>🛒</Text>
+          <Image
+            source={require('../../../../assets/mercapp-logo.png')}
+            style={styles.emptyLogo}
+            resizeMode="contain"
+            accessibilityLabel="MercApp"
+          />
           <Text style={styles.emptyTitle}>Sin mercado abierto</Text>
           <Text style={styles.emptyText}>Abre un mercado y empieza a sumar.</Text>
           <TourTarget id="tour-start" style={styles.primaryBtn}>
@@ -696,7 +701,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   center: { alignItems: 'center', justifyContent: 'center' },
   brandTour: { borderRadius: 16, alignSelf: 'flex-start' },
-  brandMark: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandLogo: { width: 72, height: 68 },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -713,16 +718,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   settingsTxt: { fontSize: 18, color: colors.text },
-  logoMark: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.heroTo,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoGlyph: { fontSize: 18 },
-  brand: { ...type.brand, fontSize: 26 },
   hero: {
     marginHorizontal: space.lg,
     marginBottom: space.md,
@@ -842,6 +837,7 @@ const styles = StyleSheet.create({
     ...card(),
   },
   emptyIcon: { fontSize: 36, marginBottom: 8 },
+  emptyLogo: { width: 120, height: 112, marginBottom: 8 },
   emptyTitle: { ...type.title, fontSize: 18 },
   emptyText: {
     color: colors.muted,
