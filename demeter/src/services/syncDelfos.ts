@@ -24,7 +24,7 @@ export async function syncTripToDelfos(trip: Trip, settings: AppSettings) {
   const body = {
     amount: total,
     currency: settings.currency || 'COP',
-    description: `Ágora · ${trip.storeName || 'Mercado'} · ${trip.items.length} ítems`,
+    description: `MercApp · ${trip.storeName || 'Mercado'} · ${trip.items.length} ítems`,
     category: 'Mercado',
     payment_method: 'other',
     account_id: settings.delfosAccountId || null,

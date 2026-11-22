@@ -95,7 +95,7 @@ export function StatsScreen() {
     const idealLine =
       ideal.items.length > 0 ? `\nMercado ideal mensual ≈ ${formatCop(ideal.total)}` : '';
     await Share.share({
-      message: `🌿 Mi Ágora en números\n${trips.length} cosechas · ${formatCop(yearTotal)}\n${lean}${idealLine}`,
+      message: `🌿 Mi MercApp en números\n${trips.length} cosechas · ${formatCop(yearTotal)}\n${lean}${idealLine}`,
     });
   }
 
@@ -131,7 +131,7 @@ export function StatsScreen() {
         return (
           <View key={id} style={styles.shareCard}>
             <Text style={styles.shareEyebrow}>Para redes</Text>
-            <Text style={styles.shareTitle}>🌿 Mi Ágora en números</Text>
+            <Text style={styles.shareTitle}>🌿 Mi MercApp en números</Text>
             <Text style={styles.shareBody}>
               {data.blurb.lean === 'proteina'
                 ? `Vas más en proteína (${formatCop(data.blurb.proteina)}) que en harinas (${formatCop(data.blurb.harinas)}).`

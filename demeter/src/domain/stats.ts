@@ -44,7 +44,7 @@ export function normalizeStatsWidgets(raw: unknown): StatsWidgetId[] {
   return out.length ? out : [...DEFAULT_STATS_WIDGETS];
 }
 
-/** Paleta verde Ágora + acentos legibles en charts. */
+/** Paleta verde MercApp + acentos legibles en charts. */
 export const CHART_PALETTE = [
   '#1b7a4a',
   '#3d9b6c',

@@ -173,11 +173,11 @@ function TripCard({ trip: t, onPress }: { trip: Trip; onPress: () => void }) {
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}
       accessibilityRole="button"
-      accessibilityLabel={`Ver compras de ${t.storeName || 'Ágora'}`}
+      accessibilityLabel={`Ver compras de ${t.storeName || 'MercApp'}`}
       accessibilityHint="Muestra los ítems de este mercado"
     >
       <View style={styles.row}>
-        <Text style={styles.store}>{t.storeName || 'Ágora'}</Text>
+        <Text style={styles.store}>{t.storeName || 'MercApp'}</Text>
         <Text style={styles.muted}>{tripDate(t.createdAt)}</Text>
       </View>
       <Text style={styles.amount}>{formatCop(total)}</Text>
@@ -233,7 +233,7 @@ function TripDetail({
           <Text style={styles.backTxt}>‹</Text>
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.detailStore}>{t.storeName || 'Ágora'}</Text>
+          <Text style={styles.detailStore}>{t.storeName || 'MercApp'}</Text>
           <Text style={styles.muted}>{tripDate(t.createdAt)}</Text>
         </View>
       </View>

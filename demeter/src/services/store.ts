@@ -171,7 +171,7 @@ export async function startTrip({ budget }: { budget?: number } = {}) {
     id: uid('trip'),
     createdAt: todayIso(),
     closedAt: null,
-    storeName: 'Ágora',
+    storeName: 'MercApp',
     budget: Number(budget ?? cache.settings.budgetDefault) || 0,
     status: 'open',
     items: [],

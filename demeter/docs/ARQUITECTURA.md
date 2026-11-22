@@ -1,4 +1,4 @@
-# Ágora — Arquitectura (Expo)
+# MercApp — Arquitectura (Expo)
 
 Fuente de verdad para auditar el código móvil. Deliberadamente simple: **features + services + domain**, alineado al espíritu de Delfos (sin Clean Architecture con UseCases/IoC).
 

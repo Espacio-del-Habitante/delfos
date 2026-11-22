@@ -13,7 +13,7 @@ function buildBody(trip, settings) {
   return {
     url: `${base}/api/expenses`,
     amount: total,
-    description: `Ágora · ${trip.storeName || 'Mercado'} · ${trip.items.length} ítems`,
+    description: `MercApp · ${trip.storeName || 'Mercado'} · ${trip.items.length} ítems`,
   };
 }
 

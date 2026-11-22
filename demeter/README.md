@@ -1,4 +1,4 @@
-# Ágora (Expo)
+# MercApp (Expo)
 
 Lista de mercado nativa — hermana móvil de Delfos. Local-first, suma al toque, dictado por voz.
 
