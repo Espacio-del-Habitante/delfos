@@ -367,7 +367,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
         <View style={styles.logoMark}>
           <Text style={styles.logoGlyph}>🌿</Text>
         </View>
-        <Text style={styles.brand}>Deméter</Text>
+        <Text style={styles.brand}>Ágora</Text>
         <View style={{ flex: 1 }} />
         {onOpenSettings && (
           <Pressable

@@ -17,7 +17,7 @@ function stripJsonFence(raw: string) {
   return (m ? m[1] : s).trim();
 }
 
-/** Completar texto → JSON (estilo Delfos complete_json), usando la config de Deméter. */
+/** Completar texto → JSON (estilo Delfos complete_json), usando la config de Ágora. */
 export async function completeJson(ai: AiSettings, prompt: string): Promise<string> {
   const provider = effectiveProvider(ai);
   const meta = providerMeta(provider);

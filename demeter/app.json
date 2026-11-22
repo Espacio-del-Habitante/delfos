@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Deméter",
+    "name": "Ágora",
     "slug": "demeter",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -11,8 +11,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.delfos.demeter",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Deméter usa el reconocimiento de voz para sumar productos al carrito.",
-        "NSMicrophoneUsageDescription": "Deméter usa el micrófono para dictar productos."
+        "NSSpeechRecognitionUsageDescription": "Ágora usa el reconocimiento de voz para sumar productos al carrito.",
+        "NSMicrophoneUsageDescription": "Ágora usa el micrófono para dictar productos."
       }
     },
     "android": {
@@ -23,7 +23,9 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": ["RECORD_AUDIO"],
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -34,8 +36,8 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Deméter usa el micrófono para dictar productos.",
-          "speechRecognitionPermission": "Deméter usa el reconocimiento de voz para sumar al carrito."
+          "microphonePermission": "Ágora usa el micrófono para dictar productos.",
+          "speechRecognitionPermission": "Ágora usa el reconocimiento de voz para sumar al carrito."
         }
       ]
     ]

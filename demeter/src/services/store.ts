@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uid, todayIso } from '../shared/format';
 import { DEFAULT_AI, type AiSettings } from './aiSettings';
+import { DEFAULT_STATS_WIDGETS, normalizeStatsWidgets } from '../domain/stats';
 
 const KEY = 'demeter_mercado_v1';
 
@@ -41,6 +42,8 @@ export type AppSettings = {
   /** Base URL de Delfos para sync de gasto (ej. https://host:5000) */
   delfosApiBase?: string;
   delfosAccountId?: string | null;
+  /** Gadgets visibles en Estadísticas (ids de domain/stats). */
+  statsWidgets?: string[];
 };
 
 type State = {
@@ -57,6 +60,7 @@ const DEFAULT: State = {
     ai: { ...DEFAULT_AI },
     delfosApiBase: '',
     delfosAccountId: null,
+    statsWidgets: [...DEFAULT_STATS_WIDGETS],
   },
   activeTripId: null,
   trips: [],
@@ -104,6 +108,9 @@ export async function initStore() {
           ...DEFAULT.settings,
           ...(data.settings || {}),
           ai: { ...DEFAULT_AI, ...((data.settings && data.settings.ai) || {}) },
+          statsWidgets: normalizeStatsWidgets(
+            (data.settings && data.settings.statsWidgets) || DEFAULT_STATS_WIDGETS,
+          ),
         },
         products: data.products || {},
         trips: Array.isArray(data.trips) ? data.trips : [],
@@ -130,9 +137,22 @@ export async function updateSettings(patch: Partial<AppSettings>) {
     ...cache.settings,
     ...patch,
     ai: patch.ai ? { ...cache.settings.ai, ...patch.ai } : cache.settings.ai,
+    statsWidgets: patch.statsWidgets
+      ? normalizeStatsWidgets(patch.statsWidgets)
+      : cache.settings.statsWidgets,
   };
   await persist();
   return cache.settings;
+}
+
+export function getStatsWidgets() {
+  return normalizeStatsWidgets(cache.settings.statsWidgets);
+}
+
+export async function setStatsWidgets(ids: string[]) {
+  cache.settings.statsWidgets = normalizeStatsWidgets(ids);
+  await persist();
+  return cache.settings.statsWidgets;
 }
 
 export async function updateAiSettings(patch: Partial<AiSettings>) {
@@ -151,7 +171,7 @@ export async function startTrip({ budget }: { budget?: number } = {}) {
     id: uid('trip'),
     createdAt: todayIso(),
     closedAt: null,
-    storeName: 'Deméter',
+    storeName: 'Ágora',
     budget: Number(budget ?? cache.settings.budgetDefault) || 0,
     status: 'open',
     items: [],

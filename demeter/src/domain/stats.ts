@@ -3,7 +3,60 @@ import { CATEGORIES } from './categories';
 export type TripLike = {
   items?: Array<{ category?: string; amount?: number | null }>;
   receipt?: { ticketTotal?: number | null } | null;
+  createdAt?: string | null;
+  closedAt?: string | null;
 };
+
+/** Gadgets de Estadísticas — el usuario elige cuáles mostrar. */
+export const STATS_WIDGETS = [
+  { id: 'summary', label: 'Resumen', blurb: 'Cosechas y total gastado' },
+  { id: 'donut', label: 'Donut categorías', blurb: 'Reparto visual del gasto' },
+  { id: 'bars', label: 'Barras categorías', blurb: 'Comparativa por tipo' },
+  { id: 'trend', label: 'Gasto mensual', blurb: 'Línea de los últimos meses' },
+  { id: 'ideal', label: 'Mercado ideal', blurb: 'Tu ritmo mensual estimado' },
+  { id: 'prices', label: 'Precios que cambian', blurb: 'Unitario vs compra pasada' },
+  { id: 'share', label: 'Card para redes', blurb: 'Lean proteína / harinas' },
+] as const;
+
+export type StatsWidgetId = (typeof STATS_WIDGETS)[number]['id'];
+
+export const DEFAULT_STATS_WIDGETS: StatsWidgetId[] = [
+  'summary',
+  'donut',
+  'bars',
+  'trend',
+  'ideal',
+  'prices',
+  'share',
+];
+
+const WIDGET_SET = new Set<string>(STATS_WIDGETS.map((w) => w.id));
+
+export function normalizeStatsWidgets(raw: unknown): StatsWidgetId[] {
+  if (!Array.isArray(raw)) return [...DEFAULT_STATS_WIDGETS];
+  const seen = new Set<string>();
+  const out: StatsWidgetId[] = [];
+  for (const id of raw) {
+    if (typeof id !== 'string' || !WIDGET_SET.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id as StatsWidgetId);
+  }
+  return out.length ? out : [...DEFAULT_STATS_WIDGETS];
+}
+
+/** Paleta verde Ágora + acentos legibles en charts. */
+export const CHART_PALETTE = [
+  '#1b7a4a',
+  '#3d9b6c',
+  '#86efac',
+  '#14532d',
+  '#0f766e',
+  '#65a30d',
+  '#15803d',
+  '#4ade80',
+  '#166534',
+  '#a3e635',
+];
 
 export type ProductLike = {
   name: string;
@@ -109,6 +162,27 @@ export function shareBlurb(catTotals: Record<string, number>) {
     proteina,
     harinas,
   };
+}
+
+function tripMonthKey(trip: TripLike) {
+  return monthKey(trip.closedAt || trip.createdAt || undefined);
+}
+
+/** Gasto por mes (últimos `limit` meses con datos), orden cronológico. */
+export function monthlySpendSeries(trips: TripLike[], limit = 6) {
+  const map = new Map<string, number>();
+  for (const t of trips) {
+    const mk = tripMonthKey(t);
+    if (!mk) continue;
+    map.set(mk, (map.get(mk) || 0) + spentTotal([t]));
+  }
+  const keys = [...map.keys()].sort();
+  const sliced = keys.slice(-limit);
+  return sliced.map((key) => {
+    const [y, m] = key.split('-').map(Number);
+    const label = new Date(y, m, 1).toLocaleDateString('es-CO', { month: 'short' });
+    return { key, label: label.replace('.', ''), value: map.get(key) || 0 };
+  });
 }
 
 function monthKey(iso?: string) {

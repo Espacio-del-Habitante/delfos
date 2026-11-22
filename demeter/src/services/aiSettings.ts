@@ -1,4 +1,4 @@
-/** Config de LLM al estilo Delfos, persistida en el dispositivo (Deméter Expo). */
+/** Config de LLM al estilo Delfos, persistida en el dispositivo (Ágora Expo). */
 
 export type AiProviderId = 'local' | 'gemini' | 'compatible';
 

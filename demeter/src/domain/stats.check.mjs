@@ -114,4 +114,55 @@ assert.equal(ideal.items[0].amount, 28800);
 assert.equal(ideal.total, 28800 + 5000);
 assert.equal(ideal.monthsSampled, 2);
 
+function normalizeStatsWidgets(raw) {
+  const allowed = new Set([
+    'summary',
+    'donut',
+    'bars',
+    'trend',
+    'ideal',
+    'prices',
+    'share',
+  ]);
+  if (!Array.isArray(raw)) return ['summary', 'donut', 'bars', 'trend', 'ideal', 'prices', 'share'];
+  const seen = new Set();
+  const out = [];
+  for (const id of raw) {
+    if (typeof id !== 'string' || !allowed.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out.length ? out : ['summary', 'donut'];
+}
+
+assert.deepEqual(normalizeStatsWidgets(['donut', 'donut', 'nope', 'bars']), ['donut', 'bars']);
+assert.deepEqual(normalizeStatsWidgets(null).slice(0, 2), ['summary', 'donut']);
+
+function monthlySpendSeries(trips, limit = 6) {
+  const map = new Map();
+  for (const t of trips) {
+    const iso = t.closedAt || t.createdAt;
+    if (!iso) continue;
+    const d = new Date(iso);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const ticket = Number(t.receipt?.ticketTotal);
+    const line = (t.items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    const amt = Number.isFinite(ticket) && ticket > 0 ? ticket : line;
+    map.set(key, (map.get(key) || 0) + amt);
+  }
+  return [...map.keys()]
+    .sort()
+    .slice(-limit)
+    .map((key) => ({ key, value: map.get(key) }));
+}
+
+const series = monthlySpendSeries([
+  { createdAt: '2026-01-10', items: [{ amount: 10000 }] },
+  { closedAt: '2026-02-05', items: [{ amount: 20000 }] },
+  { closedAt: '2026-02-20', items: [{ amount: 5000 }] },
+]);
+assert.equal(series.length, 2);
+assert.equal(series[0].value, 10000);
+assert.equal(series[1].value, 25000);
+
 console.log('stats check ok');

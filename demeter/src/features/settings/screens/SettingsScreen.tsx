@@ -224,7 +224,7 @@ export function SettingsScreen({ onBack }: Props) {
 
         <Text style={styles.section}>Lenguajes (IA)</Text>
         <Text style={styles.hint}>
-          Como en Delfos: Ollama local o nube (Gemini / OpenRouter). En Deméter la key queda en este
+          Como en Delfos: Ollama local o nube (Gemini / OpenRouter). En Ágora la key queda en este
           dispositivo.
         </Text>
 

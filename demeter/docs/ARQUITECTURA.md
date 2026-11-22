@@ -1,4 +1,4 @@
-# Deméter — Arquitectura (Expo)
+# Ágora — Arquitectura (Expo)
 
 Fuente de verdad para auditar el código móvil. Deliberadamente simple: **features + services + domain**, alineado al espíritu de Delfos (sin Clean Architecture con UseCases/IoC).
 
@@ -64,6 +64,13 @@ App.tsx
 - Reusa `categoryBars([trip])` + `shareBlurb(categoryBreakdown(trip))` del domain de Stats.
 - Barras por categoría + lean proteína vs harinas; desaparece si el carrito está vacío.
 
+## Stats — gadgets de gráficos
+
+- Librería: `react-native-gifted-charts` (+ `react-native-svg`).
+- Catálogo en `domain/stats.STATS_WIDGETS`; selección en `settings.statsWidgets`.
+- UI: botón “Gadgets” en Estadísticas → `WidgetPicker`; charts en `features/stats/components/ChartGadgets`.
+- Widgets chart: donut categorías, barras, gasto mensual (línea/área).
+
 ## Features vs PWA `mercado/`
 
 | Capacidad | Estado Expo |
@@ -74,6 +81,7 @@ App.tsx
 | Búsqueda de precios + cards | ✅ |
 | Historial + detalle compras | ✅ |
 | Estadísticas + share + ideal mensual | ✅ |
+| Gadgets charts elegibles (gifted-charts) | ✅ |
 | Checkout (foto + total factura) | ✅ |
 | Sync lote → Delfos | ✅ |
 | OCR visión de factura | ⏸ opcional |

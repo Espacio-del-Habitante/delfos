@@ -1,4 +1,4 @@
-# Deméter (Expo)
+# Ágora (Expo)
 
 Lista de mercado nativa — hermana móvil de Delfos. Local-first, suma al toque, dictado por voz.
 
