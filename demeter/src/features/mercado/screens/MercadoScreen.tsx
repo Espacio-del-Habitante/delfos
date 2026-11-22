@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { TourTarget } from '@wrack/react-native-tour-guide';
 import { colors, radius, space, card, field, type } from '../../../shared/theme';
 import { formatCop, formatQty } from '../../../shared/format';
 import { categoryMeta } from '../../../domain/categories';
@@ -363,35 +364,39 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <StatusBar style="dark" />
 
-      <View style={styles.brandRow}>
-        <View style={styles.logoMark}>
-          <Text style={styles.logoGlyph}>🌿</Text>
+      <TourTarget id="tour-brand" style={styles.brandTour}>
+        <View style={styles.brandRow}>
+          <View style={styles.logoMark}>
+            <Text style={styles.logoGlyph}>🌿</Text>
+          </View>
+          <Text style={styles.brand}>MercApp</Text>
+          <View style={{ flex: 1 }} />
+          {onOpenSettings && (
+            <Pressable
+              onPress={onOpenSettings}
+              style={({ pressed }) => [styles.settingsBtn, pressed && { transform: [{ scale: 0.97 }] }]}
+              accessibilityLabel="Configuración"
+              accessibilityRole="button"
+            >
+              <Text style={styles.settingsTxt}>⚙</Text>
+            </Pressable>
+          )}
         </View>
-        <Text style={styles.brand}>MercApp</Text>
-        <View style={{ flex: 1 }} />
-        {onOpenSettings && (
-          <Pressable
-            onPress={onOpenSettings}
-            style={({ pressed }) => [styles.settingsBtn, pressed && { opacity: 0.85 }]}
-            accessibilityLabel="Configuración"
-            accessibilityRole="button"
-          >
-            <Text style={styles.settingsTxt}>⚙</Text>
-          </Pressable>
-        )}
-      </View>
+      </TourTarget>
 
       {!trip ? (
         <View style={[styles.card, styles.center, { margin: space.lg, padding: space.xl }]}>
           <Text style={styles.emptyIcon}>🛒</Text>
           <Text style={styles.emptyTitle}>Sin mercado abierto</Text>
           <Text style={styles.emptyText}>Abre un mercado y empieza a sumar.</Text>
-          <Pressable
-            style={({ pressed }) => [styles.primaryBtn, pressed && { transform: [{ scale: 0.97 }] }]}
-            onPress={onStart}
-          >
-            <Text style={styles.primaryBtnTxt}>Empezar</Text>
-          </Pressable>
+          <TourTarget id="tour-start" style={styles.primaryBtn}>
+            <Pressable
+              style={({ pressed }) => [styles.primaryBtn, pressed && { transform: [{ scale: 0.97 }] }]}
+              onPress={onStart}
+            >
+              <Text style={styles.primaryBtnTxt}>🚀 Empezar</Text>
+            </Pressable>
+          </TourTarget>
         </View>
       ) : (
         <>
@@ -665,6 +670,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   center: { alignItems: 'center', justifyContent: 'center' },
+  brandTour: { borderRadius: 16, alignSelf: 'stretch' },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',

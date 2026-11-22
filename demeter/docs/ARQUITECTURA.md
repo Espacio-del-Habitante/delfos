@@ -67,9 +67,16 @@ App.tsx
 ## Stats — gadgets de gráficos
 
 - Librería: `react-native-gifted-charts` (+ `react-native-svg`).
-- Catálogo en `domain/stats.STATS_WIDGETS`; selección en `settings.statsWidgets`.
+- Catálogo en `domain/stats.STATS_WIDGETS` (con emoji); selección en `settings.statsWidgets`.
 - UI: botón “Gadgets” en Estadísticas → `WidgetPicker`; charts en `features/stats/components/ChartGadgets`.
 - Widgets chart: donut categorías, barras, gasto mensual (línea/área).
+
+## Onboarding / walkthrough
+
+- Librería: `@wrack/react-native-tour-guide` (spotlight + tooltips, Expo/web).
+- Steps en `features/onboarding/mercappTour.ts`; bootstrap en `TourBootstrap`.
+- Targets: `tour-brand`, `tour-start`, `tour-nav-*`, `tour-gadgets`.
+- Persistencia “una vez” vía AsyncStorage; replay desde Ajustes.
 
 ## Features vs PWA `mercado/`
 

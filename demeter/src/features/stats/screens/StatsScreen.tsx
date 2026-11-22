@@ -23,6 +23,7 @@ import {
   getStatsWidgets,
   setStatsWidgets,
 } from '../../../services/store';
+import { TourTarget } from '@wrack/react-native-tour-guide';
 import { contentBottomPad } from '../../../shared/BottomNav';
 import { WidgetPicker } from '../components/WidgetPicker';
 import { BarsCategories, DonutCategories, TrendMonthly } from '../components/ChartGadgets';
@@ -115,7 +116,7 @@ export function StatsScreen() {
         return (
           <View key={id} style={styles.shareCard}>
             <Text style={styles.shareEyebrow}>Para redes</Text>
-            <Text style={styles.shareTitle}>🌿 Mi MercApp en números</Text>
+            <Text style={styles.shareTitle}>✨ Mi MercApp en números</Text>
             <Text style={styles.shareBody}>
               {data.blurb.lean === 'proteina'
                 ? `Vas más en proteína (${formatCop(data.blurb.proteina)}) que en harinas (${formatCop(data.blurb.harinas)}).`
@@ -136,7 +137,7 @@ export function StatsScreen() {
         return (
           <View key={id} style={styles.idealCard}>
             <Text style={styles.idealEyebrow}>Tu ritmo</Text>
-            <Text style={styles.cardTitle}>Mercado ideal mensual</Text>
+            <Text style={styles.cardTitle}>🧺 Mercado ideal mensual</Text>
             <Text style={styles.muted}>
               Estimado con lo que sueles comprar (frecuencia × cantidad típica × último precio).
               No es un presupuesto fijo.
@@ -177,7 +178,7 @@ export function StatsScreen() {
       case 'prices':
         return (
           <View key={id} style={styles.card}>
-            <Text style={styles.cardTitle}>Precios que cambian</Text>
+            <Text style={styles.cardTitle}>🏷️ Precios que cambian</Text>
             <Text style={[styles.muted, { marginBottom: 8 }]}>
               Unitario vs compra pasada (local).
             </Text>
@@ -224,20 +225,24 @@ export function StatsScreen() {
       >
         <View style={styles.headRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Estadísticas</Text>
-            <Text style={styles.sub}>Tus mercados en gráficos.</Text>
+            <Text style={styles.title}>📊 Estadísticas</Text>
+            <Text style={styles.sub}>Tus mercados en gráficos vivos.</Text>
           </View>
-          <Pressable
-            onPress={() => setEditGadgets((v) => !v)}
-            style={({ pressed }) => [
-              styles.editBtn,
-              editGadgets && styles.editBtnDone,
-              pressed && styles.editBtnPressed,
-            ]}
-            accessibilityLabel={editGadgets ? 'Listo con gadgets' : 'Elegir gadgets'}
-          >
-            <Text style={styles.editBtnTxt}>{editGadgets ? 'Listo' : 'Gadgets'}</Text>
-          </Pressable>
+          <TourTarget id="tour-gadgets" style={styles.editBtn}>
+            <Pressable
+              onPress={() => setEditGadgets((v) => !v)}
+              style={({ pressed }) => [
+                styles.editBtn,
+                editGadgets && styles.editBtnDone,
+                pressed && styles.editBtnPressed,
+              ]}
+              accessibilityLabel={editGadgets ? 'Listo con gadgets' : 'Elegir gadgets'}
+            >
+              <Text style={styles.editBtnTxt}>
+                {editGadgets ? '✅ Listo' : '🎛️ Gadgets'}
+              </Text>
+            </Pressable>
+          </TourTarget>
         </View>
 
         {!ready ? (

@@ -1,6 +1,7 @@
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
+import { TourGuideProvider, TourGuideOverlay } from '@wrack/react-native-tour-guide';
 import { AppRoot } from './src/app/AppRoot';
 import { colors } from './src/shared/theme';
 
@@ -22,7 +23,10 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AppRoot />
+      <TourGuideProvider>
+        <AppRoot />
+        <TourGuideOverlay />
+      </TourGuideProvider>
     </SafeAreaProvider>
   );
 }

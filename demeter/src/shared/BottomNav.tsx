@@ -1,5 +1,6 @@
 import { View, Pressable, Image, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TourTarget } from '@wrack/react-native-tour-guide';
 import { colors } from './theme';
 
 export type BottomNavId = 'mercado' | 'historial' | 'stats' | 'ajustes';
@@ -93,25 +94,26 @@ export function BottomNav({ active, onChange }: Props) {
         {TABS.map((t) => {
           const on = active === t.id;
           return (
-            <Pressable
-              key={t.id}
-              onPress={() => onChange(t.id)}
-              style={({ pressed }) => [
-                styles.item,
-                on && styles.itemOn,
-                pressed && styles.itemPressed,
-              ]}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-              accessibilityLabel={t.label}
-            >
-              <Image
-                source={{ uri: on ? svgUriActive(t.uri) : svgUri(t.uri) }}
-                style={styles.icon}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-              />
-            </Pressable>
+            <TourTarget key={t.id} id={`tour-nav-${t.id}`} style={styles.item}>
+              <Pressable
+                onPress={() => onChange(t.id)}
+                style={({ pressed }) => [
+                  styles.item,
+                  on && styles.itemOn,
+                  pressed && styles.itemPressed,
+                ]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={t.label}
+              >
+                <Image
+                  source={{ uri: on ? svgUriActive(t.uri) : svgUri(t.uri) }}
+                  style={styles.icon}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                />
+              </Pressable>
+            </TourTarget>
           );
         })}
       </View>

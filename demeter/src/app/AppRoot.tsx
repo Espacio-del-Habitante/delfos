@@ -5,10 +5,12 @@ import { HistoryScreen } from '../features/history/screens/HistoryScreen';
 import { StatsScreen } from '../features/stats/screens/StatsScreen';
 import { SettingsScreen } from '../features/settings/screens/SettingsScreen';
 import { BottomNav, type BottomNavId } from '../shared/BottomNav';
+import { TourBootstrap } from '../features/onboarding/TourBootstrap';
 import { colors } from '../shared/theme';
 
 export function AppRoot() {
   const [tab, setTab] = useState<BottomNavId>('mercado');
+  const [tourForce, setTourForce] = useState(0);
 
   return (
     <View style={styles.root}>
@@ -16,9 +18,12 @@ export function AppRoot() {
         {tab === 'mercado' && <MercadoScreen />}
         {tab === 'historial' && <HistoryScreen onNewTrip={() => setTab('mercado')} />}
         {tab === 'stats' && <StatsScreen />}
-        {tab === 'ajustes' && <SettingsScreen />}
+        {tab === 'ajustes' && (
+          <SettingsScreen onReplayTour={() => setTourForce((n) => n + 1)} />
+        )}
       </View>
       <BottomNav active={tab} onChange={setTab} />
+      <TourBootstrap go={setTab} forceToken={tourForce} />
     </View>
   );
 }

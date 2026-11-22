@@ -32,9 +32,12 @@ import {
 } from '../../../services/store';
 import { pendingSyncTrips, syncAllPendingToDelfos } from '../../../services/syncDelfos';
 
-type Props = { onBack?: () => void };
+type Props = {
+  onBack?: () => void;
+  onReplayTour?: () => void;
+};
 
-export function SettingsScreen({ onBack }: Props) {
+export function SettingsScreen({ onBack, onReplayTour }: Props) {
   const insets = useSafeAreaInsets();
   const [budget, setBudget] = useState(String(getState().settings.budgetDefault || 200000));
   const [delfosUrl, setDelfosUrl] = useState(getState().settings.delfosApiBase || '');
@@ -177,7 +180,21 @@ export function SettingsScreen({ onBack }: Props) {
         contentContainerStyle={[styles.body, { paddingBottom: contentBottomPad(insets.bottom, 32) }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.section}>Mercado</Text>
+        <Text style={styles.section}>🧭 Tour</Text>
+        <View style={styles.card}>
+          <Text style={styles.hint}>
+            Recorre MercApp paso a paso: carrito, historial, gadgets y sync.
+          </Text>
+          <Pressable
+            onPress={() => onReplayTour?.()}
+            style={({ pressed }) => [styles.tourBtn, pressed && styles.tourBtnPressed]}
+            accessibilityLabel="Ver tour de MercApp otra vez"
+          >
+            <Text style={styles.tourBtnTxt}>🎬 Ver tour otra vez</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.section}>🛒 Mercado</Text>
         <View style={styles.card}>
           <Text style={styles.label}>Presupuesto por defecto (COP)</Text>
           <TextInput
@@ -406,6 +423,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   syncBtnTxt: { color: colors.primary, fontFamily: 'Inter_700Bold', fontSize: 14 },
+  tourBtn: {
+    marginTop: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  tourBtnPressed: {
+    transform: [{ scale: 0.97 }],
+    backgroundColor: colors.primaryDark,
+  },
+  tourBtnTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 14 },
   card: {
     ...card(),
     padding: space.md,
