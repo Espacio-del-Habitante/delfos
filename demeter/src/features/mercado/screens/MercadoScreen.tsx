@@ -528,12 +528,9 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                         {formatQty(item.qty, item.unit)} · {meta.label}
                       </Text>
                     </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
-                        {item.amount == null ? 'sin precio' : formatCop(item.amount)}
-                      </Text>
-                      <Text style={styles.itemHint}>desliza ←</Text>
-                    </View>
+                    <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
+                      {item.amount == null ? 'sin precio' : formatCop(item.amount)}
+                    </Text>
                   </View>
                 </SwipeableRow>
               );
@@ -871,7 +868,6 @@ const styles = StyleSheet.create({
   itemMeta: { color: colors.muted, fontSize: 13, marginTop: 2 },
   itemAmt: { fontWeight: '700', color: colors.text, fontFamily: 'Inter_700Bold' },
   itemAmtMissing: { color: colors.primary, fontWeight: '600', fontSize: 13 },
-  itemHint: { color: colors.muted, fontSize: 11, marginTop: 2 },
   dock: {
     position: 'absolute',
     zIndex: 40,
