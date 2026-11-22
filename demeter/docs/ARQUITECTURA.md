@@ -2,50 +2,74 @@
 
 Fuente de verdad para auditar el código móvil. Deliberadamente simple: **features + services + domain**, alineado al espíritu de Delfos (sin Clean Architecture con UseCases/IoC).
 
+Revisado con el árbol real de `demeter/src/` (nov 2026).
+
 ```
 App.tsx
-  └── src/app/AppRoot.tsx          # shell + tabs
-        ├── features/mercado/      # carrito, voz, edición, búsqueda de precios
-        ├── features/history/      # mercados cerrados
-        ├── features/stats/        # resumen, categorías, tendencias, share
-        └── features/settings/     # presupuesto + IA
+  └── src/app/AppRoot.tsx              # shell + BottomNav (píldora)
+        ├── features/mercado/
+        │     screens/MercadoScreen    # carrito, hábitos, FAB + composer
+        │     components/
+        │       CheckoutSheet          # cierra + foto factura (sin sync)
+        │       ItemEditSheet          # qty/precio/foto + búsqueda
+        │       InAppBrowser           # cards de precios
+        │       VerticalWheel
+        ├── features/history/          # lista + detalle “Qué compramos” + sync lote
+        ├── features/stats/            # resumen, ideal mensual, categorías, sparks
+        └── features/settings/         # presupuesto, URL Delfos, sync lote, IA
               │
               ▼
-        services/                  # I/O: AsyncStorage, speech, HTTP, foto, AI
-              │
-              ▼
-        domain/                    # pura: parse, categorías, units, stats
-              │
-        shared/                    # theme, format
+        services/   store, speech, priceSearch, webSearch, ai*, pickPhoto, syncDelfos
+        domain/     parseUtterance, categories, units, stats (+ idealMonthlyMarket)
+        shared/     theme, format, BottomNav (safe-area + dock helpers)
 ```
 
 ## Capas
 
 | Capa | Puede | No debe |
 |------|-------|---------|
-| `app/` | Navegación, tabs, wiring de pantallas | Lógica de negocio, persistencia |
-| `features/*` | UI, orquestar calls a services/domain | Scraping, fetch crudo, fórmulas de dinero |
-| `services/` | Persistencia, speech, price/web search, AI adapters | Render UI |
-| `domain/` | Funciones puras (parse, stats, categories) | Importar React Native / AsyncStorage / fetch |
-| `shared/` | Theme, formatters | Estado global |
+| `app/` | Tabs, wiring de pantallas | Lógica de negocio, persistencia |
+| `features/*` | UI, orquestar services/domain | Fetch crudo, fórmulas de dinero |
+| `services/` | AsyncStorage, speech, HTTP, foto, AI, sync | Render UI |
+| `domain/` | Funciones puras (parse, stats, ideal mensual) | React Native / AsyncStorage / fetch |
+| `shared/` | Theme, format, BottomNav | Estado global |
+
+## Navegación y safe-area
+
+- Bottom nav: píldora flotante icon-only (como Delfos), `navDockBottom(insets.bottom)`.
+- FABs / composer: `floatingDockBottom` = tope de píldora + gap.
+- Listas: `contentBottomPad` para no quedar bajo el dock.
 
 ## Persistencia
 
 - Clave AsyncStorage: `demeter_mercado_v1`
 - Modelo: `settings` + `trips[]` + `products{}` + `activeTripId`
-- Todo local-first en el teléfono.
+- Local-first en el teléfono.
+
+## Sync a Delfos
+
+- **No** ocurre al cerrar el mercado (Checkout solo guarda).
+- Pendientes = `status === 'closed' && !sync?.ok` (incluye meses sin sync y reintentos).
+- `syncAllPendingToDelfos` en Historial y Ajustes: un gasto por mercado, en lote.
+
+## Stats — mercado ideal mensual
+
+- `domain/stats.idealMonthlyMarket(products)`
+- Por producto: compras / meses distintos × cantidad moda × último unitario.
+- UI en Stats: “Tu ritmo · Mercado ideal mensual” (estimación, no presupuesto fijo).
 
 ## Features vs PWA `mercado/`
 
 | Capacidad | Estado Expo |
 |-----------|-------------|
 | Carrito + voz + hábitos | ✅ |
+| FAB escritura + mic | ✅ |
 | Búsqueda de precios + cards | ✅ |
-| Historial de cosechas | ✅ `features/history` |
-| Estadísticas + share | ✅ `features/stats` |
-| Checkout (total factura) | ✅ `CheckoutSheet` |
-| Sync gasto → Delfos | ✅ `services/syncDelfos` + URL en Ajustes |
-| OCR visión de factura | ⏸ opcional (como en PWA) |
+| Historial + detalle compras | ✅ |
+| Estadísticas + share + ideal mensual | ✅ |
+| Checkout (foto + total factura) | ✅ |
+| Sync lote → Delfos | ✅ |
+| OCR visión de factura | ⏸ opcional |
 
 ## Checks auditables
 
@@ -53,4 +77,4 @@ App.tsx
 cd demeter && npm run check
 ```
 
-Cada módulo no trivial en `domain/` o `services/` deja un `*.check.mjs` que falla si se rompe la regla.
+Cubre: `parseUtterance`, `historySuggest`, `stats` (incl. ideal mensual), `tripTotal`, `priceSearch`, `webSearch`, `syncDelfos` + `tsc --noEmit`.

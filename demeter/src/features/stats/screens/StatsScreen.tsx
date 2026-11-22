@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Share, Pressable } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors, radius, space, card, type } from '../../../shared/theme';
-import { formatCop } from '../../../shared/format';
+import { formatCop, formatQty } from '../../../shared/format';
 import { categoryMeta } from '../../../domain/categories';
 import {
   spentTotal,
@@ -11,6 +11,7 @@ import {
   categoryBars,
   productsWithSparks,
   shareBlurb,
+  idealMonthlyMarket,
 } from '../../../domain/stats';
 import { initStore, subscribe, listTrips, getProducts } from '../../../services/store';
 import { contentBottomPad } from '../../../shared/BottomNav';
@@ -57,24 +58,31 @@ export function StatsScreen() {
   const data = useMemo(() => {
     void tick;
     const trips = listTrips().filter((t) => t.items?.length);
+    const products = getProducts();
     const catTotals = aggregateCategories(trips);
+    const ideal = idealMonthlyMarket(products);
     return {
       trips,
       yearTotal: spentTotal(trips),
       bars: categoryBars(trips),
-      sparks: productsWithSparks(getProducts()),
+      sparks: productsWithSparks(products),
       blurb: shareBlurb(catTotals),
+      ideal,
     };
   }, [tick, ready]);
 
   async function shareCard() {
-    const { blurb, yearTotal, trips } = data;
+    const { blurb, yearTotal, trips, ideal } = data;
     const lean =
       blurb.lean === 'proteina'
         ? `Vas más en proteína (${formatCop(blurb.proteina)}) que en harinas (${formatCop(blurb.harinas)}).`
         : `Estás llevando más harinas (${formatCop(blurb.harinas)}) que proteína (${formatCop(blurb.proteina)}).`;
+    const idealLine =
+      ideal.items.length > 0
+        ? `\nMercado ideal mensual ≈ ${formatCop(ideal.total)}`
+        : '';
     await Share.share({
-      message: `🌿 Mi Deméter en números\n${trips.length} cosechas · ${formatCop(yearTotal)}\n${lean}`,
+      message: `🌿 Mi Deméter en números\n${trips.length} cosechas · ${formatCop(yearTotal)}\n${lean}${idealLine}`,
     });
   }
 
@@ -120,6 +128,46 @@ export function StatsScreen() {
               >
                 <Text style={styles.shareBtnTxt}>Compartir</Text>
               </Pressable>
+            </View>
+
+            <View style={styles.idealCard}>
+              <Text style={styles.idealEyebrow}>Tu ritmo</Text>
+              <Text style={styles.cardTitle}>Mercado ideal mensual</Text>
+              <Text style={styles.muted}>
+                Estimado con lo que sueles comprar (frecuencia × cantidad típica × último
+                precio). No es un presupuesto fijo.
+              </Text>
+              {data.ideal.items.length === 0 ? (
+                <Text style={[styles.muted, { marginTop: 8 }]}>
+                  Repite compras en varios meses para armar tu canasta ideal.
+                </Text>
+              ) : (
+                <>
+                  <Text style={styles.idealTotal}>{formatCop(data.ideal.total)}</Text>
+                  <Text style={styles.muted}>
+                    {data.ideal.items.length} productos · {data.ideal.monthsSampled} mes
+                    {data.ideal.monthsSampled === 1 ? '' : 'es'} de muestra
+                  </Text>
+                  {data.ideal.items.map((it) => {
+                    const meta = categoryMeta(it.category);
+                    return (
+                      <View key={it.name} style={styles.idealRow}>
+                        <Text style={styles.idealEmoji}>{meta.emoji}</Text>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.sparkName} numberOfLines={1}>
+                            {it.name}
+                          </Text>
+                          <Text style={styles.muted}>
+                            {formatQty(it.qty, it.unit)}
+                            {it.buysPerMonth !== 1 ? ` · ~${it.buysPerMonth}×/mes` : ''}
+                          </Text>
+                        </View>
+                        <Text style={styles.amount}>{formatCop(it.amount)}</Text>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
             </View>
 
             <View style={styles.card}>
@@ -243,4 +291,32 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   sparkName: { fontFamily: 'Inter_600SemiBold', color: colors.text, fontSize: 14 },
+  idealCard: {
+    ...card(),
+    padding: space.md,
+    gap: 8,
+    borderColor: 'rgba(27,122,74,0.2)',
+  },
+  idealEyebrow: {
+    ...type.label,
+    color: colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontSize: 11,
+  },
+  idealTotal: {
+    fontFamily: 'Inter_800ExtraBold',
+    fontSize: 26,
+    color: colors.primary,
+    marginTop: 4,
+  },
+  idealRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  idealEmoji: { fontSize: 20 },
 });
