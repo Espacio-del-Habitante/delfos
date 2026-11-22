@@ -27,4 +27,4 @@ En el teléfono: Expo Go → escanear QR. El dictado pide permiso de micrófono.
 3. Toca un ítem para editar qty / unidad / precio
 4. Cerrar mercado al terminar
 
-La PWA en `../mercado` queda como referencia web; esta app es el camino nativo.
+Esta app Expo es el camino oficial de MercApp (web preview vía `npm run web`).

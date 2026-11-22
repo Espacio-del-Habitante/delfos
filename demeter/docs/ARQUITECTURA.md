@@ -94,12 +94,12 @@ App.tsx
 - Targets: `tour-brand`, `tour-start`, `tour-nav-*`, `tour-gadgets`.
 - Persistencia “una vez” vía AsyncStorage; replay desde Ajustes.
 
-## Features vs PWA `mercado/`
+## Features
 
-| Capacidad | Estado Expo |
-|-----------|-------------|
+| Capacidad | Estado |
+|-----------|--------|
 | Carrito + voz + hábitos | ✅ |
-| Stats en vivo del carrito (categoría) | ✅ en Mercado antes de cerrar |
+| Stats del carrito (modal) | ✅ |
 | FAB escritura + mic | ✅ |
 | Búsqueda de precios + cards | ✅ |
 | Historial + detalle compras | ✅ |
