@@ -246,7 +246,7 @@ export function StatsScreen() {
               accessibilityLabel={editGadgets ? 'Listo con gadgets' : 'Elegir gadgets'}
             >
               <Text style={styles.editBtnTxt}>
-                {editGadgets ? '✅ Listo' : '🎛️ Gadgets'}
+                {editGadgets ? 'Listo' : 'Gadgets'}
               </Text>
             </Pressable>
           </TourTarget>
@@ -274,8 +274,8 @@ const styles = StyleSheet.create({
   sub: { ...type.label, marginTop: 4 },
   editBtn: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: radius.pill,
     marginTop: 4,
   },
