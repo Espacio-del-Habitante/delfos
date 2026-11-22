@@ -115,16 +115,8 @@ assert.equal(ideal.total, 28800 + 5000);
 assert.equal(ideal.monthsSampled, 2);
 
 function normalizeStatsWidgets(raw) {
-  const allowed = new Set([
-    'summary',
-    'donut',
-    'bars',
-    'trend',
-    'ideal',
-    'prices',
-    'share',
-  ]);
-  if (!Array.isArray(raw)) return ['summary', 'donut', 'bars', 'trend', 'ideal', 'prices', 'share'];
+  const allowed = new Set(['donut', 'bars', 'trend', 'ideal', 'prices', 'share']);
+  if (!Array.isArray(raw)) return ['donut', 'bars', 'trend', 'ideal', 'prices', 'share'];
   const seen = new Set();
   const out = [];
   for (const id of raw) {
@@ -132,11 +124,14 @@ function normalizeStatsWidgets(raw) {
     seen.add(id);
     out.push(id);
   }
-  return out.length ? out : ['summary', 'donut'];
+  return out.length ? out : ['donut', 'bars'];
 }
 
-assert.deepEqual(normalizeStatsWidgets(['donut', 'donut', 'nope', 'bars']), ['donut', 'bars']);
-assert.deepEqual(normalizeStatsWidgets(null).slice(0, 2), ['summary', 'donut']);
+assert.deepEqual(normalizeStatsWidgets(['donut', 'donut', 'nope', 'bars', 'summary']), [
+  'donut',
+  'bars',
+]);
+assert.deepEqual(normalizeStatsWidgets(null).slice(0, 2), ['donut', 'bars']);
 
 function monthlySpendSeries(trips, limit = 6) {
   const map = new Map();

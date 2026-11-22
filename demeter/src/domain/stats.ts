@@ -9,7 +9,6 @@ export type TripLike = {
 
 /** Gadgets de Estadísticas — el usuario elige cuáles mostrar. */
 export const STATS_WIDGETS = [
-  { id: 'summary', label: 'Resumen', blurb: 'Cosechas y total gastado' },
   { id: 'donut', label: 'Donut categorías', blurb: 'Reparto visual del gasto' },
   { id: 'bars', label: 'Barras categorías', blurb: 'Comparativa por tipo' },
   { id: 'trend', label: 'Gasto mensual', blurb: 'Línea de los últimos meses' },
@@ -21,7 +20,6 @@ export const STATS_WIDGETS = [
 export type StatsWidgetId = (typeof STATS_WIDGETS)[number]['id'];
 
 export const DEFAULT_STATS_WIDGETS: StatsWidgetId[] = [
-  'summary',
   'donut',
   'bars',
   'trend',

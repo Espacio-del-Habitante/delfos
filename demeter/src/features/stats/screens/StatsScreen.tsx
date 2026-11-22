@@ -105,22 +105,6 @@ export function StatsScreen() {
 
   function renderWidget(id: StatsWidgetId) {
     switch (id) {
-      case 'summary':
-        return (
-          <View key={id} style={styles.card}>
-            <Text style={styles.cardTitle}>Resumen</Text>
-            <View style={styles.statGrid}>
-              <View style={styles.stat}>
-                <Text style={styles.statLabel}>Cosechas</Text>
-                <Text style={styles.statValue}>{data.trips.length}</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statLabel}>Gastado</Text>
-                <Text style={[styles.statValue, styles.amount]}>{formatCop(data.yearTotal)}</Text>
-              </View>
-            </View>
-          </View>
-        );
       case 'donut':
         return <DonutCategories key={id} bars={data.bars} />;
       case 'bars':
@@ -238,7 +222,7 @@ export function StatsScreen() {
         <View style={styles.headRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Estadísticas</Text>
-            <Text style={styles.sub}>Resumen local de tus mercados.</Text>
+            <Text style={styles.sub}>Tus mercados en gráficos.</Text>
           </View>
           <Pressable
             onPress={() => setEditGadgets((v) => !v)}
@@ -280,10 +264,6 @@ const styles = StyleSheet.create({
   muted: { ...type.label },
   card: { ...card(), padding: space.md, gap: 10 },
   cardTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
-  statGrid: { flexDirection: 'row', gap: 12 },
-  stat: { flex: 1, backgroundColor: 'rgba(27,122,74,0.08)', borderRadius: radius.md, padding: 12 },
-  statLabel: { ...type.label },
-  statValue: { fontFamily: 'Inter_800ExtraBold', fontSize: 22, color: colors.text, marginTop: 4 },
   amount: { color: colors.primary, fontFamily: 'Inter_700Bold' },
   shareCard: {
     backgroundColor: colors.primary,
