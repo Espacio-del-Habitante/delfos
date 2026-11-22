@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, FlatList, ScrollView } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors, radius, space, card, type } from '../../../shared/theme';
-import { formatCop } from '../../../shared/format';
+import { formatCop, formatQty } from '../../../shared/format';
 import { categoryMeta } from '../../../domain/categories';
 import { categoryBreakdown, tripLineTotal } from '../../../domain/stats';
 import {
@@ -22,6 +22,7 @@ export function HistoryScreen({ onNewTrip }: Props) {
   const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -36,9 +37,25 @@ export function HistoryScreen({ onNewTrip }: Props) {
     return listTrips().filter((t) => t.status === 'closed' || (t.items?.length ?? 0) > 0);
   }, [tick, ready]);
 
+  const openTrip = useMemo(
+    () => (openId ? trips.find((t) => t.id === openId) || null : null),
+    [openId, trips],
+  );
+
   async function reopen() {
     await startTrip({ budget: getState().settings.budgetDefault });
     onNewTrip?.();
+  }
+
+  if (openTrip) {
+    return (
+      <TripDetail
+        trip={openTrip}
+        paddingTop={insets.top + 8}
+        paddingBottom={insets.bottom + BOTTOM_NAV_CLEARANCE + 24}
+        onBack={() => setOpenId(null)}
+      />
+    );
   }
 
   return (
@@ -70,27 +87,42 @@ export function HistoryScreen({ onNewTrip }: Props) {
               <Text style={styles.muted}>Cuando cierres un mercado, aparece aquí.</Text>
             </View>
           }
-          renderItem={({ item: t }) => <TripCard trip={t} />}
+          renderItem={({ item: t }) => (
+            <TripCard trip={t} onPress={() => setOpenId(t.id)} />
+          )}
         />
       )}
     </View>
   );
 }
 
-function TripCard({ trip: t }: { trip: Trip }) {
-  const total = Number(t.receipt?.ticketTotal) || tripLineTotal(t);
-  const cats = Object.entries(categoryBreakdown(t));
-  const date = new Date(t.createdAt).toLocaleDateString('es-CO', {
+function tripTotalDisplay(t: Trip) {
+  return Number(t.receipt?.ticketTotal) || tripLineTotal(t);
+}
+
+function tripDate(iso: string) {
+  return new Date(iso).toLocaleDateString('es-CO', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
+}
+
+function TripCard({ trip: t, onPress }: { trip: Trip; onPress: () => void }) {
+  const total = tripTotalDisplay(t);
+  const cats = Object.entries(categoryBreakdown(t));
 
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Ver compras de ${t.storeName || 'Deméter'}`}
+      accessibilityHint="Muestra los ítems de este mercado"
+    >
       <View style={styles.row}>
         <Text style={styles.store}>{t.storeName || 'Deméter'}</Text>
-        <Text style={styles.muted}>{date}</Text>
+        <Text style={styles.muted}>{tripDate(t.createdAt)}</Text>
       </View>
       <Text style={styles.amount}>{formatCop(total)}</Text>
       <Text style={styles.meta}>
@@ -111,6 +143,85 @@ function TripCard({ trip: t }: { trip: Trip }) {
           })}
         </ScrollView>
       )}
+    </Pressable>
+  );
+}
+
+function TripDetail({
+  trip: t,
+  onBack,
+  paddingTop,
+  paddingBottom,
+}: {
+  trip: Trip;
+  onBack: () => void;
+  paddingTop: number;
+  paddingBottom: number;
+}) {
+  const total = tripTotalDisplay(t);
+  const cart = tripLineTotal(t);
+  const ticket = Number(t.receipt?.ticketTotal);
+  const hasTicket = Number.isFinite(ticket) && ticket > 0;
+
+  return (
+    <View style={[styles.root, { paddingTop }]}>
+      <StatusBar style="dark" />
+      <View style={styles.detailTop}>
+        <Pressable
+          onPress={onBack}
+          hitSlop={10}
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+          accessibilityLabel="Volver al historial"
+          accessibilityRole="button"
+        >
+          <Text style={styles.backTxt}>‹</Text>
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.detailStore}>{t.storeName || 'Deméter'}</Text>
+          <Text style={styles.muted}>{tripDate(t.createdAt)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.detailHero}>
+        <Text style={styles.detailHeroLabel}>Total</Text>
+        <Text style={styles.detailHeroAmt}>{formatCop(total)}</Text>
+        {hasTicket && ticket !== cart && (
+          <Text style={styles.muted}>
+            Factura {formatCop(ticket)} · carrito {formatCop(cart)}
+          </Text>
+        )}
+        <Text style={styles.muted}>
+          {t.items.length} ítems · {t.status}
+          {t.sync?.ok ? ' · sync ✓' : t.sync && !t.sync.ok ? ' · sync falló' : ''}
+        </Text>
+      </View>
+
+      <Text style={styles.section}>Qué compramos</Text>
+      <FlatList
+        data={t.items}
+        keyExtractor={(it) => it.id}
+        contentContainerStyle={{ paddingBottom, gap: 10 }}
+        ListEmptyComponent={
+          <Text style={styles.muted}>Este mercado no tiene ítems.</Text>
+        }
+        renderItem={({ item }) => {
+          const meta = categoryMeta(item.category);
+          return (
+            <View style={styles.itemRow}>
+              <Text style={styles.itemEmoji}>{meta.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.muted}>
+                  {formatQty(item.qty, item.unit)} · {meta.label}
+                </Text>
+              </View>
+              <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
+                {item.amount == null ? 'sin precio' : formatCop(item.amount)}
+              </Text>
+            </View>
+          );
+        }}
+      />
     </View>
   );
 }
@@ -145,4 +256,40 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   pillTxt: { fontSize: 12, color: colors.text, fontFamily: 'Inter_600SemiBold' },
+  detailTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: space.md,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.05)',
+  },
+  backTxt: { fontSize: 28, lineHeight: 32, color: colors.text, marginTop: -2 },
+  detailStore: { ...type.title, fontSize: 20 },
+  detailHero: {
+    ...card(),
+    padding: space.md,
+    gap: 4,
+    marginBottom: space.md,
+  },
+  detailHeroLabel: { ...type.label, textTransform: 'uppercase', letterSpacing: 0.5 },
+  detailHeroAmt: { fontFamily: 'Inter_800ExtraBold', fontSize: 28, color: colors.primary },
+  section: { ...type.title, fontSize: 16, marginBottom: 10 },
+  itemRow: {
+    ...card(),
+    padding: space.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  itemEmoji: { fontSize: 22 },
+  itemName: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.text },
+  itemAmt: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.primary },
+  itemAmtMissing: { color: colors.muted, fontFamily: 'Inter_600SemiBold', fontSize: 13 },
 });
