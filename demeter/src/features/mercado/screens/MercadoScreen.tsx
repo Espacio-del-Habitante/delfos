@@ -33,10 +33,16 @@ import {
   lastPriceFor,
   suggestFromHistory,
   recentHabitSuggestions,
+  getShopProfile,
+  setShopProfile,
+  getProducts,
   type CartItem,
   type Trip,
   type HistorySuggestion,
 } from '../../../services/store';
+import { profileBuySuggestions } from '../../../domain/profileSuggest';
+import { shopProfileMeta } from '../../../domain/shopProfiles';
+import { ProfilePicker } from '../components/ProfilePicker';
 import {
   startListening,
   stopListening,
@@ -147,10 +153,25 @@ export function MercadoScreen({ onOpenSettings }: Props) {
   const pct = budget > 0 ? Math.min(100, Math.round((total / budget) * 100)) : 0;
   const over = budget > 0 && total > budget;
 
+  const shopProfile = useMemo(() => {
+    void tick;
+    return getShopProfile();
+  }, [tick]);
+
   const habits = useMemo(() => {
     tick;
     return recentHabitSuggestions(8).filter((h) => !findCartItemByName(h.name));
   }, [tick]);
+
+  const profileHints = useMemo(() => {
+    void tick;
+    return profileBuySuggestions(
+      shopProfile,
+      trip?.items || [],
+      getProducts(),
+      4,
+    ).filter((h) => !findCartItemByName(h.name));
+  }, [tick, shopProfile, trip]);
 
   const liveCats = useMemo(() => {
     void tick;
@@ -368,6 +389,28 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     );
   }
 
+  async function quickProfileHint(h: {
+    name: string;
+    qty: number;
+    unit: string;
+    amount: number | null;
+    category: string;
+  }) {
+    await commitAdd(
+      {
+        name: h.name,
+        qty: h.qty,
+        unit: h.unit,
+        amount: h.amount,
+        category: h.category,
+        qtyExplicit: true,
+        amountExplicit: h.amount != null,
+      },
+      { fromHabit: true },
+    );
+    showToast(`Sumé · ${shopProfileMeta(shopProfile).label}`);
+  }
+
   if (!ready) {
     return (
       <View style={[styles.root, styles.center]}>
@@ -402,6 +445,18 @@ export function MercadoScreen({ onOpenSettings }: Props) {
             <Text style={styles.settingsTxt}>⚙</Text>
           </Pressable>
         )}
+      </View>
+
+      <View style={styles.profileHome}>
+        <ProfilePicker
+          compact
+          value={shopProfile}
+          onChange={(id) => {
+            void setShopProfile(id).then(() =>
+              showToast(shopProfileMeta(id).chip),
+            );
+          }}
+        />
       </View>
 
       {!trip ? (
@@ -461,38 +516,85 @@ export function MercadoScreen({ onOpenSettings }: Props) {
             </View>
           )}
 
-          {!!habits.length && (
+          {(!!habits.length || !!profileHints.length) && (
             <View style={styles.chipsBlock}>
-              <Text style={styles.chipsLabel}>
-                {habits.some((h) => h.source === 'last-month') ? 'Como el mes pasado' : 'Repetir'}
-              </Text>
-              <View style={styles.chipsRow}>
-                {habits.map((h) => {
-                  const meta = categoryMeta(h.category, liveCats.catalog);
-                  return (
-                    <Pressable
-                      key={h.name}
-                      style={({ pressed }) => [styles.habitCard, pressed && { transform: [{ scale: 0.985 }] }]}
-                      onPress={() => void quickHabit(h)}
-                    >
-                      <Text style={styles.habitEmoji}>{meta.emoji}</Text>
-                      <View style={styles.habitBody}>
-                        <Text style={styles.habitName} numberOfLines={1}>
-                          {h.name}
-                        </Text>
-                        <Text style={styles.habitMeta} numberOfLines={1}>
-                          {h.qty} {h.unit}
-                        </Text>
-                        {h.amount != null && (
-                          <Text style={styles.habitAmt} numberOfLines={1}>
-                            {formatCop(h.amount)}
-                          </Text>
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              {!!habits.length && (
+                <>
+                  <Text style={styles.chipsLabel}>
+                    {habits.some((h) => h.source === 'last-month')
+                      ? 'Como el mes pasado'
+                      : 'Repetir'}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {habits.map((h) => {
+                      const meta = categoryMeta(h.category, liveCats.catalog);
+                      return (
+                        <Pressable
+                          key={h.name}
+                          style={({ pressed }) => [
+                            styles.habitCard,
+                            pressed && { transform: [{ scale: 0.985 }] },
+                          ]}
+                          onPress={() => void quickHabit(h)}
+                        >
+                          <Text style={styles.habitEmoji}>{meta.emoji}</Text>
+                          <View style={styles.habitBody}>
+                            <Text style={styles.habitName} numberOfLines={1}>
+                              {h.name}
+                            </Text>
+                            <Text style={styles.habitMeta} numberOfLines={1}>
+                              {h.qty} {h.unit}
+                            </Text>
+                            {h.amount != null && (
+                              <Text style={styles.habitAmt} numberOfLines={1}>
+                                {formatCop(h.amount)}
+                              </Text>
+                            )}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {!!profileHints.length && (
+                <>
+                  <Text style={[styles.chipsLabel, habits.length ? { marginTop: 10 } : null]}>
+                    Deberías sumar · {shopProfileMeta(shopProfile).label}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {profileHints.map((h) => {
+                      const meta = categoryMeta(h.category, liveCats.catalog);
+                      return (
+                        <Pressable
+                          key={`hint-${h.name}`}
+                          style={({ pressed }) => [
+                            styles.habitCard,
+                            styles.hintCard,
+                            pressed && { transform: [{ scale: 0.985 }] },
+                          ]}
+                          onPress={() => void quickProfileHint(h)}
+                        >
+                          <Text style={styles.habitEmoji}>{meta.emoji}</Text>
+                          <View style={styles.habitBody}>
+                            <Text style={styles.habitName} numberOfLines={1}>
+                              {h.name}
+                            </Text>
+                            <Text style={styles.habitMeta} numberOfLines={1}>
+                              {h.why}
+                            </Text>
+                            <Text style={styles.habitAmt} numberOfLines={1}>
+                              {h.qty} {h.unit}
+                              {h.amount != null ? ` · ${formatCop(h.amount)}` : ''}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
             </View>
           )}
 
@@ -702,7 +804,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: space.lg,
+    marginBottom: space.sm,
+  },
+  profileHome: {
+    paddingHorizontal: space.lg,
     marginBottom: space.md,
+  },
+  hintCard: {
+    borderColor: 'rgba(27, 122, 74, 0.35)',
+    borderWidth: 1,
   },
   settingsBtn: {
     width: 40,

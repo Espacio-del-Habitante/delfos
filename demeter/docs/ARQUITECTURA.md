@@ -8,19 +8,21 @@ Revisado con el árbol real de `demeter/src/` (nov 2026).
 App.tsx
   └── src/app/AppRoot.tsx              # shell + BottomNav (píldora)
         ├── features/mercado/
-        │     screens/MercadoScreen    # carrito, hábitos, FAB + composer
+        │     screens/MercadoScreen    # carrito, hábitos, perfil, FAB + composer
         │     components/
         │       CheckoutSheet          # cierra + foto factura (sin sync)
         │       ItemEditSheet          # qty/precio/foto + búsqueda
         │       InAppBrowser           # cards de precios
         │       VerticalWheel
+        │       ProfilePicker
+        ├── features/recipes/          # propuestas de recetas (IA bajo demanda / local)
         ├── features/history/          # lista + detalle “Qué compramos” + sync lote
         ├── features/stats/            # resumen, ideal mensual, categorías, sparks
-        └── features/settings/         # presupuesto, URL Delfos, sync lote, IA
+        └── features/settings/         # perfil, backup, Delfos, IA
               │
               ▼
-        services/   store, speech, priceSearch, webSearch, ai*, pickPhoto, syncDelfos
-        domain/     parseUtterance, categories, units, stats (+ idealMonthlyMarket)
+        services/   store, speech, recipes, backup, priceSearch, webSearch, ai*, syncDelfos
+        domain/     parseUtterance, categories, units, stats, shopProfiles, recipes
         shared/     theme, format, BottomNav (safe-area + dock helpers)
 ```
 
@@ -43,8 +45,9 @@ App.tsx
 ## Persistencia
 
 - Clave AsyncStorage: `demeter_mercado_v1`
-- Modelo: `settings` + `trips[]` + `products{}` + `activeTripId`
+- Modelo: `settings` (+ `shopProfile`) + `trips[]` + `products{}` + `activeTripId`
 - Local-first en el teléfono.
+- Backup JSON (`exportBackupObject` / `restoreFromBackupObject`) desde Ajustes.
 
 ## Sync a Delfos
 
@@ -107,6 +110,10 @@ App.tsx
 | Gadgets charts elegibles (gifted-charts) | ✅ |
 | Checkout (foto + total factura) | ✅ |
 | Sync lote → Delfos | ✅ |
+| Perfiles (fitness / divertido / excéntrico) | ✅ |
+| Recetas IA bajo demanda (+ fallback local) | ✅ |
+| Sugerencias “deberías sumar” por perfil | ✅ |
+| Backup / restore JSON | ✅ |
 | OCR visión de factura | ⏸ opcional |
 
 ## Checks auditables

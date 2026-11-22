@@ -72,6 +72,18 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
       tooltipPosition: 'bottom',
     },
     {
+      id: 'nav-recetas',
+      targetId: 'tour-nav-recetas',
+      title: 'Recetas',
+      description: 'Con lo del carrito te proponemos qué cocinar — a demanda, con o sin IA.',
+      targetStyle: { borderRadius: 22 },
+      tooltipPosition: 'top',
+      before: async () => {
+        go('recetas');
+        await wait(360);
+      },
+    },
+    {
       id: 'nav-historial',
       targetId: 'tour-nav-historial',
       title: '🕘 Historial',

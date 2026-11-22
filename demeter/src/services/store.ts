@@ -3,6 +3,11 @@ import { uid, todayIso } from '../shared/format';
 import { DEFAULT_AI, type AiSettings } from './aiSettings';
 import { DEFAULT_STATS_WIDGETS, normalizeStatsWidgets } from '../domain/stats';
 import { slugCategory, type CategoryDef } from '../domain/categories';
+import {
+  DEFAULT_SHOP_PROFILE,
+  normalizeShopProfile,
+  type ShopProfileId,
+} from '../domain/shopProfiles';
 
 const KEY = 'demeter_mercado_v1';
 
@@ -47,6 +52,8 @@ export type AppSettings = {
   statsWidgets?: string[];
   /** Categorías propias (como en Delfos), se mezclan con el catálogo builtin. */
   customCategories?: CategoryDef[];
+  /** Perfil de compra: guía recomendaciones y recetas. */
+  shopProfile?: ShopProfileId;
 };
 
 type State = {
@@ -65,6 +72,7 @@ const DEFAULT: State = {
     delfosAccountId: null,
     statsWidgets: [...DEFAULT_STATS_WIDGETS],
     customCategories: [],
+    shopProfile: DEFAULT_SHOP_PROFILE,
   },
   activeTripId: null,
   trips: [],
@@ -118,6 +126,9 @@ export async function initStore() {
           customCategories: normalizeCustomCategories(
             (data.settings && data.settings.customCategories) || [],
           ),
+          shopProfile: normalizeShopProfile(
+            (data.settings && data.settings.shopProfile) || DEFAULT_SHOP_PROFILE,
+          ),
         },
         products: data.products || {},
         trips: Array.isArray(data.trips) ? data.trips : [],
@@ -150,9 +161,85 @@ export async function updateSettings(patch: Partial<AppSettings>) {
     customCategories: patch.customCategories
       ? normalizeCustomCategories(patch.customCategories)
       : cache.settings.customCategories,
+    shopProfile:
+      patch.shopProfile != null
+        ? normalizeShopProfile(patch.shopProfile)
+        : cache.settings.shopProfile,
   };
   await persist();
   return cache.settings;
+}
+
+export function getShopProfile(): ShopProfileId {
+  return normalizeShopProfile(cache.settings.shopProfile);
+}
+
+export async function setShopProfile(id: ShopProfileId | string) {
+  cache.settings.shopProfile = normalizeShopProfile(id);
+  await persist();
+  return cache.settings.shopProfile;
+}
+
+export type BackupPayload = {
+  version: 1;
+  app: 'mercapp';
+  exportedAt: string;
+  state: {
+    settings: AppSettings;
+    trips: Trip[];
+    products: Record<string, Product>;
+    activeTripId: string | null;
+  };
+};
+
+export function exportBackupObject(): BackupPayload {
+  return {
+    version: 1,
+    app: 'mercapp',
+    exportedAt: new Date().toISOString(),
+    state: {
+      settings: structuredClone(cache.settings),
+      trips: structuredClone(cache.trips),
+      products: structuredClone(cache.products),
+      activeTripId: cache.activeTripId,
+    },
+  };
+}
+
+export async function restoreFromBackupObject(raw: unknown) {
+  if (!raw || typeof raw !== 'object') throw new Error('Backup vacío');
+  const payload = raw as Partial<BackupPayload> & { state?: Partial<State> };
+  const state = payload.state;
+  if (!state || typeof state !== 'object') throw new Error('Backup sin state');
+  if (payload.app && payload.app !== 'mercapp') {
+    throw new Error('Este archivo no es un backup de MercApp');
+  }
+
+  const settingsIn = (state.settings || {}) as Partial<AppSettings>;
+  cache = {
+    settings: {
+      ...structuredClone(DEFAULT.settings),
+      ...settingsIn,
+      ai: { ...DEFAULT_AI, ...(settingsIn.ai || {}) },
+      statsWidgets: normalizeStatsWidgets(
+        settingsIn.statsWidgets || DEFAULT_STATS_WIDGETS,
+      ),
+      customCategories: normalizeCustomCategories(settingsIn.customCategories || []),
+      shopProfile: normalizeShopProfile(settingsIn.shopProfile || DEFAULT_SHOP_PROFILE),
+    },
+    trips: Array.isArray(state.trips) ? structuredClone(state.trips) : [],
+    products:
+      state.products && typeof state.products === 'object'
+        ? structuredClone(state.products)
+        : {},
+    activeTripId:
+      typeof state.activeTripId === 'string' || state.activeTripId === null
+        ? state.activeTripId
+        : null,
+  };
+  hydrated = true;
+  await persist();
+  return cache;
 }
 
 function normalizeCustomCategories(raw: unknown): CategoryDef[] {

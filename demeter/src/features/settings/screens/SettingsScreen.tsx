@@ -8,6 +8,8 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator,
+  Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -29,11 +31,20 @@ import {
   getCustomCategories,
   addCustomCategory,
   removeCustomCategory,
+  getShopProfile,
+  setShopProfile,
   subscribe,
   updateAiSettings,
   updateSettings,
 } from '../../../services/store';
 import { pendingSyncTrips, syncAllPendingToDelfos } from '../../../services/syncDelfos';
+import {
+  pickBackupFileWeb,
+  restoreBackupFromText,
+  shareOrDownloadBackup,
+} from '../../../services/backup';
+import { ProfilePicker } from '../../mercado/components/ProfilePicker';
+import type { ShopProfileId } from '../../../domain/shopProfiles';
 
 const CAT_EMOJIS = ['🧺', '🏷️', '🏠', '🐶', '💊', '🧸', '🔧', '🎁', '☕', '🌶️'];
 
@@ -61,6 +72,10 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
   const [customCats, setCustomCats] = useState(getCustomCategories());
   const [newCatLabel, setNewCatLabel] = useState('');
   const [newCatEmoji, setNewCatEmoji] = useState('🧺');
+  const [shopProfile, setShopProfileState] = useState(getShopProfile());
+  const [backupPaste, setBackupPaste] = useState('');
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMsg, setBackupMsg] = useState<string | null>(null);
 
   useEffect(
     () =>
@@ -68,6 +83,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
         setAi(getAiSettings());
         setPendingCount(pendingSyncTrips().length);
         setCustomCats(getCustomCategories());
+        setShopProfileState(getShopProfile());
       }),
     [],
   );
@@ -246,6 +262,144 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
             )}
           </Pressable>
           {syncMsg ? <Text style={styles.hintSmall}>{syncMsg}</Text> : null}
+        </View>
+
+        <Text style={styles.section}>Perfil de mercado</Text>
+        <View style={styles.card}>
+          <Text style={styles.hintSmall}>
+            Guía las recomendaciones de “deberías sumar” y el tono de las recetas. También lo
+            puedes cambiar en el home.
+          </Text>
+          <ProfilePicker
+            value={shopProfile}
+            onChange={(id: ShopProfileId) => {
+              setShopProfileState(id);
+              void setShopProfile(id).then(() => showToast('Perfil guardado'));
+            }}
+          />
+        </View>
+
+        <Text style={styles.section}>Backup</Text>
+        <View style={styles.card}>
+          <Text style={styles.hintSmall}>
+            Exporta todo (mercados, productos, ajustes, perfil) a un JSON. Luego puedes
+            recuperarlo en este u otro dispositivo.
+          </Text>
+          <Pressable
+            disabled={backupBusy}
+            onPress={() => {
+              void (async () => {
+                setBackupBusy(true);
+                setBackupMsg(null);
+                try {
+                  const res = await shareOrDownloadBackup();
+                  setBackupMsg(
+                    res.mode === 'download'
+                      ? `Descargado · ${res.name}`
+                      : `Listo para compartir · ${res.name}`,
+                  );
+                } catch (e: any) {
+                  setBackupMsg(e?.message || 'No se pudo exportar');
+                } finally {
+                  setBackupBusy(false);
+                }
+              })();
+            }}
+            style={({ pressed }) => [styles.syncBtn, pressed && { opacity: 0.9 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Exportar backup"
+          >
+            {backupBusy ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={styles.syncBtnTxt}>Exportar backup</Text>
+            )}
+          </Pressable>
+
+          {Platform.OS === 'web' ? (
+            <Pressable
+              disabled={backupBusy}
+              onPress={() => {
+                void (async () => {
+                  setBackupBusy(true);
+                  setBackupMsg(null);
+                  try {
+                    const text = await pickBackupFileWeb();
+                    await restoreBackupFromText(text);
+                    setBackupMsg('Backup restaurado');
+                    showToast('Datos recuperados');
+                  } catch (e: any) {
+                    setBackupMsg(e?.message || 'No se pudo importar');
+                  } finally {
+                    setBackupBusy(false);
+                  }
+                })();
+              }}
+              style={({ pressed }) => [
+                styles.syncBtn,
+                { marginTop: 10 },
+                pressed && { opacity: 0.9 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Importar backup desde archivo"
+            >
+              <Text style={styles.syncBtnTxt}>Importar desde archivo</Text>
+            </Pressable>
+          ) : null}
+
+          <Text style={[styles.label, { marginTop: 14 }]}>Pegar JSON de backup</Text>
+          <TextInput
+            style={[styles.input, styles.backupInput]}
+            value={backupPaste}
+            onChangeText={setBackupPaste}
+            multiline
+            placeholder='{"version":1,"app":"mercapp",...}'
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Pressable
+            disabled={backupBusy || !backupPaste.trim()}
+            onPress={() => {
+              const go = async () => {
+                setBackupBusy(true);
+                setBackupMsg(null);
+                try {
+                  await restoreBackupFromText(backupPaste);
+                  setBackupPaste('');
+                  setBackupMsg('Backup restaurado');
+                  showToast('Datos recuperados');
+                } catch (e: any) {
+                  setBackupMsg(e?.message || 'No se pudo importar');
+                } finally {
+                  setBackupBusy(false);
+                }
+              };
+              if (Platform.OS === 'web') {
+                void go();
+                return;
+              }
+              Alert.alert(
+                'Restaurar backup',
+                'Esto reemplaza mercados y ajustes locales. ¿Seguro?',
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { text: 'Restaurar', style: 'destructive', onPress: () => void go() },
+                ],
+              );
+            }}
+            style={({ pressed }) => [
+              styles.syncBtn,
+              { marginTop: 10 },
+              (!backupPaste.trim() || backupBusy) && { opacity: 0.45 },
+              pressed && { opacity: 0.9 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Restaurar backup pegado"
+          >
+            <Text style={styles.syncBtnTxt}>Restaurar desde texto</Text>
+          </Pressable>
+          {backupMsg ? <Text style={styles.hintSmall}>{backupMsg}</Text> : null}
         </View>
 
         <Text style={styles.section}>📂 Categorías propias</Text>
@@ -513,6 +667,12 @@ const styles = StyleSheet.create({
   },
   catLabel: { fontFamily: 'Inter_600SemiBold', color: colors.text, fontSize: 14 },
   catRemove: { color: colors.danger, fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  backupInput: {
+    minHeight: 96,
+    textAlignVertical: 'top',
+    fontSize: 12,
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'Inter_400Regular',
+  },
   tourBtn: {
     marginTop: 10,
     backgroundColor: colors.primary,
