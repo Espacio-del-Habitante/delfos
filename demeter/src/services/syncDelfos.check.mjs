@@ -18,7 +18,14 @@ function buildBody(trip, settings) {
 }
 
 function pendingSyncTrips(trips) {
-  return trips.filter((t) => t.status === 'closed' && !t.sync?.ok);
+  const tripTotal = (t) => (t.items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  return trips.filter(
+    (t) =>
+      t.status === 'closed' &&
+      !t.sync?.ok &&
+      (t.items?.length ?? 0) > 0 &&
+      (Number(t.receipt?.ticketTotal) > 0 || tripTotal(t) > 0),
+  );
 }
 
 assert.throws(() => buildBody({ items: [{ amount: 1000 }], storeName: 'X' }, {}), /URL de Delfos/);
@@ -34,10 +41,11 @@ assert.equal(body.url, 'http://localhost:5000/api/expenses');
 assert.equal(body.amount, 1600);
 
 const trips = [
-  { id: 'a', status: 'closed', sync: null },
-  { id: 'b', status: 'closed', sync: { ok: true } },
-  { id: 'c', status: 'closed', sync: { ok: false } },
-  { id: 'd', status: 'open', sync: null },
+  { id: 'a', status: 'closed', sync: null, items: [{ amount: 1000 }] },
+  { id: 'b', status: 'closed', sync: { ok: true }, items: [{ amount: 1000 }] },
+  { id: 'c', status: 'closed', sync: { ok: false }, items: [{ amount: 500 }] },
+  { id: 'd', status: 'open', sync: null, items: [{ amount: 1000 }] },
+  { id: 'empty', status: 'closed', sync: null, items: [] },
 ];
 const pending = pendingSyncTrips(trips);
 assert.deepEqual(

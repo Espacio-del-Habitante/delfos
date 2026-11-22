@@ -225,6 +225,10 @@ export function getActiveTrip() {
 }
 
 export async function startTrip({ budget }: { budget?: number } = {}) {
+  const current = getActiveTrip();
+  // No spawnear otro open si ya hay uno (evita basura / mercados fantasma).
+  if (current && current.status !== 'closed') return current;
+
   const trip: Trip = {
     id: uid('trip'),
     createdAt: todayIso(),
@@ -272,12 +276,20 @@ function rememberProduct(item: CartItem) {
 export async function addItem(item: Omit<CartItem, 'id' | 'createdAt'> & { id?: string }) {
   const trip = getActiveTrip();
   if (!trip || trip.status === 'closed') throw new Error('No hay mercado abierto');
+  const name = String(item.name || '').trim();
+  if (!name) throw new Error('Nombre vacío');
+  const qty = Number(item.qty);
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error('Cantidad inválida');
+  const amount = item.amount == null ? null : Number(item.amount);
+  if (amount != null && (!Number.isFinite(amount) || amount < 0)) {
+    throw new Error('Precio inválido');
+  }
   const row: CartItem = {
     id: uid('item'),
-    name: item.name,
-    qty: Number(item.qty) || 1,
+    name,
+    qty,
     unit: item.unit || 'und',
-    amount: item.amount == null ? null : Number(item.amount),
+    amount,
     category: item.category || 'otros',
     photoDataUrl: item.photoDataUrl || null,
     createdAt: todayIso(),
@@ -291,8 +303,24 @@ export async function addItem(item: Omit<CartItem, 'id' | 'createdAt'> & { id?: 
 export async function updateItem(itemId: string, patch: Partial<CartItem>) {
   const trip = getActiveTrip();
   if (!trip) throw new Error('No hay mercado abierto');
+  if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
   const row = trip.items.find((i) => i.id === itemId);
   if (!row) throw new Error('Ítem no encontrado');
+  if (patch.name != null) {
+    const name = String(patch.name).trim();
+    if (!name) throw new Error('Nombre vacío');
+    patch = { ...patch, name };
+  }
+  if (patch.qty != null) {
+    const qty = Number(patch.qty);
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error('Cantidad inválida');
+    patch = { ...patch, qty };
+  }
+  if (patch.amount !== undefined && patch.amount != null) {
+    const amount = Number(patch.amount);
+    if (!Number.isFinite(amount) || amount < 0) throw new Error('Precio inválido');
+    patch = { ...patch, amount };
+  }
   Object.assign(row, patch);
   rememberProduct(row);
   await persist();
@@ -302,6 +330,7 @@ export async function updateItem(itemId: string, patch: Partial<CartItem>) {
 export async function removeItem(itemId: string) {
   const trip = getActiveTrip();
   if (!trip) throw new Error('No hay mercado abierto');
+  if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
   trip.items = trip.items.filter((i) => i.id !== itemId);
   await persist();
   return trip;
@@ -309,6 +338,11 @@ export async function removeItem(itemId: string) {
 
 export function tripTotal(trip: Trip | null) {
   return (trip?.items || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+}
+
+/** Cerrar solo tiene sentido con al menos un ítem. */
+export function canCloseTrip(trip: Trip | null) {
+  return Boolean(trip && trip.status !== 'closed' && (trip.items?.length ?? 0) > 0);
 }
 
 export function listTrips() {
@@ -324,6 +358,12 @@ export async function setCheckout(receiptPatch: {
 } = {}) {
   const trip = getActiveTrip();
   if (!trip) throw new Error('No hay mercado abierto');
+  if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
+  if (!trip.items.length) throw new Error('El carrito está vacío');
+  if (receiptPatch.ticketTotal != null) {
+    const n = Number(receiptPatch.ticketTotal);
+    if (!Number.isFinite(n) || n < 0) throw new Error('Total de factura inválido');
+  }
   trip.status = 'checkout';
   trip.receipt = { ...(trip.receipt || {}), ...receiptPatch };
   await persist();
@@ -344,6 +384,8 @@ export async function markSynced(
 export async function closeTrip() {
   const trip = getActiveTrip();
   if (!trip) throw new Error('No hay mercado abierto');
+  if (trip.status === 'closed') throw new Error('El mercado ya está cerrado');
+  if (!trip.items.length) throw new Error('El carrito está vacío');
   trip.status = 'closed';
   trip.closedAt = todayIso();
   cache.activeTripId = null;

@@ -345,6 +345,11 @@ export function MercadoScreen({ onOpenSettings }: Props) {
   }
 
   function onFinish() {
+    const t = getActiveTrip();
+    if (!t?.items?.length) {
+      showToast('Suma algo antes de cerrar');
+      return;
+    }
     setCheckoutOpen(true);
   }
 
@@ -617,9 +622,15 @@ export function MercadoScreen({ onOpenSettings }: Props) {
             <View style={styles.fabRow}>
               <Pressable
                 onPress={onFinish}
-                style={({ pressed }) => [styles.closeFab, pressed && { opacity: 0.92 }]}
+                disabled={!trip?.items?.length}
+                style={({ pressed }) => [
+                  styles.closeFab,
+                  !trip?.items?.length ? styles.closeFabDisabled : null,
+                  pressed && trip?.items?.length ? { opacity: 0.92 } : null,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Cerrar mercado"
+                accessibilityState={{ disabled: !trip?.items?.length }}
               >
                 <Text style={styles.closeFabTxt}>Cerrar mercado</Text>
               </Pressable>
@@ -895,6 +906,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   closeFabTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 14 },
+  closeFabDisabled: { opacity: 0.4 },
   addFab: {
     width: FAB_SIZE,
     height: FAB_SIZE,

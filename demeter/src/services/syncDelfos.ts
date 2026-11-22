@@ -13,6 +13,8 @@ import {
 export async function syncTripToDelfos(trip: Trip, settings: AppSettings) {
   const base = String(settings.delfosApiBase || '').replace(/\/$/, '');
   if (!base) throw new Error('Configura la URL de Delfos en Ajustes');
+  if (trip.status !== 'closed') throw new Error('Solo se sincronizan mercados cerrados');
+  if (!(trip.items?.length > 0)) throw new Error('El mercado no tiene ítems');
 
   const ticket = trip.receipt?.ticketTotal;
   const total =
@@ -45,7 +47,14 @@ export async function syncTripToDelfos(trip: Trip, settings: AppSettings) {
 
 /** Cerrados sin sync ok (null o fallido) — pueden acumularse meses. */
 export function pendingSyncTrips(): Trip[] {
-  return listTrips().filter((t) => t.status === 'closed' && !t.sync?.ok);
+  return listTrips().filter(
+    (t) =>
+      t.status === 'closed' &&
+      !t.sync?.ok &&
+      (t.items?.length ?? 0) > 0 &&
+      // total 0 no tiene sentido en Delfos
+      (Number(t.receipt?.ticketTotal) > 0 || tripTotal(t) > 0),
+  );
 }
 
 export type SyncBatchResult = {

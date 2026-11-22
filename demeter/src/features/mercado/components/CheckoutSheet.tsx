@@ -56,6 +56,10 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
   }
 
   async function finish() {
+    if (!trip.items?.length) {
+      setErr('El carrito está vacío');
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -90,7 +94,13 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
           contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
         >
           <Text style={styles.title}>Cerrar mercado</Text>
-          <Text style={styles.muted}>Carrito {formatCop(cart)}</Text>
+          <Text style={styles.muted}>
+            Carrito {formatCop(cart)} · {trip.items.length} ítem
+            {trip.items.length === 1 ? '' : 's'}
+          </Text>
+          {!trip.items.length ? (
+            <Text style={styles.err}>No puedes cerrar un mercado vacío.</Text>
+          ) : null}
 
           <Text style={styles.label}>Foto de factura</Text>
           <View style={styles.photoRow}>
@@ -128,11 +138,16 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
           {err && <Text style={styles.err}>{err}</Text>}
 
           <Pressable
-            disabled={busy}
+            disabled={busy || !trip.items.length}
             onPress={() => void finish()}
-            style={({ pressed }) => [styles.btnPrimary, pressed && { opacity: 0.9 }]}
+            style={({ pressed }) => [
+              styles.btnPrimary,
+              !trip.items.length || busy ? { opacity: 0.5 } : null,
+              pressed && trip.items.length ? { opacity: 0.9 } : null,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Cerrar y guardar mercado"
+            accessibilityState={{ disabled: busy || !trip.items.length }}
           >
             {busy ? (
               <ActivityIndicator color="#fff" />
