@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -22,6 +23,10 @@ import { proposeRecipes, type RecipeIdea } from '../../../services/recipes';
 import { shopProfileMeta } from '../../../domain/shopProfiles';
 import { formatCop } from '../../../shared/format';
 import { aiReady } from '../../../services/aiComplete';
+import { friendlyError } from '../../../shared/appError';
+import { AppToast } from '../../../shared/AppToast';
+import { InfoModal } from '../../../shared/InfoModal';
+import { RecipeDetailSheet } from '../components/RecipeDetailSheet';
 
 export function RecipesScreen() {
   const insets = useSafeAreaInsets();
@@ -29,7 +34,10 @@ export function RecipesScreen() {
   const [busy, setBusy] = useState(false);
   const [recipes, setRecipes] = useState<RecipeIdea[]>([]);
   const [source, setSource] = useState<'ai' | 'local' | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [toastTone, setToastTone] = useState<'info' | 'warn' | 'error'>('info');
+  const [info, setInfo] = useState<{ title: string; body: string } | null>(null);
+  const [selected, setSelected] = useState<RecipeIdea | null>(null);
 
   useEffect(() => subscribe(() => setTick((n) => n + 1)), []);
 
@@ -38,20 +46,30 @@ export function RecipesScreen() {
   const profile = getShopProfile();
   const meta = shopProfileMeta(profile);
 
+  const showToast = useCallback((msg: string, tone: 'info' | 'warn' | 'error' = 'info') => {
+    setToastTone(tone);
+    setToast(msg);
+  }, []);
+
   const run = useCallback(async () => {
     setBusy(true);
-    setErr(null);
     try {
       const res = await proposeRecipes({ profile });
       setRecipes(res.recipes);
       setSource(res.source);
-      if (res.error) setErr(res.error);
-    } catch (e: any) {
-      setErr(e?.message || 'No se pudieron proponer recetas');
+      if (res.notice) showToast(res.notice, res.noticeTone || 'warn');
+      else if (res.recipes.length) showToast('Listo · toca una card para ver el detalle', 'info');
+    } catch (e) {
+      const msg = friendlyError(e, 'No se pudieron proponer recetas');
+      showToast(msg, 'error');
+      setInfo({
+        title: 'No pudimos armar recetas',
+        body: `${msg}\n\nRevisa la conexión o la IA en Ajustes. Mientras tanto puedes seguir sumando al carrito.`,
+      });
     } finally {
       setBusy(false);
     }
-  }, [profile, tick]);
+  }, [profile, tick, showToast]);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
@@ -59,7 +77,7 @@ export function RecipesScreen() {
       <Text style={styles.title}>Recetas</Text>
       <Text style={styles.lead}>
         Aquí verás propuestas de recetas para tu mercado — con lo que estás comprando
-        ahora.
+        ahora. Toca una card para ver la preparación completa.
       </Text>
 
       <ScrollView
@@ -104,33 +122,69 @@ export function RecipesScreen() {
           </Pressable>
         </View>
 
-        {err ? <Text style={styles.err}>{err}</Text> : null}
         {source ? (
           <Text style={styles.source}>
             Fuente: {source === 'ai' ? 'IA' : 'ideas locales'}
+            {recipes.some((r) => r.imageUrl) ? ' · con foto' : ''}
           </Text>
         ) : null}
 
         {recipes.map((r) => (
-          <View key={r.title} style={styles.recipe}>
-            <Text style={styles.recipeTitle}>{r.title}</Text>
-            <Text style={styles.recipeMeta}>
-              {r.minutes} min · {r.vibe}
-            </Text>
-            {!!r.uses.length && (
-              <Text style={styles.muted}>Usa: {r.uses.join(', ')}</Text>
-            )}
+          <Pressable
+            key={r.title}
+            onPress={() => setSelected(r)}
+            style={({ pressed }) => [styles.recipe, pressed && { opacity: 0.92 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver receta ${r.title}`}
+          >
+            <View style={styles.recipeTop}>
+              {r.imageUrl ? (
+                <Image source={{ uri: r.imageUrl }} style={styles.thumb} />
+              ) : (
+                <View style={styles.thumbEmoji}>
+                  <Text style={{ fontSize: 28 }}>{r.emoji || '🍽️'}</Text>
+                </View>
+              )}
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={styles.recipeTitle} numberOfLines={2}>
+                  {r.title}
+                </Text>
+                <Text style={styles.recipeMeta}>
+                  {r.minutes} min · {r.vibe}
+                </Text>
+                {!!r.description && (
+                  <Text style={styles.muted} numberOfLines={2}>
+                    {r.description}
+                  </Text>
+                )}
+              </View>
+            </View>
             {!!r.missing.length && (
-              <Text style={styles.missing}>Te falta: {r.missing.join(', ')}</Text>
-            )}
-            {r.steps.map((s, i) => (
-              <Text key={`${r.title}-${i}`} style={styles.step}>
-                {i + 1}. {s}
+              <Text style={styles.missing} numberOfLines={1}>
+                Te falta: {r.missing.join(', ')}
               </Text>
-            ))}
-          </View>
+            )}
+            <Text style={styles.tapHint}>Toca para ver pasos completos →</Text>
+          </Pressable>
         ))}
       </ScrollView>
+
+      <RecipeDetailSheet
+        recipe={selected}
+        visible={Boolean(selected)}
+        onClose={() => setSelected(null)}
+      />
+      <InfoModal
+        visible={Boolean(info)}
+        title={info?.title || ''}
+        body={info?.body || ''}
+        onClose={() => setInfo(null)}
+      />
+      <AppToast
+        message={toast}
+        tone={toastTone}
+        onHide={() => setToast(null)}
+      />
     </View>
   );
 }
@@ -161,11 +215,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
-  err: { color: colors.danger, fontFamily: 'Inter_600SemiBold', fontSize: 13 },
   source: { ...type.label, fontSize: 12 },
-  recipe: { ...card(), padding: space.lg, gap: 6 },
-  recipeTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: colors.text },
+  recipe: { ...card(), padding: space.md, gap: 8 },
+  recipeTop: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  thumb: { width: 72, height: 72, borderRadius: 16, backgroundColor: colors.bg },
+  thumbEmoji: {
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+    backgroundColor: 'rgba(27, 122, 74, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recipeTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
   recipeMeta: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.primary },
-  missing: { color: '#b45309', fontFamily: 'Inter_600SemiBold', fontSize: 13 },
-  step: { ...type.label, color: colors.text, lineHeight: 18 },
+  missing: { color: '#b45309', fontFamily: 'Inter_600SemiBold', fontSize: 12 },
+  tapHint: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: colors.muted,
+  },
 });

@@ -45,6 +45,7 @@ import {
 } from '../../../services/backup';
 import { ProfilePicker } from '../../mercado/components/ProfilePicker';
 import type { ShopProfileId } from '../../../domain/shopProfiles';
+import { friendlyError } from '../../../shared/appError';
 
 const CAT_EMOJIS = ['🧺', '🏷️', '🏠', '🐶', '💊', '🧸', '🔧', '🎁', '☕', '🌶️'];
 
@@ -104,7 +105,7 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
       const res = await listAiModels(cfg);
       setModels(res.models);
       setModelSource(res.source);
-      setModelError(res.error || null);
+      setModelError(res.error ? friendlyError(res.error, 'No se pudieron listar modelos') : null);
     } finally {
       setLoadingModels(false);
     }
@@ -149,7 +150,11 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
     setTestMsg(null);
     try {
       const res = await testAiConnection(ai);
-      setTestMsg(res.ok ? `OK · ${res.detail || res.provider}` : `Error · ${res.error}`);
+      setTestMsg(
+        res.ok
+          ? `OK · ${res.detail || res.provider}`
+          : `No conectó · ${friendlyError(res.error, 'Revisa URL o API key')}`,
+      );
     } finally {
       setTesting(false);
     }
@@ -170,8 +175,8 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
       if (res.total === 0) setSyncMsg('Nada pendiente');
       else if (res.fail === 0) setSyncMsg(`Sync ✓ ${res.ok} mercado${res.ok === 1 ? '' : 's'}`);
       else setSyncMsg(`Sync ${res.ok} ok · ${res.fail} falló`);
-    } catch (e: any) {
-      setSyncMsg(e?.message || 'Sync falló');
+    } catch (e: unknown) {
+      setSyncMsg(friendlyError(e, 'No se pudo sincronizar con Delfos'));
     } finally {
       setSyncing(false);
     }
@@ -298,8 +303,8 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                       ? `Descargado · ${res.name}`
                       : `Listo para compartir · ${res.name}`,
                   );
-                } catch (e: any) {
-                  setBackupMsg(e?.message || 'No se pudo exportar');
+                } catch (e: unknown) {
+                  setBackupMsg(friendlyError(e, 'No se pudo exportar el backup'));
                 } finally {
                   setBackupBusy(false);
                 }
@@ -328,8 +333,8 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                     await restoreBackupFromText(text);
                     setBackupMsg('Backup restaurado');
                     showToast('Datos recuperados');
-                  } catch (e: any) {
-                    setBackupMsg(e?.message || 'No se pudo importar');
+                  } catch (e: unknown) {
+                    setBackupMsg(friendlyError(e, 'No se pudo importar el backup'));
                   } finally {
                     setBackupBusy(false);
                   }
@@ -369,8 +374,8 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                   setBackupPaste('');
                   setBackupMsg('Backup restaurado');
                   showToast('Datos recuperados');
-                } catch (e: any) {
-                  setBackupMsg(e?.message || 'No se pudo importar');
+                } catch (e: unknown) {
+                  setBackupMsg(friendlyError(e, 'No se pudo importar el backup'));
                 } finally {
                   setBackupBusy(false);
                 }

@@ -30,7 +30,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "check": "node src/domain/parseUtterance.check.mjs && node src/domain/historySuggest.check.mjs && node src/domain/stats.check.mjs && node src/domain/tripTotal.check.mjs && node src/domain/storeGuards.check.mjs && node src/domain/shopProfiles.check.mjs && node src/domain/profileSuggest.check.mjs && node src/domain/recipes.check.mjs && node src/services/backup.check.mjs && node src/services/priceSearch.check.mjs && node src/services/webSearch.check.mjs && node src/services/syncDelfos.check.mjs && tsc --noEmit"
+    "check": "node src/domain/parseUtterance.check.mjs && node src/domain/historySuggest.check.mjs && node src/domain/stats.check.mjs && node src/domain/tripTotal.check.mjs && node src/domain/storeGuards.check.mjs && node src/domain/shopProfiles.check.mjs && node src/domain/profileSuggest.check.mjs && node src/domain/recipes.check.mjs && node src/shared/appError.check.mjs && node src/services/backup.check.mjs && node src/services/priceSearch.check.mjs && node src/services/webSearch.check.mjs && node src/services/syncDelfos.check.mjs && tsc --noEmit"
   },
   "private": true
 }

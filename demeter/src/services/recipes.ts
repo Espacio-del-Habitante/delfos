@@ -5,15 +5,25 @@ import {
   type RecipeIdea,
 } from '../domain/recipes';
 import { normalizeShopProfile, type ShopProfileId } from '../domain/shopProfiles';
+import { friendlyError, friendlyNotice } from '../shared/appError';
 import { aiReady, completeJson } from './aiComplete';
+import { attachRecipeImages } from './recipeImages';
 import { getAiSettings, getActiveTrip, getState } from './store';
 
 export type { RecipeIdea };
 
-/** Bajo demanda: IA si está lista; si no, heurística local. */
+export type ProposeRecipesResult = {
+  recipes: RecipeIdea[];
+  source: 'ai' | 'local';
+  /** Aviso de app (toast), nunca stack técnico. */
+  notice?: string;
+  noticeTone?: 'info' | 'warn' | 'error';
+};
+
+/** Bajo demanda: IA si está lista; si no, heurística local + imágenes opcionales. */
 export async function proposeRecipes(opts?: {
   profile?: ShopProfileId | string;
-}): Promise<{ recipes: RecipeIdea[]; source: 'ai' | 'local'; error?: string }> {
+}): Promise<ProposeRecipesResult> {
   const trip = getActiveTrip();
   const items = trip?.items || [];
   const profile = normalizeShopProfile(
@@ -21,30 +31,48 @@ export async function proposeRecipes(opts?: {
   );
 
   if (!items.length) {
-    return { recipes: [], source: 'local', error: 'Suma algo al carrito para proponer recetas' };
+    return {
+      recipes: [],
+      source: 'local',
+      notice: friendlyNotice('empty-cart'),
+      noticeTone: 'warn',
+    };
   }
 
   const local = recipesFromCart(items, profile, 3);
   const ai = getAiSettings();
-  if (!aiReady(ai)) {
-    return { recipes: local, source: 'local' };
+
+  let recipes = local;
+  let source: 'ai' | 'local' = 'local';
+  let notice: string | undefined;
+  let noticeTone: ProposeRecipesResult['noticeTone'];
+
+  if (aiReady(ai)) {
+    try {
+      const raw = await completeJson(ai, recipesAiPrompt(items, profile));
+      const parsed = parseRecipesJson(raw);
+      if (parsed.length) {
+        recipes = parsed;
+        source = 'ai';
+      } else {
+        notice = 'La IA no trajo recetas claras · usamos ideas locales';
+        noticeTone = 'warn';
+      }
+    } catch (e) {
+      notice = friendlyError(e, friendlyNotice('ai-fallback'));
+      // Si friendlyError devolvió mensaje genérico de red, preferir el notice de fallback
+      if (/conexión|tardó|servicio/i.test(notice)) {
+        notice = friendlyNotice('ai-fallback');
+      }
+      noticeTone = 'warn';
+    }
   }
 
   try {
-    const raw = await completeJson(ai, recipesAiPrompt(items, profile));
-    const parsed = parseRecipesJson(raw);
-    if (parsed.length) return { recipes: parsed, source: 'ai' };
-    return { recipes: local, source: 'local', error: 'IA sin recetas útiles · usé ideas locales' };
-  } catch (e: any) {
-    const msg = String(e?.message || '');
-    const soft =
-      /failed to fetch|network|timeout|CORS/i.test(msg)
-        ? 'IA no alcanzó · usé ideas locales'
-        : msg || 'IA falló · usé ideas locales';
-    return {
-      recipes: local,
-      source: 'local',
-      error: soft,
-    };
+    recipes = await attachRecipeImages(recipes, 3);
+  } catch {
+    // sin imagen no es error de app
   }
+
+  return { recipes, source, notice, noticeTone };
 }

@@ -25,6 +25,7 @@ import {
 } from '../../../services/store';
 import { pendingSyncTrips, syncAllPendingToDelfos } from '../../../services/syncDelfos';
 import { contentBottomPad } from '../../../shared/BottomNav';
+import { friendlyError } from '../../../shared/appError';
 
 type Props = { onNewTrip?: () => void };
 
@@ -77,8 +78,8 @@ export function HistoryScreen({ onNewTrip }: Props) {
       if (res.total === 0) setSyncMsg('Nada pendiente');
       else if (res.fail === 0) setSyncMsg(`Sync ✓ ${res.ok} mercado${res.ok === 1 ? '' : 's'}`);
       else setSyncMsg(`Sync ${res.ok} ok · ${res.fail} falló`);
-    } catch (e: any) {
-      setSyncMsg(e?.message || 'Sync falló');
+    } catch (e: unknown) {
+      setSyncMsg(friendlyError(e, 'No se pudo sincronizar con Delfos'));
     } finally {
       setSyncing(false);
     }

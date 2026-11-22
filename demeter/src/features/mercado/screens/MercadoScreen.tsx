@@ -43,6 +43,7 @@ import {
 import { profileBuySuggestions } from '../../../domain/profileSuggest';
 import { shopProfileMeta } from '../../../domain/shopProfiles';
 import { ProfilePicker } from '../components/ProfilePicker';
+import { friendlyError } from '../../../shared/appError';
 import {
   startListening,
   stopListening,
@@ -354,8 +355,8 @@ export function MercadoScreen({ onOpenSettings }: Props) {
       setDraft('');
       showToast('Escuchando…');
       await startListening('es-CO');
-    } catch (e: any) {
-      showToast(e?.message || 'Error de micrófono');
+    } catch (e: unknown) {
+      showToast(friendlyError(e, 'No se pudo usar el micrófono'));
       setListening(false);
     }
   }

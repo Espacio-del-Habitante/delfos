@@ -23,6 +23,7 @@ import {
 } from '../../../services/store';
 import { pickProductPhoto } from '../../../services/pickPhoto';
 import { floatingDockBottom } from '../../../shared/BottomNav';
+import { friendlyError } from '../../../shared/appError';
 
 type Props = {
   visible: boolean;
@@ -68,8 +69,8 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
       await startTrip({ budget: getState().settings.budgetDefault });
       onDone('Mercado cerrado · sync cuando quieras en Historial o Ajustes');
       onClose();
-    } catch (e: any) {
-      setErr(e?.message || 'No se pudo cerrar');
+    } catch (e: unknown) {
+      setErr(friendlyError(e, 'No se pudo cerrar el mercado'));
     } finally {
       setBusy(false);
     }

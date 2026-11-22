@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { colors, radius, space, type, card } from '../../../shared/theme';
 import { formatCop } from '../../../shared/format';
+import { friendlyError } from '../../../shared/appError';
 import { fetchWebSearchResults, type SearchHit } from '../../../services/webSearch';
 
 type Props = {
@@ -53,9 +54,9 @@ export function InAppBrowser({
         setOrganizedBy(res.organizedBy);
         if (!res.hits.length) setError('Sin resultados. Prueba Google.');
       })
-      .catch((e: any) => {
+      .catch((e: unknown) => {
         if (cancelled) return;
-        setError(e?.message || 'No pude buscar ahora');
+        setError(friendlyError(e, 'No pude buscar precios ahora'));
         setGoogleUrl(
           `https://www.google.com/search?hl=es-419&gl=co&q=${encodeURIComponent(`${query} precio Colombia`)}`,
         );
