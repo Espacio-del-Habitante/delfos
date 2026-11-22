@@ -1,7 +1,13 @@
-import { tripTotal, type Trip, type AppSettings } from './store';
+import {
+  listTrips,
+  markSynced,
+  tripTotal,
+  type AppSettings,
+  type Trip,
+} from './store';
 
 /**
- * Sync a closed/checkout trip as one Delfos expense.
+ * Sync a closed trip as one Delfos expense.
  * Requires Delfos API reachable + CORS.
  */
 export async function syncTripToDelfos(trip: Trip, settings: AppSettings) {
@@ -35,4 +41,54 @@ export async function syncTripToDelfos(trip: Trip, settings: AppSettings) {
     throw new Error((data as { error?: string }).error || `Delfos HTTP ${res.status}`);
   }
   return { expense: (data as { expense?: unknown }).expense || data, payload: data };
+}
+
+/** Cerrados sin sync ok (null o fallido) — pueden acumularse meses. */
+export function pendingSyncTrips(): Trip[] {
+  return listTrips().filter((t) => t.status === 'closed' && !t.sync?.ok);
+}
+
+export type SyncBatchResult = {
+  ok: number;
+  fail: number;
+  total: number;
+  errors: string[];
+};
+
+/**
+ * Sincroniza todos los mercados pendientes, uno a uno.
+ * Si falló uno, sigue con el resto (no pierde el lote).
+ */
+export async function syncAllPendingToDelfos(
+  settings: AppSettings,
+): Promise<SyncBatchResult> {
+  const pending = pendingSyncTrips();
+  const errors: string[] = [];
+  let ok = 0;
+  let fail = 0;
+
+  for (const trip of pending) {
+    const label = trip.storeName || trip.id;
+    try {
+      const res = await syncTripToDelfos(trip, settings);
+      const expenseId = (res.expense as { id?: string } | undefined)?.id;
+      await markSynced(trip.id, {
+        at: new Date().toISOString(),
+        ok: true,
+        expenseId,
+      });
+      ok += 1;
+    } catch (e: any) {
+      const msg = e?.message || 'sync falló';
+      errors.push(`${label}: ${msg}`);
+      await markSynced(trip.id, {
+        at: new Date().toISOString(),
+        ok: false,
+        error: msg,
+      });
+      fail += 1;
+    }
+  }
+
+  return { ok, fail, total: pending.length, errors };
 }

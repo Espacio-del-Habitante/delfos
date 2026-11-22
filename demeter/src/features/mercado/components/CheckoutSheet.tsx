@@ -16,13 +16,11 @@ import { formatCop } from '../../../shared/format';
 import {
   closeTrip,
   getState,
-  markSynced,
   setCheckout,
   startTrip,
   tripTotal,
   type Trip,
 } from '../../../services/store';
-import { syncTripToDelfos } from '../../../services/syncDelfos';
 import { pickProductPhoto } from '../../../services/pickPhoto';
 import { floatingDockBottom } from '../../../shared/BottomNav';
 
@@ -33,6 +31,7 @@ type Props = {
   onDone: (msg: string) => void;
 };
 
+/** Solo cierra y guarda en el teléfono. Sync va aparte (lote de pendientes). */
 export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
   const insets = useSafeAreaInsets();
   const cart = tripTotal(trip);
@@ -40,8 +39,6 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const settings = getState().settings;
-  const canSync = Boolean(settings.delfosApiBase?.trim());
 
   useEffect(() => {
     if (!visible) return;
@@ -58,45 +55,14 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
     if (data) setPhotoDataUrl(data);
   }
 
-  async function finish(opts: { sync: boolean }) {
+  async function finish() {
     setBusy(true);
     setErr(null);
     try {
       await setCheckout({ ticketTotal: ticketN, photoDataUrl });
-      let syncMsg = '';
-      if (opts.sync) {
-        try {
-          const res = await syncTripToDelfos(
-            {
-              ...trip,
-              receipt: {
-                ...(trip.receipt || {}),
-                ticketTotal: ticketN,
-                photoDataUrl,
-              },
-            },
-            getState().settings,
-          );
-          const expenseId =
-            (res.expense as { id?: string } | undefined)?.id || undefined;
-          await markSynced(trip.id, {
-            at: new Date().toISOString(),
-            ok: true,
-            expenseId,
-          });
-          syncMsg = ' · sync ✓';
-        } catch (e: any) {
-          await markSynced(trip.id, {
-            at: new Date().toISOString(),
-            ok: false,
-            error: e?.message || 'sync falló',
-          });
-          syncMsg = ` · sync: ${e?.message || 'falló'}`;
-        }
-      }
       await closeTrip();
       await startTrip({ budget: getState().settings.budgetDefault });
-      onDone(`Mercado cerrado${syncMsg}`);
+      onDone('Mercado cerrado · sync cuando quieras en Historial o Ajustes');
       onClose();
     } catch (e: any) {
       setErr(e?.message || 'No se pudo cerrar');
@@ -163,7 +129,7 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
 
           <Pressable
             disabled={busy}
-            onPress={() => void finish({ sync: false })}
+            onPress={() => void finish()}
             style={({ pressed }) => [styles.btnPrimary, pressed && { opacity: 0.9 }]}
             accessibilityRole="button"
             accessibilityLabel="Cerrar y guardar mercado"
@@ -175,19 +141,10 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
             )}
           </Pressable>
 
-          {canSync && (
-            <Pressable
-              disabled={busy}
-              onPress={() => void finish({ sync: true })}
-              style={({ pressed }) => [styles.btnSecondary, pressed && { opacity: 0.9 }]}
-            >
-              <Text style={styles.btnSecondaryTxt}>Cerrar y sync a Delfos</Text>
-            </Pressable>
-          )}
-
-          {!canSync && (
-            <Text style={styles.hint}>Para sync, pon la URL de Delfos en Ajustes.</Text>
-          )}
+          <Text style={styles.hint}>
+            La sync a Delfos es aparte: puedes acumular meses y enviar todos los pendientes
+            desde Historial o Ajustes.
+          </Text>
 
           <Pressable onPress={onClose} style={styles.cancel}>
             <Text style={styles.cancelTxt}>Cancelar</Text>
@@ -230,14 +187,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   btnPrimaryTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
-  btnSecondary: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  btnSecondaryTxt: { color: colors.primary, fontFamily: 'Inter_700Bold', fontSize: 14 },
   hint: { ...type.label, textAlign: 'center' },
   cancel: { alignItems: 'center', paddingVertical: 8 },
   cancelTxt: { color: colors.muted, fontFamily: 'Inter_600SemiBold' },

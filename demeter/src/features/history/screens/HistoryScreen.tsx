@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, FlatList, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  FlatList,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { colors, radius, space, card, type } from '../../../shared/theme';
@@ -14,6 +22,7 @@ import {
   getState,
   type Trip,
 } from '../../../services/store';
+import { pendingSyncTrips, syncAllPendingToDelfos } from '../../../services/syncDelfos';
 import { contentBottomPad } from '../../../shared/BottomNav';
 
 type Props = { onNewTrip?: () => void };
@@ -23,6 +32,8 @@ export function HistoryScreen({ onNewTrip }: Props) {
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -37,6 +48,11 @@ export function HistoryScreen({ onNewTrip }: Props) {
     return listTrips().filter((t) => t.status === 'closed' || (t.items?.length ?? 0) > 0);
   }, [tick, ready]);
 
+  const pendingCount = useMemo(() => {
+    void tick;
+    return pendingSyncTrips().length;
+  }, [tick, ready]);
+
   const openTrip = useMemo(
     () => (openId ? trips.find((t) => t.id === openId) || null : null),
     [openId, trips],
@@ -45,6 +61,26 @@ export function HistoryScreen({ onNewTrip }: Props) {
   async function reopen() {
     await startTrip({ budget: getState().settings.budgetDefault });
     onNewTrip?.();
+  }
+
+  async function onSyncPending() {
+    const settings = getState().settings;
+    if (!settings.delfosApiBase?.trim()) {
+      setSyncMsg('Configura la URL de Delfos en Ajustes');
+      return;
+    }
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await syncAllPendingToDelfos(settings);
+      if (res.total === 0) setSyncMsg('Nada pendiente');
+      else if (res.fail === 0) setSyncMsg(`Sync ✓ ${res.ok} mercado${res.ok === 1 ? '' : 's'}`);
+      else setSyncMsg(`Sync ${res.ok} ok · ${res.fail} falló`);
+    } catch (e: any) {
+      setSyncMsg(e?.message || 'Sync falló');
+    } finally {
+      setSyncing(false);
+    }
   }
 
   if (openTrip) {
@@ -74,12 +110,32 @@ export function HistoryScreen({ onNewTrip }: Props) {
           keyExtractor={(t) => t.id}
           contentContainerStyle={{ paddingBottom: contentBottomPad(insets.bottom, 24), gap: 12 }}
           ListHeaderComponent={
-            <Pressable
-              onPress={reopen}
-              style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
-            >
-              <Text style={styles.ctaTxt}>Nuevo mercado</Text>
-            </Pressable>
+            <View style={{ gap: 10, marginBottom: 4 }}>
+              <Pressable
+                onPress={reopen}
+                style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
+              >
+                <Text style={styles.ctaTxt}>Nuevo mercado</Text>
+              </Pressable>
+              {pendingCount > 0 && (
+                <Pressable
+                  disabled={syncing}
+                  onPress={() => void onSyncPending()}
+                  style={({ pressed }) => [styles.syncBtn, pressed && { opacity: 0.9 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Sincronizar ${pendingCount} pendientes a Delfos`}
+                >
+                  {syncing ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={styles.syncBtnTxt}>
+                      Sync pendientes a Delfos · {pendingCount}
+                    </Text>
+                  )}
+                </Pressable>
+              )}
+              {syncMsg ? <Text style={styles.syncMsg}>{syncMsg}</Text> : null}
+            </View>
           }
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -237,9 +293,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 4,
   },
   ctaTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
+  syncBtn: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  syncBtnTxt: { color: colors.primary, fontFamily: 'Inter_700Bold', fontSize: 14 },
+  syncMsg: { ...type.label, textAlign: 'center' },
   empty: { paddingVertical: 40, alignItems: 'center', gap: 6 },
   emptyTitle: { ...type.title, fontSize: 18 },
   card: { ...card(), padding: space.md, gap: 6 },

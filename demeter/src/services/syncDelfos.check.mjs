@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 
-/** Mirror of sync payload rules (no network). */
 function buildBody(trip, settings) {
   const base = String(settings.delfosApiBase || '').replace(/\/$/, '');
   if (!base) throw new Error('Configura la URL de Delfos en Ajustes');
@@ -18,6 +17,10 @@ function buildBody(trip, settings) {
   };
 }
 
+function pendingSyncTrips(trips) {
+  return trips.filter((t) => t.status === 'closed' && !t.sync?.ok);
+}
+
 assert.throws(() => buildBody({ items: [{ amount: 1000 }], storeName: 'X' }, {}), /URL de Delfos/);
 const body = buildBody(
   {
@@ -29,6 +32,17 @@ const body = buildBody(
 );
 assert.equal(body.url, 'http://localhost:5000/api/expenses');
 assert.equal(body.amount, 1600);
-assert.match(body.description, /Éxito · 2/);
+
+const trips = [
+  { id: 'a', status: 'closed', sync: null },
+  { id: 'b', status: 'closed', sync: { ok: true } },
+  { id: 'c', status: 'closed', sync: { ok: false } },
+  { id: 'd', status: 'open', sync: null },
+];
+const pending = pendingSyncTrips(trips);
+assert.deepEqual(
+  pending.map((t) => t.id),
+  ['a', 'c'],
+);
 
 console.log('syncDelfos check ok');

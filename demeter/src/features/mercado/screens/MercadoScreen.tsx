@@ -72,8 +72,8 @@ function StopGlyph({ color = '#fff' }: { color?: string }) {
 }
 
 const glyph = StyleSheet.create({
-  icon: { width: 22, height: 22 },
-  stop: { width: 12, height: 12, borderRadius: 3 },
+  icon: { width: 20, height: 20 },
+  stop: { width: 11, height: 11, borderRadius: 2 },
 });
 
 type Props = { onOpenSettings?: () => void };
@@ -224,7 +224,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
       return;
     }
     if (parsed.intent === 'sync') {
-      showToast('Sync con Delfos llega en una próxima versión');
+      showToast('Sync: ve a Historial o Ajustes para enviar pendientes');
       return;
     }
 
@@ -493,7 +493,14 @@ export function MercadoScreen({ onOpenSettings }: Props) {
       {trip && (
         <View
           pointerEvents="box-none"
-          style={[styles.dock, { bottom: floatingDockBottom(insets.bottom) }]}
+          style={[
+            styles.dock,
+            {
+              bottom: floatingDockBottom(insets.bottom),
+              left: Math.max(12, insets.left),
+              right: Math.max(12, insets.right),
+            },
+          ]}
         >
           {composerOpen ? (
             <View style={styles.composer}>
@@ -526,13 +533,13 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                         {
                           opacity: micPulse.interpolate({
                             inputRange: [0, 1],
-                            outputRange: [0.5, 0],
+                            outputRange: [0.45, 0],
                           }),
                           transform: [
                             {
                               scale: micPulse.interpolate({
                                 inputRange: [0, 1],
-                                outputRange: [1, 1.5],
+                                outputRange: [1, 1.35],
                               }),
                             },
                           ],
@@ -790,15 +797,15 @@ const styles = StyleSheet.create({
   itemHint: { color: colors.muted, fontSize: 11, marginTop: 2 },
   dock: {
     position: 'absolute',
-    left: 12,
-    right: 12,
     zIndex: 40,
+    width: undefined,
   },
   fabRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 10,
+    maxWidth: '100%',
   },
   closeFab: {
     height: FAB_SIZE,
@@ -807,6 +814,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 1,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.28,
@@ -821,6 +829,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.22,
@@ -837,53 +846,67 @@ const styles = StyleSheet.create({
   composer: {
     ...card(),
     backgroundColor: colors.surfaceSoft,
-    padding: 10,
+    padding: 8,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
   },
-  composerRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  composerRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: '100%',
+  },
   composerClose: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(15,23,42,0.06)',
+    flexShrink: 0,
   },
-  composerCloseTxt: { fontSize: 16, color: colors.muted, fontFamily: 'Inter_600SemiBold' },
+  composerCloseTxt: { fontSize: 14, color: colors.muted, fontFamily: 'Inter_600SemiBold' },
   composerInput: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     ...field(),
     backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
     color: colors.text,
     fontFamily: 'Inter_400Regular',
   },
   micWrap: {
-    width: FAB_SIZE,
-    height: FAB_SIZE,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+    overflow: 'hidden',
   },
   micPulse: {
     position: 'absolute',
-    width: FAB_SIZE,
-    height: FAB_SIZE,
-    borderRadius: FAB_SIZE / 2,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.micListen,
   },
   mic: {
-    width: FAB_SIZE,
-    height: FAB_SIZE,
-    borderRadius: FAB_SIZE / 2,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.32,
-    shadowRadius: 16,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 4,
   },
   micOn: {
     backgroundColor: colors.micListen,

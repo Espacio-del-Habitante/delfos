@@ -30,6 +30,7 @@ import {
   updateAiSettings,
   updateSettings,
 } from '../../../services/store';
+import { pendingSyncTrips, syncAllPendingToDelfos } from '../../../services/syncDelfos';
 
 type Props = { onBack?: () => void };
 
@@ -37,6 +38,9 @@ export function SettingsScreen({ onBack }: Props) {
   const insets = useSafeAreaInsets();
   const [budget, setBudget] = useState(String(getState().settings.budgetDefault || 200000));
   const [delfosUrl, setDelfosUrl] = useState(getState().settings.delfosApiBase || '');
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const [ai, setAi] = useState<AiSettings>(getAiSettings());
   const [models, setModels] = useState<string[]>([]);
   const [modelSource, setModelSource] = useState('');
@@ -47,7 +51,18 @@ export function SettingsScreen({ onBack }: Props) {
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => subscribe(() => setAi(getAiSettings())), []);
+  useEffect(
+    () =>
+      subscribe(() => {
+        setAi(getAiSettings());
+        setPendingCount(pendingSyncTrips().length);
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    setPendingCount(pendingSyncTrips().length);
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -112,6 +127,28 @@ export function SettingsScreen({ onBack }: Props) {
     }
   }
 
+  async function syncPending() {
+    const url = delfosUrl.trim() || getState().settings.delfosApiBase || '';
+    if (!url) {
+      setSyncMsg('Pon la URL de Delfos arriba y guarda');
+      return;
+    }
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      await updateSettings({ delfosApiBase: url });
+      const res = await syncAllPendingToDelfos(getState().settings);
+      setPendingCount(pendingSyncTrips().length);
+      if (res.total === 0) setSyncMsg('Nada pendiente');
+      else if (res.fail === 0) setSyncMsg(`Sync ✓ ${res.ok} mercado${res.ok === 1 ? '' : 's'}`);
+      else setSyncMsg(`Sync ${res.ok} ok · ${res.fail} falló`);
+    } catch (e: any) {
+      setSyncMsg(e?.message || 'Sync falló');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   const eff = effectiveProvider(ai);
   const meta = providerMeta(eff);
 
@@ -162,9 +199,27 @@ export function SettingsScreen({ onBack }: Props) {
             placeholderTextColor={colors.muted}
           />
           <Text style={styles.hintSmall}>
-            Al cerrar un mercado puedes enviar el total como un gasto. OCR de factura queda
-            opcional y aparte.
+            Los mercados viven en el teléfono. Puedes acumular meses sin sync y luego enviar
+            todos los pendientes de una vez. OCR de factura queda opcional y aparte.
           </Text>
+          <Pressable
+            disabled={syncing}
+            onPress={() => void syncPending()}
+            style={({ pressed }) => [styles.syncBtn, pressed && { opacity: 0.9 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Sincronizar mercados pendientes a Delfos"
+          >
+            {syncing ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={styles.syncBtnTxt}>
+                {pendingCount > 0
+                  ? `Sync pendientes · ${pendingCount}`
+                  : 'Sync pendientes (0)'}
+              </Text>
+            )}
+          </Pressable>
+          {syncMsg ? <Text style={styles.hintSmall}>{syncMsg}</Text> : null}
         </View>
 
         <Text style={styles.section}>Lenguajes (IA)</Text>
@@ -342,6 +397,15 @@ const styles = StyleSheet.create({
   },
   hint: { color: colors.muted, fontSize: 13, lineHeight: 18, marginBottom: 4, fontFamily: 'Inter_400Regular' },
   hintSmall: { color: colors.muted, fontSize: 12, marginTop: 6, fontFamily: 'Inter_400Regular' },
+  syncBtn: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  syncBtnTxt: { color: colors.primary, fontFamily: 'Inter_700Bold', fontSize: 14 },
   card: {
     ...card(),
     padding: space.md,
