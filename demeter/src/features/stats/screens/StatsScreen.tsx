@@ -18,11 +18,13 @@ import {
 import {
   initStore,
   subscribe,
-  listTrips,
+  listClosedTrips,
   getProducts,
   getStatsWidgets,
   setStatsWidgets,
+  getCustomCategories,
 } from '../../../services/store';
+import { mergeCategories } from '../../../domain/categories';
 import { TourTarget } from '@wrack/react-native-tour-guide';
 import { contentBottomPad } from '../../../shared/BottomNav';
 import { WidgetPicker } from '../components/WidgetPicker';
@@ -72,31 +74,40 @@ export function StatsScreen() {
 
   const data = useMemo(() => {
     void tick;
-    const trips = listTrips().filter((t) => t.items?.length);
+    const trips = listClosedTrips();
     const products = getProducts();
+    const catalog = mergeCategories(getCustomCategories());
     const catTotals = aggregateCategories(trips);
     const ideal = idealMonthlyMarket(products);
     return {
       trips,
       yearTotal: spentTotal(trips),
-      bars: categoryBars(trips),
+      bars: categoryBars(trips, catalog),
       sparks: productsWithSparks(products),
       blurb: shareBlurb(catTotals),
       ideal,
       months: monthlySpendSeries(trips),
+      catalog,
     };
   }, [tick, ready]);
 
+  function blurbText() {
+    const { blurb, catalog } = data;
+    if (!blurb) return 'Aún no hay mercados cerrados para comparar.';
+    const top = categoryMeta(blurb.topId, catalog);
+    if (!blurb.secondId) {
+      return `En tus mercados cerrados lidera ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}).`;
+    }
+    const second = categoryMeta(blurb.secondId, catalog);
+    return `Vas más en ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}) que en ${second.label.toLowerCase()} (${formatCop(blurb.secondAmount)}).`;
+  }
+
   async function shareCard() {
-    const { blurb, yearTotal, trips, ideal } = data;
-    const lean =
-      blurb.lean === 'proteina'
-        ? `Vas más en proteína (${formatCop(blurb.proteina)}) que en harinas (${formatCop(blurb.harinas)}).`
-        : `Estás llevando más harinas (${formatCop(blurb.harinas)}) que proteína (${formatCop(blurb.proteina)}).`;
+    const { yearTotal, trips, ideal } = data;
     const idealLine =
       ideal.items.length > 0 ? `\nMercado ideal mensual ≈ ${formatCop(ideal.total)}` : '';
     await Share.share({
-      message: `🌿 Mi MercApp en números\n${trips.length} cosechas · ${formatCop(yearTotal)}\n${lean}${idealLine}`,
+      message: `🌿 Mi MercApp en números\n${trips.length} mercados · ${formatCop(yearTotal)}\n${blurbText()}${idealLine}`,
     });
   }
 
@@ -117,11 +128,7 @@ export function StatsScreen() {
           <View key={id} style={styles.shareCard}>
             <Text style={styles.shareEyebrow}>Para redes</Text>
             <Text style={styles.shareTitle}>✨ Mi MercApp en números</Text>
-            <Text style={styles.shareBody}>
-              {data.blurb.lean === 'proteina'
-                ? `Vas más en proteína (${formatCop(data.blurb.proteina)}) que en harinas (${formatCop(data.blurb.harinas)}).`
-                : `Estás llevando más harinas (${formatCop(data.blurb.harinas)}) que proteína (${formatCop(data.blurb.proteina)}).`}
-            </Text>
+            <Text style={styles.shareBody}>{blurbText()}</Text>
             <Pressable
               onPress={shareCard}
               style={({ pressed }) => [
@@ -154,7 +161,7 @@ export function StatsScreen() {
                   {data.ideal.monthsSampled === 1 ? '' : 'es'} de muestra
                 </Text>
                 {data.ideal.items.map((it) => {
-                  const meta = categoryMeta(it.category);
+                  const meta = categoryMeta(it.category, data.catalog);
                   return (
                     <View key={it.name} style={styles.idealRow}>
                       <Text style={styles.idealEmoji}>{meta.emoji}</Text>
@@ -186,7 +193,7 @@ export function StatsScreen() {
               <Text style={styles.muted}>Repite productos en varios mercados para ver la línea.</Text>
             ) : (
               data.sparks.map((p) => {
-                const meta = categoryMeta(p.category);
+                const meta = categoryMeta(p.category, data.catalog);
                 const deltaTxt =
                   p.delta == null
                     ? 'sin delta'
@@ -226,7 +233,7 @@ export function StatsScreen() {
         <View style={styles.headRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>📊 Estadísticas</Text>
-            <Text style={styles.sub}>Tus mercados en gráficos vivos.</Text>
+            <Text style={styles.sub}>Solo mercados cerrados · datos históricos.</Text>
           </View>
           <TourTarget id="tour-gadgets" style={styles.editBtn}>
             <Pressable

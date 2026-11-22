@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { TourTarget } from '@wrack/react-native-tour-guide';
 import { colors, radius, space, card, field, type } from '../../../shared/theme';
 import { formatCop, formatQty } from '../../../shared/format';
-import { categoryMeta } from '../../../domain/categories';
+import { categoryMeta, mergeCategories } from '../../../domain/categories';
 import { parseUtterance, findItemMatches } from '../../../domain/parseUtterance';
 import { categoryBars, categoryBreakdown, shareBlurb } from '../../../domain/stats';
 import {
@@ -23,6 +23,7 @@ import {
   subscribe,
   getActiveTrip,
   getState,
+  getCustomCategories,
   startTrip,
   addItem,
   updateItem,
@@ -149,10 +150,18 @@ export function MercadoScreen({ onOpenSettings }: Props) {
 
   const liveCats = useMemo(() => {
     void tick;
-    if (!trip?.items?.length) return { bars: [] as ReturnType<typeof categoryBars>, blurb: null as ReturnType<typeof shareBlurb> | null };
+    const catalog = mergeCategories(getCustomCategories());
+    if (!trip?.items?.length) {
+      return {
+        bars: [] as ReturnType<typeof categoryBars>,
+        blurb: null as ReturnType<typeof shareBlurb> | null,
+        catalog,
+      };
+    }
     return {
-      bars: categoryBars([trip]),
+      bars: categoryBars([trip], catalog),
       blurb: shareBlurb(categoryBreakdown(trip)),
+      catalog,
     };
   }, [tick, trip]);
 
@@ -435,9 +444,15 @@ export function MercadoScreen({ onOpenSettings }: Props) {
               <Text style={styles.liveStatsTitle}>En este mercado</Text>
               {liveCats.blurb && (
                 <Text style={styles.liveStatsBlurb}>
-                  {liveCats.blurb.lean === 'proteina'
-                    ? `Vas más en proteína (${formatCop(liveCats.blurb.proteina)}) que en harinas (${formatCop(liveCats.blurb.harinas)}).`
-                    : `Vas más en harinas (${formatCop(liveCats.blurb.harinas)}) que en proteína (${formatCop(liveCats.blurb.proteina)}).`}
+                  {(() => {
+                    const b = liveCats.blurb!;
+                    const top = categoryMeta(b.topId, liveCats.catalog);
+                    if (!b.secondId) {
+                      return `En este mercado llevas sobre todo ${top.label.toLowerCase()} (${formatCop(b.topAmount)}).`;
+                    }
+                    const second = categoryMeta(b.secondId, liveCats.catalog);
+                    return `Vas más en ${top.label.toLowerCase()} (${formatCop(b.topAmount)}) que en ${second.label.toLowerCase()} (${formatCop(b.secondAmount)}).`;
+                  })()}
                 </Text>
               )}
               {liveCats.bars.map((b) => (
@@ -465,7 +480,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
               </Text>
               <View style={styles.chipsRow}>
                 {habits.map((h) => {
-                  const meta = categoryMeta(h.category);
+                  const meta = categoryMeta(h.category, liveCats.catalog);
                   return (
                     <Pressable
                       key={h.name}
@@ -509,7 +524,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
               </View>
             }
             renderItem={({ item }) => {
-              const meta = categoryMeta(item.category);
+              const meta = categoryMeta(item.category, liveCats.catalog);
               return (
                 <Pressable
                   style={({ pressed }) => [styles.item, pressed && { transform: [{ scale: 0.985 }] }]}

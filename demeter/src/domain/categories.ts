@@ -1,6 +1,8 @@
 /** Categorías de mercado — keywords locales, cero tokens. */
 
-export const CATEGORIES = [
+export type CategoryDef = { id: string; label: string; emoji: string };
+
+export const CATEGORIES: CategoryDef[] = [
   { id: 'proteina', label: 'Proteína', emoji: '🥩' },
   { id: 'lacteos', label: 'Lácteos', emoji: '🥛' },
   { id: 'verduras', label: 'Verduras', emoji: '🥬' },
@@ -11,7 +13,7 @@ export const CATEGORIES = [
   { id: 'bebidas', label: 'Bebidas', emoji: '🧃' },
   { id: 'snacks', label: 'Snacks', emoji: '🍿' },
   { id: 'otros', label: 'Otros', emoji: '🧺' },
-] as const;
+];
 
 const RULES: { id: string; words: string[] }[] = [
   { id: 'proteina', words: ['carne', 'res', 'pollo', 'pechuga', 'cerdo', 'pescado', 'atun', 'atún', 'huevo', 'huevos', 'jamon', 'jamón', 'salchicha', 'chorizo', 'mortadela'] },
@@ -39,6 +41,29 @@ export function categorizeProduct(name = '') {
   return 'otros';
 }
 
-export function categoryMeta(id: string) {
-  return CATEGORIES.find((c) => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+export function slugCategory(label: string) {
+  return String(label || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 32) || `cat_${Date.now()}`;
+}
+
+export function mergeCategories(custom: CategoryDef[] = []): CategoryDef[] {
+  const map = new Map<string, CategoryDef>();
+  for (const c of CATEGORIES) map.set(c.id, c);
+  for (const c of custom) {
+    if (!c?.id || !c.label) continue;
+    map.set(c.id, { id: c.id, label: c.label, emoji: c.emoji || '🧺' });
+  }
+  return [...map.values()];
+}
+
+export function categoryMeta(id: string, custom: CategoryDef[] = []): CategoryDef {
+  return (
+    mergeCategories(custom).find((c) => c.id === id) ||
+    CATEGORIES[CATEGORIES.length - 1]
+  );
 }

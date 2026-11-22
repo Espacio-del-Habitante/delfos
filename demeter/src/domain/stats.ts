@@ -14,7 +14,7 @@ export const STATS_WIDGETS = [
   { id: 'trend', emoji: '📈', label: 'Gasto mensual', blurb: 'Línea de los últimos meses' },
   { id: 'ideal', emoji: '🧺', label: 'Mercado ideal', blurb: 'Tu ritmo mensual estimado' },
   { id: 'prices', emoji: '🏷️', label: 'Precios que cambian', blurb: 'Unitario vs compra pasada' },
-  { id: 'share', emoji: '✨', label: 'Card para redes', blurb: 'Lean proteína / harinas' },
+  { id: 'share', emoji: '✨', label: 'Card para redes', blurb: 'Top 2 categorías del gasto' },
 ] as const;
 
 export type StatsWidgetId = (typeof STATS_WIDGETS)[number]['id'];
@@ -107,16 +107,28 @@ export function aggregateCategories(trips: TripLike[]) {
   return map;
 }
 
-export function categoryBars(trips: TripLike[]) {
+export function categoryBars(
+  trips: TripLike[],
+  catalog: Array<{ id: string; label: string; emoji: string }> = CATEGORIES,
+) {
   const totals = aggregateCategories(trips);
   const sum = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
-  return CATEGORIES.map((c) => ({
-    id: c.id,
-    label: c.label,
-    emoji: c.emoji,
-    amount: totals[c.id] || 0,
-    pct: Math.round(((totals[c.id] || 0) / sum) * 100),
-  })).filter((r) => r.amount > 0);
+  const byId = new Map(catalog.map((c) => [c.id, c]));
+  const ids = new Set([...byId.keys(), ...Object.keys(totals)]);
+  return [...ids]
+    .map((id) => {
+      const meta = byId.get(id) || { id, label: id, emoji: '🧺' };
+      const amount = totals[id] || 0;
+      return {
+        id,
+        label: meta.label,
+        emoji: meta.emoji,
+        amount,
+        pct: Math.round((amount / sum) * 100),
+      };
+    })
+    .filter((r) => r.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
 }
 
 export function lastDelta(history: Array<{ unitPrice: number }>) {
@@ -152,13 +164,27 @@ export function productsWithSparks(products: Record<string, ProductLike>, limit 
     }));
 }
 
-export function shareBlurb(catTotals: Record<string, number>) {
-  const proteina = catTotals.proteina || 0;
-  const harinas = catTotals.harinas || 0;
+export type ShareBlurb = {
+  /** Categoría #1 por gasto */
+  topId: string;
+  topAmount: number;
+  /** Categoría #2 (si hay) */
+  secondId: string | null;
+  secondAmount: number;
+};
+
+/** Blurb dinámico: compara las 2 categorías con más plata (no fijo proteína/harinas). */
+export function shareBlurb(catTotals: Record<string, number>): ShareBlurb | null {
+  const rows = Object.entries(catTotals)
+    .map(([id, amount]) => ({ id, amount: Number(amount) || 0 }))
+    .filter((r) => r.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  if (!rows.length) return null;
   return {
-    lean: (proteina >= harinas ? 'proteina' : 'harinas') as 'proteina' | 'harinas',
-    proteina,
-    harinas,
+    topId: rows[0].id,
+    topAmount: rows[0].amount,
+    secondId: rows[1]?.id ?? null,
+    secondAmount: rows[1]?.amount ?? 0,
   };
 }
 

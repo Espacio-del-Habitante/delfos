@@ -51,6 +51,22 @@ App.tsx
 - **No** ocurre al cerrar el mercado (Checkout solo guarda).
 - Pendientes = `status === 'closed' && !sync?.ok` (incluye meses sin sync y reintentos).
 - `syncAllPendingToDelfos` en Historial y Ajustes: un gasto por mercado, en lote.
+- Copy de botón: “Enviar a Delfos” (no “Sync pendientes…”).
+
+## Historial y Stats (solo cerrados)
+
+- Historial = `listClosedTrips()` → `status === 'closed'`. Un mercado abierto no aparece ahí.
+- Estadísticas (barras, donut, trend, share) también sobre viajes cerrados. Productos/hábitos siguen siendo locales.
+
+## Categorías propias
+
+- `settings.customCategories` + helpers `addCustomCategory` / `removeCustomCategory`.
+- Se mezclan con el catálogo builtin (`mergeCategories`) en Mercado, Stats e ItemEdit.
+
+## Precio unitario
+
+- En ItemEdit: muestra COP/unidad; al cambiar qty recalcula el total con el rate actual.
+- Comparación web: `inferPackFromText` + `unitPriceAs` para ver Éxito 5 kg vs tu libra en la misma unidad.
 
 ## Stats — mercado ideal mensual
 
@@ -62,7 +78,7 @@ App.tsx
 
 - En Mercado, bloque “En este mercado” bajo el hero del carrito abierto.
 - Reusa `categoryBars([trip])` + `shareBlurb(categoryBreakdown(trip))` del domain de Stats.
-- Barras por categoría + lean proteína vs harinas; desaparece si el carrito está vacío.
+- Blurb dinámico: top 2 categorías reales del carrito (no fijo proteína/harinas).
 
 ## Stats — gadgets de gráficos
 

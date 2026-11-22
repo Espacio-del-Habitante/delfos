@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uid, todayIso } from '../shared/format';
 import { DEFAULT_AI, type AiSettings } from './aiSettings';
 import { DEFAULT_STATS_WIDGETS, normalizeStatsWidgets } from '../domain/stats';
+import { slugCategory, type CategoryDef } from '../domain/categories';
 
 const KEY = 'demeter_mercado_v1';
 
@@ -44,6 +45,8 @@ export type AppSettings = {
   delfosAccountId?: string | null;
   /** Gadgets visibles en Estadísticas (ids de domain/stats). */
   statsWidgets?: string[];
+  /** Categorías propias (como en Delfos), se mezclan con el catálogo builtin. */
+  customCategories?: CategoryDef[];
 };
 
 type State = {
@@ -61,6 +64,7 @@ const DEFAULT: State = {
     delfosApiBase: '',
     delfosAccountId: null,
     statsWidgets: [...DEFAULT_STATS_WIDGETS],
+    customCategories: [],
   },
   activeTripId: null,
   trips: [],
@@ -111,6 +115,9 @@ export async function initStore() {
           statsWidgets: normalizeStatsWidgets(
             (data.settings && data.settings.statsWidgets) || DEFAULT_STATS_WIDGETS,
           ),
+          customCategories: normalizeCustomCategories(
+            (data.settings && data.settings.customCategories) || [],
+          ),
         },
         products: data.products || {},
         trips: Array.isArray(data.trips) ? data.trips : [],
@@ -140,9 +147,31 @@ export async function updateSettings(patch: Partial<AppSettings>) {
     statsWidgets: patch.statsWidgets
       ? normalizeStatsWidgets(patch.statsWidgets)
       : cache.settings.statsWidgets,
+    customCategories: patch.customCategories
+      ? normalizeCustomCategories(patch.customCategories)
+      : cache.settings.customCategories,
   };
   await persist();
   return cache.settings;
+}
+
+function normalizeCustomCategories(raw: unknown): CategoryDef[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CategoryDef[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const id = String((row as CategoryDef).id || '').trim();
+    const label = String((row as CategoryDef).label || '').trim();
+    if (!id || !label || seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      label,
+      emoji: String((row as CategoryDef).emoji || '🧺').slice(0, 8) || '🧺',
+    });
+  }
+  return out;
 }
 
 export function getStatsWidgets() {
@@ -153,6 +182,35 @@ export async function setStatsWidgets(ids: string[]) {
   cache.settings.statsWidgets = normalizeStatsWidgets(ids);
   await persist();
   return cache.settings.statsWidgets;
+}
+
+export function getCustomCategories(): CategoryDef[] {
+  return normalizeCustomCategories(cache.settings.customCategories);
+}
+
+export async function addCustomCategory(input: { label: string; emoji?: string }) {
+  const label = String(input.label || '').trim();
+  if (!label) throw new Error('Nombre vacío');
+  const emoji = String(input.emoji || '🧺').trim() || '🧺';
+  let id = slugCategory(label);
+  const existing = getCustomCategories();
+  if (existing.some((c) => c.id === id)) id = `${id}_${Date.now().toString(36).slice(-4)}`;
+  const next = [...existing, { id, label, emoji }];
+  cache.settings.customCategories = next;
+  await persist();
+  return next;
+}
+
+export async function removeCustomCategory(id: string) {
+  const next = getCustomCategories().filter((c) => c.id !== id);
+  cache.settings.customCategories = next;
+  await persist();
+  return next;
+}
+
+/** Solo mercados cerrados — historial y estadísticas. */
+export function listClosedTrips() {
+  return listTrips().filter((t) => t.status === 'closed');
 }
 
 export async function updateAiSettings(patch: Partial<AiSettings>) {

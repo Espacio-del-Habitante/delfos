@@ -17,9 +17,10 @@ import { categoryBreakdown, tripLineTotal } from '../../../domain/stats';
 import {
   initStore,
   subscribe,
-  listTrips,
+  listClosedTrips,
   startTrip,
   getState,
+  getCustomCategories,
   type Trip,
 } from '../../../services/store';
 import { pendingSyncTrips, syncAllPendingToDelfos } from '../../../services/syncDelfos';
@@ -45,7 +46,7 @@ export function HistoryScreen({ onNewTrip }: Props) {
 
   const trips = useMemo(() => {
     void tick;
-    return listTrips().filter((t) => t.status === 'closed' || (t.items?.length ?? 0) > 0);
+    return listClosedTrips();
   }, [tick, ready]);
 
   const pendingCount = useMemo(() => {
@@ -123,13 +124,13 @@ export function HistoryScreen({ onNewTrip }: Props) {
                   onPress={() => void onSyncPending()}
                   style={({ pressed }) => [styles.syncBtn, pressed && { opacity: 0.9 }]}
                   accessibilityRole="button"
-                  accessibilityLabel={`Sincronizar ${pendingCount} pendientes a Delfos`}
+                  accessibilityLabel={`Enviar ${pendingCount} mercados a Delfos`}
                 >
                   {syncing ? (
                     <ActivityIndicator color={colors.primary} />
                   ) : (
                     <Text style={styles.syncBtnTxt}>
-                      Sync pendientes a Delfos · {pendingCount}
+                      Enviar a Delfos · {pendingCount}
                     </Text>
                   )}
                 </Pressable>
@@ -188,7 +189,7 @@ function TripCard({ trip: t, onPress }: { trip: Trip; onPress: () => void }) {
       {cats.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pills}>
           {cats.map(([cat, amt]) => {
-            const meta = categoryMeta(cat);
+            const meta = categoryMeta(cat, getCustomCategories());
             return (
               <View key={cat} style={styles.pill}>
                 <Text style={styles.pillTxt}>
@@ -261,7 +262,7 @@ function TripDetail({
           <Text style={styles.muted}>Este mercado no tiene ítems.</Text>
         }
         renderItem={({ item }) => {
-          const meta = categoryMeta(item.category);
+          const meta = categoryMeta(item.category, getCustomCategories());
           return (
             <View style={styles.itemRow}>
               <Text style={styles.itemEmoji}>{meta.emoji}</Text>

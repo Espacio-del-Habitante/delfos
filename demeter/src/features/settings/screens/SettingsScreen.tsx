@@ -26,11 +26,16 @@ import {
 import {
   getAiSettings,
   getState,
+  getCustomCategories,
+  addCustomCategory,
+  removeCustomCategory,
   subscribe,
   updateAiSettings,
   updateSettings,
 } from '../../../services/store';
 import { pendingSyncTrips, syncAllPendingToDelfos } from '../../../services/syncDelfos';
+
+const CAT_EMOJIS = ['🧺', '🏷️', '🏠', '🐶', '💊', '🧸', '🔧', '🎁', '☕', '🌶️'];
 
 type Props = {
   onBack?: () => void;
@@ -53,12 +58,16 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
   const [testing, setTesting] = useState(false);
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [customCats, setCustomCats] = useState(getCustomCategories());
+  const [newCatLabel, setNewCatLabel] = useState('');
+  const [newCatEmoji, setNewCatEmoji] = useState('🧺');
 
   useEffect(
     () =>
       subscribe(() => {
         setAi(getAiSettings());
         setPendingCount(pendingSyncTrips().length);
+        setCustomCats(getCustomCategories());
       }),
     [],
   );
@@ -224,19 +233,74 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
             onPress={() => void syncPending()}
             style={({ pressed }) => [styles.syncBtn, pressed && { opacity: 0.9 }]}
             accessibilityRole="button"
-            accessibilityLabel="Sincronizar mercados pendientes a Delfos"
+            accessibilityLabel="Enviar mercados pendientes a Delfos"
           >
             {syncing ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
               <Text style={styles.syncBtnTxt}>
                 {pendingCount > 0
-                  ? `Sync pendientes · ${pendingCount}`
-                  : 'Sync pendientes (0)'}
+                  ? `Enviar a Delfos · ${pendingCount}`
+                  : 'Enviar a Delfos'}
               </Text>
             )}
           </Pressable>
           {syncMsg ? <Text style={styles.hintSmall}>{syncMsg}</Text> : null}
+        </View>
+
+        <Text style={styles.section}>📂 Categorías propias</Text>
+        <View style={styles.card}>
+          <Text style={styles.hintSmall}>
+            Como en Delfos: créalas aquí y elígelas al editar un producto.
+          </Text>
+          <View style={styles.emojiRow}>
+            {CAT_EMOJIS.map((e) => (
+              <Pressable
+                key={e}
+                onPress={() => setNewCatEmoji(e)}
+                style={[styles.emojiChip, newCatEmoji === e && styles.emojiChipOn]}
+              >
+                <Text style={{ fontSize: 18 }}>{e}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <TextInput
+            style={styles.input}
+            value={newCatLabel}
+            onChangeText={setNewCatLabel}
+            placeholder="Nombre de categoría"
+            placeholderTextColor={colors.muted}
+          />
+          <Pressable
+            onPress={() => {
+              void (async () => {
+                try {
+                  await addCustomCategory({ label: newCatLabel, emoji: newCatEmoji });
+                  setNewCatLabel('');
+                  showToast('Categoría creada');
+                } catch (e: any) {
+                  showToast(e?.message || 'No se pudo crear');
+                }
+              })();
+            }}
+            style={({ pressed }) => [styles.syncBtn, { marginTop: 10 }, pressed && { opacity: 0.9 }]}
+          >
+            <Text style={styles.syncBtnTxt}>Crear categoría</Text>
+          </Pressable>
+          {customCats.length === 0 ? (
+            <Text style={[styles.hintSmall, { marginTop: 10 }]}>Aún no tienes categorías propias.</Text>
+          ) : (
+            customCats.map((c) => (
+              <View key={c.id} style={styles.catRow}>
+                <Text style={styles.catLabel}>
+                  {c.emoji}  {c.label}
+                </Text>
+                <Pressable onPress={() => void removeCustomCategory(c.id)} hitSlop={8}>
+                  <Text style={styles.catRemove}>Quitar</Text>
+                </Pressable>
+              </View>
+            ))
+          )}
         </View>
 
         <Text style={styles.section}>Lenguajes (IA)</Text>
@@ -423,6 +487,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   syncBtnTxt: { color: colors.primary, fontFamily: 'Inter_700Bold', fontSize: 14 },
+  emojiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 10 },
+  emojiChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  emojiChipOn: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(27,122,74,0.12)',
+  },
+  catRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    marginTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  catLabel: { fontFamily: 'Inter_600SemiBold', color: colors.text, fontSize: 14 },
+  catRemove: { color: colors.danger, fontFamily: 'Inter_600SemiBold', fontSize: 13 },
   tourBtn: {
     marginTop: 10,
     backgroundColor: colors.primary,

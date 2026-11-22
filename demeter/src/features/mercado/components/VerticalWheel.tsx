@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  Pressable,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
   type StyleProp,
@@ -37,6 +38,11 @@ export function VerticalWheel<T>({
   centerSlot,
 }: Props<T>) {
   const ref = useRef<{ scrollTo: (opts: { y: number; animated?: boolean }) => void } | null>(null);
+  const wrapRef = useRef<View | null>(null);
+  const onChangeRef = useRef(onChangeIndex);
+  onChangeRef.current = onChangeIndex;
+  const indexRef = useRef(index);
+  indexRef.current = index;
   const [scrollY, setScrollY] = useState(index * ITEM_H);
   const ignoreScroll = useRef(false);
 
@@ -49,6 +55,26 @@ export function VerticalWheel<T>({
       ignoreScroll.current = false;
     });
   }, [index, items.length]);
+
+  // Web: el ScrollView padre se come la rueda; paramos bubble + wheel nativo.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node = wrapRef.current as unknown as HTMLElement | null;
+    if (!node || typeof node.addEventListener !== 'function') return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const dir = e.deltaY > 0 ? 1 : e.deltaY < 0 ? -1 : 0;
+      if (!dir) return;
+      const cur = indexRef.current;
+      const next = Math.max(0, Math.min(items.length - 1, cur + dir));
+      if (next !== cur) onChangeRef.current(next);
+    };
+
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
+  }, [items.length]);
 
   function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     if (ignoreScroll.current) return;
@@ -66,10 +92,18 @@ export function VerticalWheel<T>({
     if (i !== index) onChangeIndex(i);
   }
 
+  function pick(i: number) {
+    if (i === index) return;
+    onChangeIndex(i);
+  }
+
   const center = scrollY / ITEM_H;
 
   return (
-    <View style={[styles.wrap, style]}>
+    <View
+      ref={wrapRef as never}
+      style={[styles.wrap, style, Platform.OS === 'web' ? webTouch : null]}
+    >
       <View style={styles.band} pointerEvents="none" />
       <ScrollView
         ref={ref as never}
@@ -83,6 +117,7 @@ export function VerticalWheel<T>({
         onMomentumScrollEnd={onEnd}
         onScrollEndDrag={onEnd}
         contentContainerStyle={{ paddingVertical: ITEM_H }}
+        scrollEnabled={Platform.OS !== 'web'}
       >
         {items.map((item, i) => {
           const dist = Math.abs(i - center);
@@ -91,7 +126,13 @@ export function VerticalWheel<T>({
           const scale = isCenter ? 1 : 0.88;
           const blurry = !isCenter;
           return (
-            <View key={i} style={styles.row}>
+            <Pressable
+              key={i}
+              onPress={() => pick(i)}
+              style={styles.row}
+              accessibilityRole="button"
+              accessibilityLabel={labelOf(item, i)}
+            >
               <Text
                 style={[
                   styles.label,
@@ -103,11 +144,15 @@ export function VerticalWheel<T>({
               >
                 {labelOf(item, i)}
               </Text>
-            </View>
+            </Pressable>
           );
         })}
       </ScrollView>
-      {centerSlot ? <View style={styles.centerOverlay}>{centerSlot}</View> : null}
+      {centerSlot ? (
+        <View style={styles.centerOverlay} pointerEvents="box-none">
+          {centerSlot}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -117,12 +162,16 @@ const webBlur =
     ? ({ filter: 'blur(1.4px)' } as TextStyle)
     : null;
 
+const webTouch =
+  Platform.OS === 'web'
+    ? ({ overscrollBehavior: 'contain' } as ViewStyle)
+    : null;
+
 const styles = StyleSheet.create({
   wrap: {
     height: ITEM_H * VISIBLE,
     overflow: 'hidden',
     borderRadius: 16,
-    // Mimetiza el modal (blanco), sin caja grisácea.
     backgroundColor: 'transparent',
   },
   band: {
