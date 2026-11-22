@@ -76,9 +76,9 @@ App.tsx
 
 ## Stats en vivo (antes de cerrar)
 
-- En Mercado, bloque “En este mercado” bajo el hero del carrito abierto.
-- Reusa `categoryBars([trip])` + `shareBlurb(categoryBreakdown(trip))` del domain de Stats.
-- Blurb dinámico: top 2 categorías reales del carrito (no fijo proteína/harinas).
+- En Mercado, link “Ver estadísticas” (no el bloque completo: no tapa el carrito).
+- Modal `TripStatsSheet` con `categoryBars` + `shareBlurb` (top 2 categorías reales).
+- Ítems del carrito: swipe izquierda → Quitar (`SwipeableRow` con PanResponder).
 
 ## Stats — gadgets de gráficos
 
