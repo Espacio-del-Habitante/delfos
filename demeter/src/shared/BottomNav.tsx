@@ -1,5 +1,6 @@
-import { View, Pressable, Image, StyleSheet, Platform } from 'react-native';
+import { View, Pressable, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 import { TourTarget } from '@wrack/react-native-tour-guide';
 import { colors } from './theme';
 
@@ -36,45 +37,68 @@ export function contentBottomPad(safeBottom: number, extra = FAB_SIZE + 16) {
   return floatingDockBottom(safeBottom) + extra;
 }
 
-type Tab = { id: BottomNavId; label: string; uri: string };
-
-function svgUri(paths: string) {
-  return (
-    'data:image/svg+xml,' +
-    encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`,
-    )
-  );
-}
-
-function svgUriActive(paths: string) {
-  return (
-    'data:image/svg+xml,' +
-    encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#1b7a4a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`,
-    )
-  );
-}
-
-const PATHS = {
-  mercado:
-    '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
-  recetas:
-    '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
-  historial:
-    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-  stats: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
-  ajustes:
-    '<circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
-};
+type Tab = { id: BottomNavId; label: string };
 
 const TABS: Tab[] = [
-  { id: 'mercado', label: 'Mercado', uri: PATHS.mercado },
-  { id: 'recetas', label: 'Recetas', uri: PATHS.recetas },
-  { id: 'historial', label: 'Historial', uri: PATHS.historial },
-  { id: 'stats', label: 'Stats', uri: PATHS.stats },
-  { id: 'ajustes', label: 'Ajustes', uri: PATHS.ajustes },
+  { id: 'mercado', label: 'Mercado' },
+  { id: 'recetas', label: 'Recetas' },
+  { id: 'historial', label: 'Historial' },
+  { id: 'stats', label: 'Stats' },
+  { id: 'ajustes', label: 'Ajustes' },
 ];
+
+function TabIcon({ id, active, size }: { id: BottomNavId; active: boolean; size: number }) {
+  // Inactivo más oscuro que colors.muted: en pantallas chicas / píldora clara se perdían.
+  const stroke = active ? colors.primary : '#374151';
+  const sw = active ? 2.35 : 2.15;
+  const common = {
+    stroke,
+    strokeWidth: sw,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    fill: 'none' as const,
+  };
+
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityElementsHidden>
+      {id === 'mercado' && (
+        <>
+          <Circle cx="9" cy="21" r="1.15" fill={stroke} stroke="none" />
+          <Circle cx="20" cy="21" r="1.15" fill={stroke} stroke="none" />
+          <Path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" {...common} />
+        </>
+      )}
+      {id === 'recetas' && (
+        <>
+          <Path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" {...common} />
+          <Path d="M7 2v20" {...common} />
+          <Path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" {...common} />
+        </>
+      )}
+      {id === 'historial' && (
+        <>
+          <Circle cx="12" cy="12" r="10" {...common} />
+          <Polyline points="12 6 12 12 16 14" {...common} />
+        </>
+      )}
+      {id === 'stats' && (
+        <>
+          <Polyline points="23 6 13.5 15.5 8.5 10.5 1 18" {...common} />
+          <Polyline points="17 6 23 6 23 12" {...common} />
+        </>
+      )}
+      {id === 'ajustes' && (
+        <>
+          <Circle cx="12" cy="12" r="3" {...common} />
+          <Path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+            {...common}
+          />
+        </>
+      )}
+    </Svg>
+  );
+}
 
 type Props = {
   active: BottomNavId;
@@ -83,25 +107,32 @@ type Props = {
 
 /**
  * Píldora flotante icon-only, como Delfos `.bottom-nav`.
- * Respeta safe-area inferior.
+ * Icons vía react-native-svg (Image+data-URI SVG no pinta en Android nativo).
+ * Respeta safe-area inferior; en anchos chicos compacta el hit-target.
  */
 export function BottomNav({ active, onChange }: Props) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  // 5×40 + gaps ≈ 228; bajo ~340px compactamos para que no se corte la píldora.
+  const compact = width < 360;
+  const itemSize = compact ? 36 : 40;
+  const iconSize = compact ? 18 : 20;
 
   return (
     <View
       pointerEvents="box-none"
       style={[styles.wrap, { bottom: navDockBottom(insets.bottom) }]}
     >
-      <View style={styles.pill} accessibilityRole="tablist">
+      <View style={[styles.pill, compact && styles.pillCompact]} accessibilityRole="tablist">
         {TABS.map((t) => {
           const on = active === t.id;
           return (
-            <TourTarget key={t.id} id={`tour-nav-${t.id}`} style={styles.item}>
+            <TourTarget key={t.id} id={`tour-nav-${t.id}`} style={{ width: itemSize, height: itemSize }}>
               <Pressable
                 onPress={() => onChange(t.id)}
                 style={({ pressed }) => [
                   styles.item,
+                  { width: itemSize, height: itemSize, borderRadius: itemSize / 2 },
                   on && styles.itemOn,
                   pressed && styles.itemPressed,
                 ]}
@@ -109,12 +140,7 @@ export function BottomNav({ active, onChange }: Props) {
                 accessibilityState={{ selected: on }}
                 accessibilityLabel={t.label}
               >
-                <Image
-                  source={{ uri: on ? svgUriActive(t.uri) : svgUri(t.uri) }}
-                  style={styles.icon}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                />
+                <TabIcon id={t.id} active={on} size={iconSize} />
               </Pressable>
             </TourTarget>
           );
@@ -137,7 +163,7 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.7)',
     ...(Platform.OS === 'web'
@@ -152,6 +178,10 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 12,
   },
+  pillCompact: {
+    gap: 2,
+    padding: 5,
+  },
   item: {
     width: 40,
     height: 40,
@@ -165,5 +195,4 @@ const styles = StyleSheet.create({
   itemPressed: {
     transform: [{ scale: 0.92 }],
   },
-  icon: { width: 20, height: 20 },
 });

@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { colors, radius, type } from '../../../shared/theme';
 import { SHOP_PROFILES, type ShopProfileId } from '../../../domain/shopProfiles';
 
@@ -10,32 +10,51 @@ type Props = {
 
 /** Selector de perfil de compra (home + ajustes). */
 export function ProfilePicker({ value, onChange, compact }: Props) {
+  const chips = (
+    <View style={[styles.row, compact && styles.rowCompact]}>
+      {SHOP_PROFILES.map((p) => {
+        const on = value === p.id;
+        return (
+          <Pressable
+            key={p.id}
+            onPress={() => onChange(p.id)}
+            style={({ pressed }) => [
+              styles.chip,
+              compact && styles.chipCompact,
+              on && styles.chipOn,
+              pressed && { opacity: 0.85 },
+            ]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={p.label}
+          >
+            <Text
+              style={[styles.chipTxt, on && styles.chipTxtOn]}
+              numberOfLines={1}
+              // En compact el row es horizontal-scroll: no forzar ellipsis por ancho del padre.
+            >
+              {p.chip}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
   return (
     <View style={styles.wrap} accessibilityRole="radiogroup">
       {!compact ? <Text style={styles.label}>¿Con qué mood mercas hoy?</Text> : null}
-      <View style={styles.row}>
-        {SHOP_PROFILES.map((p) => {
-          const on = value === p.id;
-          return (
-            <Pressable
-              key={p.id}
-              onPress={() => onChange(p.id)}
-              style={({ pressed }) => [
-                styles.chip,
-                on && styles.chipOn,
-                pressed && { opacity: 0.85 },
-              ]}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-              accessibilityLabel={p.label}
-            >
-              <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>
-                {p.chip}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {compact ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollRow}
+        >
+          {chips}
+        </ScrollView>
+      ) : (
+        chips
+      )}
       {!compact ? (
         <Text style={styles.blurb}>
           {SHOP_PROFILES.find((p) => p.id === value)?.blurb}
@@ -48,7 +67,9 @@ export function ProfilePicker({ value, onChange, compact }: Props) {
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
   label: { ...type.label, color: colors.muted },
+  scrollRow: { paddingRight: 8 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  rowCompact: { flexWrap: 'nowrap', gap: 8 },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -56,6 +77,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  chipCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexShrink: 0,
   },
   chipOn: {
     backgroundColor: 'rgba(27, 122, 74, 0.12)',

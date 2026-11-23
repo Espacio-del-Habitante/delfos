@@ -9,9 +9,11 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import Svg, { Rect, Path, Line } from 'react-native-svg';
 import { TourTarget } from '@wrack/react-native-tour-guide';
 import { colors, radius, space, card, field, type } from '../../../shared/theme';
 import { formatCop, formatQty } from '../../../shared/format';
@@ -60,22 +62,15 @@ import {
   floatingDockBottom,
 } from '../../../shared/BottomNav';
 
-/** SVG en data-URI: viewBox cuadrado → centro geométrico fiable en el botón. */
-const MIC_URI =
-  'data:image/svg+xml,' +
-  encodeURIComponent(
-    // translate(0,0.5): el mic es más pesado arriba; un pelín abajo se ve centrado.
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 0.5)"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><line x1="12" y1="17" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></g></svg>',
-  );
-
 function MicGlyph() {
+  // react-native-svg: Image+data-URI SVG no pinta en Android nativo.
   return (
-    <Image
-      source={{ uri: MIC_URI }}
-      style={glyph.icon}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    />
+    <Svg width={20} height={20} viewBox="0 0 24 24" accessibilityElementsHidden>
+      <Rect x="9" y="3.5" width="6" height="11" rx="3" fill="none" stroke="#fff" strokeWidth="2.2" />
+      <Path d="M6 11.5a6 6 0 0 0 12 0" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+      <Line x1="12" y1="17.5" x2="12" y2="20.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+      <Line x1="8" y1="20.5" x2="16" y2="20.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
   );
 }
 
@@ -84,7 +79,6 @@ function StopGlyph({ color = '#fff' }: { color?: string }) {
 }
 
 const glyph = StyleSheet.create({
-  icon: { width: 20, height: 20 },
   stop: { width: 11, height: 11, borderRadius: 2 },
 });
 
@@ -92,6 +86,8 @@ type Props = { onOpenSettings?: () => void };
 
 export function MercadoScreen({ onOpenSettings }: Props) {
   const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
+  const compactUi = winH < 700;
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
   const [draft, setDraft] = useState('');
@@ -426,11 +422,11 @@ export function MercadoScreen({ onOpenSettings }: Props) {
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <StatusBar style="dark" />
 
-      <View style={styles.brandRow}>
+      <View style={[styles.brandRow, compactUi && { marginBottom: 4 }]}>
         <TourTarget id="tour-brand" style={styles.brandTour}>
           <Image
             source={require('../../../../assets/mercapp-logo.png')}
-            style={styles.brandLogo}
+            style={[styles.brandLogo, compactUi && styles.brandLogoCompact]}
             resizeMode="contain"
             accessibilityLabel="MercApp"
           />
@@ -475,176 +471,197 @@ export function MercadoScreen({ onOpenSettings }: Props) {
           </TourTarget>
         </View>
       ) : (
-        <>
-          <View style={styles.hero}>
-            <Text style={styles.heroLabel}>Vas llevando</Text>
-            <Text style={styles.heroAmount}>{formatCop(total)}</Text>
-            <View style={styles.heroStats}>
-              <View>
-                <Text style={styles.heroStatLabel}>Presupuesto</Text>
-                <Text style={styles.heroStatValue}>{formatCop(budget)}</Text>
-              </View>
-              <View>
-                <Text style={styles.heroStatLabel}>Ítems</Text>
-                <Text style={styles.heroStatValue}>{trip.items.length}</Text>
-              </View>
-            </View>
-            <View style={styles.heroFooter}>
-              <Text style={styles.heroStatus}>
-                {over ? 'Uy, te pasaste' : 'Vas bien con el presupuesto'}
-              </Text>
-              <View style={styles.pill}>
-                <Text style={styles.pillTxt}>{pct}% usado</Text>
-              </View>
-            </View>
-            {budget > 0 && (
-              <View style={styles.budgetBar}>
-                <View style={[styles.budgetFill, { width: `${pct}%` }, over && styles.budgetOver]} />
-              </View>
-            )}
-          </View>
-
-          {liveCats.bars.length > 0 && (
-            <View style={styles.statsBtnRow}>
-              <Pressable
-                onPress={() => setTripStatsOpen(true)}
-                style={({ pressed }) => [styles.statsBtn, pressed && { opacity: 0.75 }]}
-                accessibilityRole="button"
-                accessibilityLabel="Ver estadísticas de este mercado"
-              >
-                <Text style={styles.statsBtnTxt}>Cómo va este mercado</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {(!!habits.length || !!profileHints.length) && (
-            <View style={styles.chipsBlock}>
-              {!!habits.length && (
-                <>
-                  <Text style={styles.chipsLabel}>
-                    {habits.some((h) => h.source === 'last-month')
-                      ? 'Como el mes pasado'
-                      : 'Repetir'}
-                  </Text>
-                  <View style={styles.chipsRow}>
-                    {habits.map((h) => {
-                      const meta = categoryMeta(h.category, liveCats.catalog);
-                      return (
-                        <Pressable
-                          key={h.name}
-                          style={({ pressed }) => [
-                            styles.habitCard,
-                            pressed && { transform: [{ scale: 0.985 }] },
-                          ]}
-                          onPress={() => void quickHabit(h)}
-                        >
-                          <Text style={styles.habitEmoji}>{meta.emoji}</Text>
-                          <View style={styles.habitBody}>
-                            <Text style={styles.habitName} numberOfLines={1}>
-                              {h.name}
-                            </Text>
-                            <Text style={styles.habitMeta} numberOfLines={1}>
-                              {h.qty} {h.unit}
-                            </Text>
-                            {h.amount != null && (
-                              <Text style={styles.habitAmt} numberOfLines={1}>
-                                {formatCop(h.amount)}
-                              </Text>
-                            )}
-                          </View>
-                        </Pressable>
-                      );
-                    })}
+        <FlatList
+          style={styles.listFlex}
+          data={items}
+          keyExtractor={(it) => it.id}
+          contentContainerStyle={[
+            styles.list,
+            // Extra aire en pantallas chicas: FAB + píldora tapan el final del listado.
+            {
+              paddingBottom: contentBottomPad(
+                insets.bottom,
+                FAB_SIZE + (compactUi ? 48 : 28),
+              ),
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            <View>
+              <View style={[styles.hero, compactUi && styles.heroCompact]}>
+                <Text style={styles.heroLabel}>Vas llevando</Text>
+                <Text style={[styles.heroAmount, compactUi && styles.heroAmountCompact]}>
+                  {formatCop(total)}
+                </Text>
+                <View style={[styles.heroStats, compactUi && { marginTop: 8, gap: 18 }]}>
+                  <View>
+                    <Text style={styles.heroStatLabel}>Presupuesto</Text>
+                    <Text style={styles.heroStatValue}>{formatCop(budget)}</Text>
                   </View>
-                </>
+                  <View>
+                    <Text style={styles.heroStatLabel}>Ítems</Text>
+                    <Text style={styles.heroStatValue}>{trip.items.length}</Text>
+                  </View>
+                </View>
+                <View style={[styles.heroFooter, compactUi && { marginTop: 8 }]}>
+                  <Text style={styles.heroStatus}>
+                    {over ? 'Uy, te pasaste' : 'Vas bien con el presupuesto'}
+                  </Text>
+                  <View style={styles.pill}>
+                    <Text style={styles.pillTxt}>{pct}% usado</Text>
+                  </View>
+                </View>
+                {budget > 0 && (
+                  <View style={[styles.budgetBar, compactUi && { marginTop: 8 }]}>
+                    <View
+                      style={[styles.budgetFill, { width: `${pct}%` }, over && styles.budgetOver]}
+                    />
+                  </View>
+                )}
+              </View>
+
+              {liveCats.bars.length > 0 && (
+                <View style={styles.statsBtnRow}>
+                  <Pressable
+                    onPress={() => setTripStatsOpen(true)}
+                    style={({ pressed }) => [styles.statsBtn, pressed && { opacity: 0.75 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ver estadísticas de este mercado"
+                  >
+                    <Text style={styles.statsBtnTxt}>Cómo va este mercado</Text>
+                  </Pressable>
+                </View>
               )}
 
-              {!!profileHints.length && (
-                <>
-                  <Text style={[styles.chipsLabel, habits.length ? { marginTop: 10 } : null]}>
-                    Tip · {shopProfileMeta(shopProfile).label}
-                  </Text>
-                  <View style={styles.chipsRow}>
-                    {profileHints.map((h) => {
-                      const meta = categoryMeta(h.category, liveCats.catalog);
-                      return (
-                        <Pressable
-                          key={`hint-${h.name}`}
-                          style={({ pressed }) => [
-                            styles.habitCard,
-                            styles.hintCard,
-                            pressed && { transform: [{ scale: 0.985 }] },
-                          ]}
-                          onPress={() => void quickProfileHint(h)}
-                        >
-                          <Text style={styles.habitEmoji}>{meta.emoji}</Text>
-                          <View style={styles.habitBody}>
-                            <Text style={styles.habitName} numberOfLines={1}>
-                              {h.name}
-                            </Text>
-                            <Text style={styles.habitMeta} numberOfLines={1}>
-                              {h.why}
-                            </Text>
-                            <Text style={styles.habitAmt} numberOfLines={1}>
-                              {h.qty} {h.unit}
-                              {h.amount != null ? ` · ${formatCop(h.amount)}` : ''}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-            </View>
-          )}
-
-          <FlatList
-            data={items}
-            keyExtractor={(it) => it.id}
-            contentContainerStyle={[
-              styles.list,
-              { paddingBottom: contentBottomPad(insets.bottom, FAB_SIZE + 28) },
-            ]}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={[styles.card, styles.center, { padding: space.lg }]}>
-                <Text style={styles.emptyIcon}>🧺</Text>
-                <Text style={styles.emptyTitle}>Carrito en cero</Text>
-                <Text style={styles.emptyText}>Toca + para escribir o dictar lo que llevas.</Text>
-              </View>
-            }
-            renderItem={({ item }) => {
-              const meta = categoryMeta(item.category, liveCats.catalog);
-              return (
-                <SwipeableRow
-                  open={swipeOpenId === item.id}
-                  onOpenChange={(open) => setSwipeOpenId(open ? item.id : null)}
-                  onPress={() => setEditItem(item)}
-                  onDelete={() => {
-                    void removeItem(item.id).then(() => {
-                      setSwipeOpenId(null);
-                      showToast(`Quité ${item.name}`);
-                    });
-                  }}
-                >
-                  <View style={styles.item}>
-                    <Text style={styles.itemEmoji}>{meta.emoji}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemName}>{item.name}</Text>
-                      <Text style={styles.itemMeta}>
-                        {formatQty(item.qty, item.unit)} · {meta.label}
+              {(!!habits.length || !!profileHints.length) && (
+                <View style={styles.chipsBlock}>
+                  {!!habits.length && (
+                    <>
+                      <Text style={styles.chipsLabel}>
+                        {habits.some((h) => h.source === 'last-month')
+                          ? 'Como el mes pasado'
+                          : 'Repetir'}
                       </Text>
-                    </View>
-                    <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
-                      {item.amount == null ? 'sin precio' : formatCop(item.amount)}
+                      <View style={styles.chipsRow}>
+                        {habits.map((h) => {
+                          const meta = categoryMeta(h.category, liveCats.catalog);
+                          return (
+                            <Pressable
+                              key={h.name}
+                              style={({ pressed }) => [
+                                styles.habitCard,
+                                compactUi && styles.habitCardCompact,
+                                pressed && { transform: [{ scale: 0.985 }] },
+                              ]}
+                              onPress={() => void quickHabit(h)}
+                            >
+                              <Text style={styles.habitEmoji}>{meta.emoji}</Text>
+                              <View style={styles.habitBody}>
+                                <Text style={styles.habitName} numberOfLines={1}>
+                                  {h.name}
+                                </Text>
+                                <Text style={styles.habitMeta} numberOfLines={1}>
+                                  {h.qty} {h.unit}
+                                </Text>
+                                {h.amount != null && (
+                                  <Text style={styles.habitAmt} numberOfLines={1}>
+                                    {formatCop(h.amount)}
+                                  </Text>
+                                )}
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+
+                  {!!profileHints.length && (
+                    <>
+                      <Text style={[styles.chipsLabel, habits.length ? { marginTop: 10 } : null]}>
+                        Tip · {shopProfileMeta(shopProfile).label}
+                      </Text>
+                      <View style={styles.chipsRow}>
+                        {profileHints.map((h) => {
+                          const meta = categoryMeta(h.category, liveCats.catalog);
+                          return (
+                            <Pressable
+                              key={`hint-${h.name}`}
+                              style={({ pressed }) => [
+                                styles.habitCard,
+                                styles.hintCard,
+                                compactUi && styles.habitCardCompact,
+                                pressed && { transform: [{ scale: 0.985 }] },
+                              ]}
+                              onPress={() => void quickProfileHint(h)}
+                            >
+                              <Text style={styles.habitEmoji}>{meta.emoji}</Text>
+                              <View style={styles.habitBody}>
+                                <Text style={styles.habitName} numberOfLines={1}>
+                                  {h.name}
+                                </Text>
+                                <Text style={styles.habitMeta} numberOfLines={1}>
+                                  {h.why}
+                                </Text>
+                                <Text style={styles.habitAmt} numberOfLines={1}>
+                                  {h.qty} {h.unit}
+                                  {h.amount != null ? ` · ${formatCop(h.amount)}` : ''}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+                </View>
+              )}
+
+              {items.length > 0 ? (
+                <Text style={styles.listTitle}>En el carrito</Text>
+              ) : null}
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={[styles.card, styles.center, { padding: space.lg }]}>
+              <Text style={styles.emptyIcon}>🧺</Text>
+              <Text style={styles.emptyTitle}>Carrito en cero</Text>
+              <Text style={styles.emptyText}>Toca + para escribir o dictar lo que llevas.</Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const meta = categoryMeta(item.category, liveCats.catalog);
+            return (
+              <SwipeableRow
+                open={swipeOpenId === item.id}
+                onOpenChange={(open) => setSwipeOpenId(open ? item.id : null)}
+                onPress={() => setEditItem(item)}
+                onDelete={() => {
+                  void removeItem(item.id).then(() => {
+                    setSwipeOpenId(null);
+                    showToast(`Quité ${item.name}`);
+                  });
+                }}
+              >
+                <View style={styles.item}>
+                  <Text style={styles.itemEmoji}>{meta.emoji}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.itemName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.itemMeta} numberOfLines={1}>
+                      {formatQty(item.qty, item.unit)} · {meta.label}
                     </Text>
                   </View>
-                </SwipeableRow>
-              );
-            }}
-          />
-        </>
+                  <Text style={[styles.itemAmt, item.amount == null && styles.itemAmtMissing]}>
+                    {item.amount == null ? 'sin precio' : formatCop(item.amount)}
+                  </Text>
+                </View>
+              </SwipeableRow>
+            );
+          }}
+        />
       )}
 
       {trip && (
@@ -728,6 +745,7 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                 disabled={!trip?.items?.length}
                 style={({ pressed }) => [
                   styles.closeFab,
+                  compactUi && styles.closeFabCompact,
                   !trip?.items?.length ? styles.closeFabDisabled : null,
                   pressed && trip?.items?.length ? { opacity: 0.92 } : null,
                 ]}
@@ -735,15 +753,21 @@ export function MercadoScreen({ onOpenSettings }: Props) {
                 accessibilityLabel="Cerrar compra"
                 accessibilityState={{ disabled: !trip?.items?.length }}
               >
-                <Text style={styles.closeFabTxt}>Cerrar compra</Text>
+                <Text style={[styles.closeFabTxt, compactUi && { fontSize: 13 }]}>
+                  {compactUi ? 'Cerrar' : 'Cerrar compra'}
+                </Text>
               </Pressable>
               <Pressable
                 onPress={openComposer}
-                style={({ pressed }) => [styles.addFab, pressed && { transform: [{ scale: 0.96 }] }]}
+                style={({ pressed }) => [
+                  styles.addFab,
+                  compactUi && styles.addFabCompact,
+                  pressed && { transform: [{ scale: 0.96 }] },
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Agregar ítem"
               >
-                <Text style={styles.addFabTxt}>+</Text>
+                <Text style={[styles.addFabTxt, compactUi && { fontSize: 26, lineHeight: 28 }]}>+</Text>
               </Pressable>
             </View>
           )}
@@ -800,6 +824,7 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   brandTour: { borderRadius: 16, alignSelf: 'flex-start' },
   brandLogo: { width: 72, height: 68 },
+  brandLogoCompact: { width: 56, height: 52 },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -809,7 +834,7 @@ const styles = StyleSheet.create({
   },
   profileHome: {
     paddingHorizontal: space.lg,
-    marginBottom: space.md,
+    marginBottom: space.sm,
   },
   hintCard: {
     borderColor: 'rgba(27, 122, 74, 0.35)',
@@ -825,7 +850,7 @@ const styles = StyleSheet.create({
   },
   settingsTxt: { fontSize: 18, color: colors.text },
   hero: {
-    marginHorizontal: space.lg,
+    marginHorizontal: 0,
     marginBottom: space.md,
     padding: space.lg,
     borderRadius: radius.md,
@@ -835,6 +860,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.28,
     shadowRadius: 28,
     elevation: 8,
+  },
+  heroCompact: {
+    padding: space.md,
+    marginBottom: space.sm,
   },
   heroLabel: {
     color: 'rgba(255,255,255,0.75)',
@@ -851,6 +880,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: 'Inter_800ExtraBold',
   },
+  heroAmountCompact: { fontSize: 28 },
   heroStats: { flexDirection: 'row', gap: 28, marginTop: 14 },
   heroStatLabel: { color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '600' },
   heroStatValue: { color: '#fff', fontWeight: '700', marginTop: 2, fontFamily: 'Inter_700Bold' },
@@ -859,13 +889,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 14,
+    gap: 8,
   },
-  heroStatus: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
+  heroStatus: { color: 'rgba(255,255,255,0.85)', fontSize: 13, flexShrink: 1 },
   pill: {
     backgroundColor: 'rgba(255,255,255,0.18)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.pill,
+    flexShrink: 0,
   },
   pillTxt: { color: '#fff', fontSize: 12, fontWeight: '600' },
   budgetBar: {
@@ -878,7 +910,6 @@ const styles = StyleSheet.create({
   budgetFill: { height: '100%', backgroundColor: colors.soft },
   budgetOver: { backgroundColor: '#fecaca' },
   statsBtnRow: {
-    paddingHorizontal: space.lg,
     marginTop: 2,
     marginBottom: space.sm,
   },
@@ -892,7 +923,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
   },
-  chipsBlock: { paddingHorizontal: space.lg, marginBottom: space.md },
+  chipsBlock: { marginBottom: space.md },
   chipsLabel: {
     fontSize: 12,
     color: colors.muted,
@@ -917,6 +948,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     maxWidth: '100%',
   },
+  habitCardCompact: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
   habitEmoji: { fontSize: 22 },
   habitBody: { flex: 1, minWidth: 0 },
   habitName: {
@@ -938,7 +973,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     fontWeight: '700',
   },
-  list: { paddingHorizontal: space.lg, gap: 10 },
+  listTitle: {
+    color: colors.muted,
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    marginBottom: 8,
+    letterSpacing: 0.2,
+  },
+  listFlex: { flex: 1 },
+  list: { paddingHorizontal: space.lg, gap: 10, flexGrow: 1 },
   card: {
     ...card(),
   },
@@ -1007,6 +1050,10 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   closeFabTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 14 },
+  closeFabCompact: {
+    height: 48,
+    paddingHorizontal: 14,
+  },
   closeFabDisabled: { opacity: 0.4 },
   addFab: {
     width: FAB_SIZE,
@@ -1021,6 +1068,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 16,
     elevation: 6,
+  },
+  addFabCompact: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   addFabTxt: {
     color: '#fff',
