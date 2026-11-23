@@ -51,48 +51,49 @@ function TabIcon({ id, active, size }: { id: BottomNavId; active: boolean; size:
   // Inactivo más oscuro que colors.muted: en pantallas chicas / píldora clara se perdían.
   const stroke = active ? colors.primary : '#374151';
   const sw = active ? 2.35 : 2.15;
-  const common = {
+  // Props explícitas (sin spread + fill:'none'): el renderer web de RN-SVG truena con spreads raros.
+  const line = {
     stroke,
     strokeWidth: sw,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
-    fill: 'none' as const,
   };
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityElementsHidden>
+    <Svg width={size} height={size} viewBox="0 0 24 24">
       {id === 'mercado' && (
         <>
-          <Circle cx="9" cy="21" r="1.15" fill={stroke} stroke="none" />
-          <Circle cx="20" cy="21" r="1.15" fill={stroke} stroke="none" />
-          <Path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" {...common} />
+          <Circle cx={9} cy={21} r={1.15} fill={stroke} />
+          <Circle cx={20} cy={21} r={1.15} fill={stroke} />
+          <Path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" fill="transparent" {...line} />
         </>
       )}
       {id === 'recetas' && (
         <>
-          <Path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" {...common} />
-          <Path d="M7 2v20" {...common} />
-          <Path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" {...common} />
+          <Path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" fill="transparent" {...line} />
+          <Path d="M7 2v20" fill="transparent" {...line} />
+          <Path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" fill="transparent" {...line} />
         </>
       )}
       {id === 'historial' && (
         <>
-          <Circle cx="12" cy="12" r="10" {...common} />
-          <Polyline points="12 6 12 12 16 14" {...common} />
+          <Circle cx={12} cy={12} r={10} fill="transparent" {...line} />
+          <Polyline points="12 6 12 12 16 14" fill="transparent" {...line} />
         </>
       )}
       {id === 'stats' && (
         <>
-          <Polyline points="23 6 13.5 15.5 8.5 10.5 1 18" {...common} />
-          <Polyline points="17 6 23 6 23 12" {...common} />
+          <Polyline points="23 6 13.5 15.5 8.5 10.5 1 18" fill="transparent" {...line} />
+          <Polyline points="17 6 23 6 23 12" fill="transparent" {...line} />
         </>
       )}
       {id === 'ajustes' && (
         <>
-          <Circle cx="12" cy="12" r="3" {...common} />
+          <Circle cx={12} cy={12} r={3} fill="transparent" {...line} />
           <Path
             d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
-            {...common}
+            fill="transparent"
+            {...line}
           />
         </>
       )}
