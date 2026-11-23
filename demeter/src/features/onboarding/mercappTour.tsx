@@ -55,7 +55,7 @@ export function buildMercappTourSteps(go: (tab: BottomNavId) => void): TourStep[
       id: 'welcome',
       targetId: 'tour-brand',
       title: 'Hola',
-      description: 'Esto es MercApp: tu compañera de mercado. Te muestro lo esencial en un minutito.',
+      description: 'Esto es MercApp: tu asistente de mercado. Te muestro lo esencial en un minutito.',
       targetStyle: { borderRadius: 16 },
       tooltipPosition: 'bottom',
       before: async () => {

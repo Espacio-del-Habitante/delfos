@@ -350,7 +350,7 @@ export function MercappSplash({ onDone }: Props) {
             transform: [{ translateY: tagY }],
           }}
         >
-          <Text style={styles.tag}>Tu compañera de mercado</Text>
+          <Text style={styles.tag}>Tu asistente de mercado</Text>
         </Animated.View>
       </View>
     </Animated.View>
