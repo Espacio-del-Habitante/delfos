@@ -93,10 +93,10 @@ export function StatsScreen() {
 
   function blurbText() {
     const { blurb, catalog } = data;
-    if (!blurb) return 'Aún no hay mercados cerrados para comparar.';
+    if (!blurb) return 'Cierra unos mercados y aquí te contamos la película.';
     const top = categoryMeta(blurb.topId, catalog);
     if (!blurb.secondId) {
-      return `En tus mercados cerrados lidera ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}).`;
+      return `En tus compras cerradas manda ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}).`;
     }
     const second = categoryMeta(blurb.secondId, catalog);
     return `Vas más en ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}) que en ${second.label.toLowerCase()} (${formatCop(blurb.secondAmount)}).`;
@@ -126,7 +126,7 @@ export function StatsScreen() {
       case 'share':
         return (
           <View key={id} style={styles.shareCard}>
-            <Text style={styles.shareEyebrow}>Para redes</Text>
+            <Text style={styles.shareEyebrow}>Para presumir</Text>
             <Text style={styles.shareTitle}>Mi MercApp en números</Text>
             <Text style={styles.shareBody}>{blurbText()}</Text>
             <Pressable
@@ -147,11 +147,11 @@ export function StatsScreen() {
             <Text style={styles.cardTitle}>Mercado ideal mensual</Text>
             <Text style={styles.muted}>
               Estimado con lo que sueles comprar (frecuencia × cantidad típica × último precio).
-              No es un presupuesto fijo.
+              Es una brújula, no un presupuesto fijo.
             </Text>
             {data.ideal.items.length === 0 ? (
               <Text style={[styles.muted, { marginTop: 8 }]}>
-                Repite compras en varios meses para armar tu canasta ideal.
+                Repite compras unos meses y armamos tu canasta ideal.
               </Text>
             ) : (
               <>
@@ -183,22 +183,22 @@ export function StatsScreen() {
       case 'prices':
         return (
           <View key={id} style={styles.card}>
-            <Text style={styles.cardTitle}>Precios que cambian</Text>
+            <Text style={styles.cardTitle}>Precios que se mueven</Text>
             <Text style={[styles.muted, { marginBottom: 8 }]}>
-              Unitario vs compra pasada (local).
+              Unitario vs la compra pasada (en este teléfono).
             </Text>
             {data.sparks.length === 0 ? (
-              <Text style={styles.muted}>Repite productos en varios mercados para ver la línea.</Text>
+              <Text style={styles.muted}>Repite productos en varios mercados y aparece la película.</Text>
             ) : (
               data.sparks.map((p) => {
                 const deltaTxt =
                   p.delta == null
-                    ? 'sin delta'
+                    ? 'sin comparación aún'
                     : p.delta > 0
                       ? `subió ${formatCop(p.delta)} / und`
                       : p.delta < 0
                         ? `bajó ${formatCop(-p.delta)} / und`
-                        : 'igual';
+                        : 'igualito';
                 return (
                   <View key={p.name} style={styles.sparkRow}>
                     <View style={{ flex: 1 }}>
@@ -227,8 +227,8 @@ export function StatsScreen() {
       >
         <View style={styles.headRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Estadísticas</Text>
-            <Text style={styles.sub}>Solo mercados cerrados · datos históricos.</Text>
+            <Text style={styles.title}>Tus números</Text>
+            <Text style={styles.sub}>Solo compras cerradas · tu historia en plata.</Text>
           </View>
           <TourTarget id="tour-gadgets" style={styles.editHit}>
             <Pressable

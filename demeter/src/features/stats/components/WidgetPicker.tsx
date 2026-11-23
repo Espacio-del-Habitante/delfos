@@ -20,7 +20,7 @@ export function WidgetPicker({ selected, onChange }: Props) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Tus gadgets</Text>
-      <Text style={styles.sub}>Activa las tarjetas que quieres ver.</Text>
+      <Text style={styles.sub}>Enciende solo lo que te importa ver.</Text>
       <View style={styles.grid}>
         {STATS_WIDGETS.map((w) => {
           const on = selected.includes(w.id);

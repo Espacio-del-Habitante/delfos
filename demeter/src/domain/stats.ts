@@ -9,12 +9,12 @@ export type TripLike = {
 
 /** Gadgets de Estadísticas — el usuario elige cuáles mostrar. */
 export const STATS_WIDGETS = [
-  { id: 'donut', label: 'Donut categorías', blurb: 'Reparto visual del gasto' },
-  { id: 'bars', label: 'Barras categorías', blurb: 'Comparativa por tipo' },
-  { id: 'trend', label: 'Gasto mensual', blurb: 'Línea de los últimos meses' },
+  { id: 'donut', label: 'Donut categorías', blurb: 'En qué se te va la plata' },
+  { id: 'bars', label: 'Barras categorías', blurb: 'Quién gana: proteína, harinas…' },
+  { id: 'trend', label: 'Gasto mensual', blurb: 'La curva de tus mercados' },
   { id: 'ideal', label: 'Mercado ideal', blurb: 'Tu ritmo mensual estimado' },
-  { id: 'prices', label: 'Precios que cambian', blurb: 'Unitario vs compra pasada' },
-  { id: 'share', label: 'Card para redes', blurb: 'Top 2 categorías del gasto' },
+  { id: 'prices', label: 'Precios que cambian', blurb: 'Si subió o bajó vs la vez pasada' },
+  { id: 'share', label: 'Card para redes', blurb: 'Presume tus top 2 categorías' },
 ] as const;
 
 export type StatsWidgetId = (typeof STATS_WIDGETS)[number]['id'];

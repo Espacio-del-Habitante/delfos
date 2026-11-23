@@ -23,6 +23,7 @@ import {
 } from '../../../services/store';
 import { pickProductPhoto } from '../../../services/pickPhoto';
 import { floatingDockBottom } from '../../../shared/BottomNav';
+import { friendlyError } from '../../../shared/appError';
 
 type Props = {
   visible: boolean;
@@ -57,7 +58,7 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
 
   async function finish() {
     if (!trip.items?.length) {
-      setErr('El carrito está vacío');
+      setErr('El carrito está vacío · suma algo primero');
       return;
     }
     setBusy(true);
@@ -66,10 +67,10 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
       await setCheckout({ ticketTotal: ticketN, photoDataUrl });
       await closeTrip();
       await startTrip({ budget: getState().settings.budgetDefault });
-      onDone('Mercado cerrado · sync cuando quieras en Historial o Ajustes');
+      onDone('Compra guardada · a Delfos cuando quieras (Historial o Ajustes)');
       onClose();
-    } catch (e: any) {
-      setErr(e?.message || 'No se pudo cerrar');
+    } catch (e: unknown) {
+      setErr(friendlyError(e, 'No pudimos cerrar la compra. Dale otra pasada.'));
     } finally {
       setBusy(false);
     }
@@ -93,16 +94,16 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
         >
-          <Text style={styles.title}>Cerrar mercado</Text>
+          <Text style={styles.title}>Cerrar la compra</Text>
           <Text style={styles.muted}>
-            Carrito {formatCop(cart)} · {trip.items.length} ítem
+            Vas en {formatCop(cart)} · {trip.items.length} ítem
             {trip.items.length === 1 ? '' : 's'}
           </Text>
           {!trip.items.length ? (
-            <Text style={styles.err}>No puedes cerrar un mercado vacío.</Text>
+            <Text style={styles.err}>El carrito está vacío · suma algo antes.</Text>
           ) : null}
 
-          <Text style={styles.label}>Foto de factura</Text>
+          <Text style={styles.label}>Foto de la factura</Text>
           <View style={styles.photoRow}>
             <Pressable
               onPress={() => void onPickPhoto()}
@@ -111,7 +112,7 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
               accessibilityLabel="Tomar o elegir foto de la factura"
             >
               <Text style={styles.photoBtnTxt}>
-                {photoDataUrl ? 'Cambiar foto' : 'Tomar / elegir foto'}
+                {photoDataUrl ? 'Cambiar foto' : 'Sacar o elegir foto'}
               </Text>
             </Pressable>
             {photoDataUrl ? (
@@ -119,13 +120,13 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
             ) : null}
           </View>
 
-          <Text style={styles.label}>Total factura (opcional)</Text>
+          <Text style={styles.label}>Total de caja (opcional)</Text>
           <TextInput
             style={styles.input}
             value={ticket}
             onChangeText={(t) => setTicket(t.replace(/[^\d]/g, ''))}
             keyboardType="number-pad"
-            placeholder="lo que dice la caja"
+            placeholder="lo que marcó la caja"
             placeholderTextColor={colors.muted}
           />
           {diff != null && (
@@ -152,17 +153,17 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnPrimaryTxt}>Cerrar y guardar</Text>
+              <Text style={styles.btnPrimaryTxt}>Listo, cerrar compra</Text>
             )}
           </Pressable>
 
           <Text style={styles.hint}>
-            La sync a Delfos es aparte: puedes acumular meses y enviar todos los pendientes
-            desde Historial o Ajustes.
+            Mandar a Delfos es aparte: acumula meses y envía el lote desde Historial o Ajustes
+            cuando quieras.
           </Text>
 
           <Pressable onPress={onClose} style={styles.cancel}>
-            <Text style={styles.cancelTxt}>Cancelar</Text>
+            <Text style={styles.cancelTxt}>Seguir comprando</Text>
           </Pressable>
         </ScrollView>
       </View>

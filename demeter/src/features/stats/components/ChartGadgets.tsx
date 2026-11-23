@@ -27,7 +27,7 @@ export function DonutCategories({ bars }: { bars: Bar[] }) {
   if (!bars.length) {
     return (
       <ChartCard title="Donut · categorías">
-        <Text style={styles.muted}>Cierra mercados con precios para ver el reparto.</Text>
+        <Text style={styles.muted}>Cierra compras con precios y aquí sale el reparto.</Text>
       </ChartCard>
     );
   }
@@ -78,7 +78,7 @@ export function BarsCategories({ bars }: { bars: Bar[] }) {
   if (!bars.length) {
     return (
       <ChartCard title="Barras · categorías">
-        <Text style={styles.muted}>Sin datos de categoría aún.</Text>
+        <Text style={styles.muted}>Cuando cierres compras con precios, aquí salen las barras.</Text>
       </ChartCard>
     );
   }
@@ -126,7 +126,7 @@ export function TrendMonthly({ series }: { series: MonthPoint[] }) {
     return (
       <ChartCard title="Gasto mensual">
         <Text style={styles.muted}>
-          Necesitas mercados en al menos 2 meses para ver la tendencia.
+          Con 2 meses de compras te armamos la curva.
         </Text>
       </ChartCard>
     );

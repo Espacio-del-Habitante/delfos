@@ -25,10 +25,10 @@ type Props = {
 function blurbLine(blurb: ShareBlurb, catalog: Catalog) {
   const top = categoryMeta(blurb.topId, catalog);
   if (!blurb.secondId) {
-    return `Llevas sobre todo ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}).`;
+    return `Hoy manda ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}).`;
   }
   const second = categoryMeta(blurb.secondId, catalog);
-  return `Vas más en ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}) que en ${second.label.toLowerCase()} (${formatCop(blurb.secondAmount)}).`;
+  return `Vas más en ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}) que en ${second.label.toLowerCase()} (${formatCop(blurb.secondAmount)}). Buen ojo.`;
 }
 
 /** Stats del carrito abierto — modal, no ocupa la lista. */
@@ -40,7 +40,7 @@ export function TripStatsSheet({ visible, onClose, bars, blurb, catalog }: Props
         <View style={styles.sheet}>
           <View style={styles.grabber} />
           <View style={styles.top}>
-            <Text style={styles.title}>En este mercado</Text>
+            <Text style={styles.title}>Así va la compra</Text>
             <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Cerrar">
               <Text style={styles.close}>Cerrar</Text>
             </Pressable>

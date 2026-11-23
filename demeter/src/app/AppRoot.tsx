@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MercadoScreen } from '../features/mercado/screens/MercadoScreen';
+import { RecipesScreen } from '../features/recipes/screens/RecipesScreen';
 import { HistoryScreen } from '../features/history/screens/HistoryScreen';
 import { StatsScreen } from '../features/stats/screens/StatsScreen';
 import { SettingsScreen } from '../features/settings/screens/SettingsScreen';
@@ -15,7 +16,10 @@ export function AppRoot() {
   return (
     <View style={styles.root}>
       <View style={styles.body}>
-        {tab === 'mercado' && <MercadoScreen />}
+        {tab === 'mercado' && (
+          <MercadoScreen onOpenSettings={() => setTab('ajustes')} />
+        )}
+        {tab === 'recetas' && <RecipesScreen />}
         {tab === 'historial' && <HistoryScreen onNewTrip={() => setTab('mercado')} />}
         {tab === 'stats' && <StatsScreen />}
         {tab === 'ajustes' && (

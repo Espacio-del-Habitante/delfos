@@ -21,12 +21,12 @@ export async function ensureSpeechPermission() {
 
 export async function startListening(lang = 'es-CO') {
   const ok = await ensureSpeechPermission();
-  if (!ok) throw new Error('Permiso de micrófono denegado');
+  if (!ok) throw new Error('Necesitamos permiso del micrófono');
   if (!speechAvailable()) {
     throw new Error(
       Platform.OS === 'web'
-        ? 'Dictado no disponible en este navegador'
-        : 'Dictado no disponible en este dispositivo',
+        ? 'Este navegador no dicta · escribe aquí'
+        : 'Este teléfono no dicta · escribe aquí',
     );
   }
   ExpoSpeechRecognitionModule.start({
