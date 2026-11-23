@@ -26,7 +26,11 @@
       "permissions": [
         "RECORD_AUDIO"
       ],
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1,
+      "compileSdkVersion": 37,
+      "targetSdkVersion": 36,
+      "minSdkVersion": 24
     },
     "web": {
       "favicon": "./assets/favicon.png"
