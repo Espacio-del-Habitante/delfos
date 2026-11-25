@@ -28,11 +28,7 @@ export function ProfilePicker({ value, onChange, compact }: Props) {
             accessibilityState={{ selected: on }}
             accessibilityLabel={p.label}
           >
-            <Text
-              style={[styles.chipTxt, on && styles.chipTxtOn]}
-              numberOfLines={1}
-              // En compact el row es horizontal-scroll: no forzar ellipsis por ancho del padre.
-            >
+            <Text style={[styles.chipTxt, on && styles.chipTxtOn]} numberOfLines={1}>
               {p.chip}
             </Text>
           </Pressable>
