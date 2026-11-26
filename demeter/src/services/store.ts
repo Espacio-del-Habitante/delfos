@@ -111,31 +111,44 @@ export function nameKey(name: string) {
     .trim();
 }
 
+/** Safari/Chrome: localStorage ~5MB. Fotos base64 lo llenan — no es cuota de IA. */
+function isStorageQuotaError(e: unknown): boolean {
+  const name =
+    e && typeof e === 'object' && 'name' in e ? String((e as { name?: unknown }).name) : '';
+  const msg = String(
+    e && typeof e === 'object' && 'message' in e ? (e as { message?: unknown }).message : e || '',
+  );
+  return name === 'QuotaExceededError' || /quota|storage/i.test(msg);
+}
+
+function stripAllPhotos(state: State) {
+  for (const t of state.trips) {
+    if (t.receipt?.photoDataUrl) t.receipt = { ...t.receipt, photoDataUrl: null };
+    for (const it of t.items || []) {
+      if (it.photoDataUrl) it.photoDataUrl = null;
+    }
+  }
+  for (const p of Object.values(state.products)) {
+    p.photos = [];
+  }
+}
+
 async function persist() {
   try {
     await AsyncStorage.setItem(KEY, JSON.stringify(cache));
     emit();
     return;
   } catch (e: unknown) {
-    const msg = String((e as { message?: string })?.message || e || '');
-    // Cuota del navegador/teléfono: reintentar sin fotos pesadas (no es cuota de IA).
-    if (!/quota|storage/i.test(msg)) throw e;
-    for (const t of cache.trips) {
-      if (t.receipt?.photoDataUrl) t.receipt = { ...t.receipt, photoDataUrl: null };
-      for (const it of t.items || []) {
-        if (it.photoDataUrl && it.photoDataUrl.length > 80_000) it.photoDataUrl = null;
-      }
-    }
-    for (const p of Object.values(cache.products)) {
-      p.photos = [];
-    }
+    if (!isStorageQuotaError(e)) throw e;
+    // ponytail: techo = localStorage ~5MB; upgrade = IndexedDB / fotos fuera del JSON.
+    stripAllPhotos(cache);
     try {
       await AsyncStorage.setItem(KEY, JSON.stringify(cache));
       emit();
       return;
     } catch {
       throw new Error(
-        'The quota has been exceeded.',
+        'Se llenó el espacio del teléfono (fotos). Cierra sin foto de factura o limpia mercados viejos.',
       );
     }
   }

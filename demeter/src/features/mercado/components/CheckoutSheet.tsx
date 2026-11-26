@@ -65,13 +65,25 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
     setErr(null);
     try {
       // Diff vs carrito es solo resta local — cero IA aquí.
-      await setCheckout({ ticketTotal: ticketN, photoDataUrl });
+      // "quota" = localStorage del teléfono (fotos), nunca cuota de modelo.
+      try {
+        await setCheckout({ ticketTotal: ticketN, photoDataUrl });
+      } catch (e: unknown) {
+        const raw = String(
+          e && typeof e === 'object' && 'message' in e
+            ? (e as { message?: unknown }).message
+            : e || '',
+        );
+        if (!/quota|espacio|storage|fotos/i.test(raw)) throw e;
+        // Reintento sin foto de factura: el cierre no debe depender de la imagen.
+        await setCheckout({ ticketTotal: ticketN, photoDataUrl: null });
+        setPhotoDataUrl(null);
+      }
       await closeTrip();
       await startTrip({ budget: getState().settings.budgetDefault });
       onDone('Compra guardada · a Delfos cuando quieras (Historial o Ajustes)');
       onClose();
     } catch (e: unknown) {
-      // "quota exceeded" = almacenamiento del navegador/teléfono (fotos), no cuota de IA.
       setErr(friendlyError(e, 'No pudimos cerrar la compra. Dale otra pasada.'));
     } finally {
       setBusy(false);
