@@ -1,4 +1,11 @@
 import { Platform } from 'react-native';
+import { compressImageDataUrl } from './compressImage';
+
+async function finalize(dataUrl: string | null): Promise<string | null> {
+  if (!dataUrl) return null;
+  if (!dataUrl.startsWith('data:image/')) return dataUrl;
+  return compressImageDataUrl(dataUrl);
+}
 
 /** Foto → data URL. Nativo: expo-image-picker; web: file input (+ capture). */
 export async function pickProductPhoto(opts?: {
@@ -16,24 +23,28 @@ export async function pickProductPhoto(opts?: {
         if (!cam.granted) return null;
         const shot = await ImagePicker.launchCameraAsync({
           mediaTypes: ['images'],
-          quality: 0.7,
+          quality: 0.55,
           base64: true,
         });
         if (shot.canceled || !shot.assets?.[0]) return null;
         const a = shot.assets[0];
-        if (a.base64) return `data:${a.mimeType || 'image/jpeg'};base64,${a.base64}`;
+        if (a.base64) {
+          return finalize(`data:${a.mimeType || 'image/jpeg'};base64,${a.base64}`);
+        }
         return a.uri || null;
       }
       const lib = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!lib.granted) return null;
       const picked = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        quality: 0.7,
+        quality: 0.55,
         base64: true,
       });
       if (picked.canceled || !picked.assets?.[0]) return null;
       const a = picked.assets[0];
-      if (a.base64) return `data:${a.mimeType || 'image/jpeg'};base64,${a.base64}`;
+      if (a.base64) {
+        return finalize(`data:${a.mimeType || 'image/jpeg'};base64,${a.base64}`);
+      }
       return a.uri || null;
     } catch {
       return null;
@@ -53,7 +64,10 @@ export async function pickProductPhoto(opts?: {
         return;
       }
       const reader = new FileReader();
-      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onload = () => {
+        const raw = typeof reader.result === 'string' ? reader.result : null;
+        void finalize(raw).then(resolve);
+      };
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
     };

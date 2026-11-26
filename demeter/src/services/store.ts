@@ -112,8 +112,33 @@ export function nameKey(name: string) {
 }
 
 async function persist() {
-  await AsyncStorage.setItem(KEY, JSON.stringify(cache));
-  emit();
+  try {
+    await AsyncStorage.setItem(KEY, JSON.stringify(cache));
+    emit();
+    return;
+  } catch (e: unknown) {
+    const msg = String((e as { message?: string })?.message || e || '');
+    // Cuota del navegador/teléfono: reintentar sin fotos pesadas (no es cuota de IA).
+    if (!/quota|storage/i.test(msg)) throw e;
+    for (const t of cache.trips) {
+      if (t.receipt?.photoDataUrl) t.receipt = { ...t.receipt, photoDataUrl: null };
+      for (const it of t.items || []) {
+        if (it.photoDataUrl && it.photoDataUrl.length > 80_000) it.photoDataUrl = null;
+      }
+    }
+    for (const p of Object.values(cache.products)) {
+      p.photos = [];
+    }
+    try {
+      await AsyncStorage.setItem(KEY, JSON.stringify(cache));
+      emit();
+      return;
+    } catch {
+      throw new Error(
+        'The quota has been exceeded.',
+      );
+    }
+  }
 }
 
 export async function initStore() {

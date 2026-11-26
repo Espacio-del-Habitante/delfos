@@ -33,9 +33,21 @@ export function friendlyError(
   if (/json|unexpected token|syntaxerror/i.test(msg)) {
     return 'Esa respuesta vino rara. Prueba de nuevo.';
   }
+  // LocalStorage / AsyncStorage lleno (fotos base64) — NO es cuota de IA.
+  if (/quota|quotaexceeded|storage|el espacio|espacio de almacen/i.test(msg)) {
+    return 'Se llenó el espacio del teléfono (casi siempre por fotos). Quita fotos viejas o cierra sin foto de factura.';
+  }
+  if (/resource.?exhausted|rate.?limit|429|billing|insufficient.?quota/i.test(msg)) {
+    return 'La cuota de la IA se acabó o está limitada. Prueba más tarde o cambia de modelo en Ajustes.';
+  }
 
   // Mensajes cortos en español / ya amigables: se quedan.
-  if (msg.length <= 140 && !/^[A-Za-z]+Error\b/.test(msg) && !/^HTTP\s*\d/i.test(msg)) {
+  if (
+    msg.length <= 140 &&
+    !/^[A-Za-z]+Error\b/.test(msg) &&
+    !/^HTTP\s*\d/i.test(msg) &&
+    !/\bquota\b/i.test(msg)
+  ) {
     return msg;
   }
 

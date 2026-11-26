@@ -52,7 +52,7 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
   const diff = ticketN != null && ticketN > 0 ? ticketN - cart : null;
 
   async function onPickPhoto() {
-    const data = await pickProductPhoto();
+    const data = await pickProductPhoto({ camera: false });
     if (data) setPhotoDataUrl(data);
   }
 
@@ -64,12 +64,14 @@ export function CheckoutSheet({ visible, trip, onClose, onDone }: Props) {
     setBusy(true);
     setErr(null);
     try {
+      // Diff vs carrito es solo resta local — cero IA aquí.
       await setCheckout({ ticketTotal: ticketN, photoDataUrl });
       await closeTrip();
       await startTrip({ budget: getState().settings.budgetDefault });
       onDone('Compra guardada · a Delfos cuando quieras (Historial o Ajustes)');
       onClose();
     } catch (e: unknown) {
+      // "quota exceeded" = almacenamiento del navegador/teléfono (fotos), no cuota de IA.
       setErr(friendlyError(e, 'No pudimos cerrar la compra. Dale otra pasada.'));
     } finally {
       setBusy(false);

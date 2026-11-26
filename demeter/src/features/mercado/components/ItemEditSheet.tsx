@@ -18,7 +18,10 @@ import { UNITS, convertQty, unitPriceAs, inferPackFromText } from '../../../doma
 import { formatCop } from '../../../shared/format';
 import { fetchPriceQuotes, googlePriceUrl, type PriceQuote } from '../../../services/priceSearch';
 import { pickProductPhoto } from '../../../services/pickPhoto';
-import { scanNutritionLabel } from '../../../services/nutritionLabel';
+import {
+  estimateNutritionForProduct,
+  scanNutritionLabel,
+} from '../../../services/nutritionLabel';
 import type { NutritionFacts } from '../../../domain/nutrition';
 import {
   getCustomCategories,
@@ -222,6 +225,23 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
     }
   }
 
+  async function onEstimateNutrition() {
+    setNutritionBusy(true);
+    setNutritionHint(null);
+    try {
+      const res = await estimateNutritionForProduct({
+        name: name.trim() || item?.name || 'producto',
+        category,
+        qty: Number(qty) || 1,
+        unit,
+      });
+      if (res.nutrition) setNutrition(res.nutrition);
+      if (res.notice) setNutritionHint(res.notice);
+    } finally {
+      setNutritionBusy(false);
+    }
+  }
+
   function openInAppSearch(query = name.trim()) {
     const q = query.trim() || 'producto mercado';
     setGoogleUrl(googlePriceUrl(q));
@@ -406,7 +426,7 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                     <ActivityIndicator color={colors.primary} />
                   ) : (
                     <Text style={[styles.photoBtnTxt, styles.nutritionBtnTxt]}>
-                      {nutrition ? 'Otra etiqueta' : 'Tabla nutricional'}
+                      {nutrition?.source === 'label-photo' ? 'Otra etiqueta' : 'Foto etiqueta'}
                     </Text>
                   )}
                 </Pressable>
@@ -414,9 +434,25 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                   <Image source={{ uri: photoDataUrl }} style={styles.photoThumb} />
                 ) : null}
               </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.estimateBtn,
+                  pressed && { opacity: 0.85 },
+                  nutritionBusy && { opacity: 0.55 },
+                ]}
+                disabled={nutritionBusy}
+                onPress={() => void onEstimateNutrition()}
+                accessibilityRole="button"
+                accessibilityLabel="Estimar nutrición con IA sin foto"
+              >
+                <Text style={styles.estimateBtnTxt}>
+                  {nutritionBusy ? 'Estimando…' : 'Estimar con IA (sin foto)'}
+                </Text>
+              </Pressable>
               {nutrition ? (
                 <Text style={styles.nutritionLine}>
-                  ≈{nutrition.kcal ?? '—'} kcal · P {nutrition.proteinG ?? '—'}g · C{' '}
+                  {nutrition.source === 'estimate' ? 'Estimado' : 'Etiqueta'} · ≈
+                  {nutrition.kcal ?? '—'} kcal · P {nutrition.proteinG ?? '—'}g · C{' '}
                   {nutrition.carbsG ?? '—'}g · G {nutrition.fatG ?? '—'}g
                   {nutrition.servingSize ? ` · ${nutrition.servingSize}` : ''}
                 </Text>
@@ -652,6 +688,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   nutritionBtnTxt: { color: colors.primary },
+  estimateBtn: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  estimateBtnTxt: {
+    color: colors.primary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
   nutritionLine: {
     marginTop: 8,
     fontFamily: 'Inter_600SemiBold',

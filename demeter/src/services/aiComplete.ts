@@ -117,7 +117,8 @@ export async function completeJsonVision(
   const provider = effectiveProvider(ai);
   const meta = providerMeta(provider);
   const base = (ai.base_url || meta.default_base_url).replace(/\/$/, '');
-  const model = ai.text_model || meta.suggested_text_model;
+  // Visión usa vision_model (text-only cuelga / falla).
+  const model = ai.vision_model || meta.suggested_vision_model || ai.text_model;
 
   if (provider === 'local') {
     throw new Error('La lectura de etiquetas necesita Gemini u OpenAI-compatible');
@@ -142,10 +143,16 @@ export async function completeJsonVision(
           generationConfig: { responseMimeType: 'application/json' },
         }),
       }),
-      60000,
+      35000,
     );
-    if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
-    const data = (await res.json()) as {
+    const bodyText = await res.text();
+    if (!res.ok) {
+      if (/quota|RESOURCE_EXHAUSTED|429/i.test(bodyText)) {
+        throw new Error('resource_exhausted');
+      }
+      throw new Error(`Gemini HTTP ${res.status}`);
+    }
+    const data = JSON.parse(bodyText) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
     };
     const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
@@ -176,10 +183,16 @@ export async function completeJsonVision(
         ],
       }),
     }),
-    60000,
+    35000,
   );
-  if (!res.ok) throw new Error(`Compatible HTTP ${res.status}`);
-  const data = (await res.json()) as {
+  const bodyText = await res.text();
+  if (!res.ok) {
+    if (/quota|rate.?limit|429|billing/i.test(bodyText)) {
+      throw new Error('resource_exhausted');
+    }
+    throw new Error(`Compatible HTTP ${res.status}`);
+  }
+  const data = JSON.parse(bodyText) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
   return stripJsonFence(data.choices?.[0]?.message?.content || '');
