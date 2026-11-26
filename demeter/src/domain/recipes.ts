@@ -1,3 +1,4 @@
+import { estimateRecipeKcal } from './nutrition';
 import { normalizeShopProfile, type ShopProfileId } from './shopProfiles';
 
 export type RecipeIdea = {
@@ -11,6 +12,8 @@ export type RecipeIdea = {
   description: string;
   /** URL opcional (TheMealDB u otra); la UI cae al emoji. */
   imageUrl?: string | null;
+  /** kcal aprox. por porción / plato. */
+  kcalApprox?: number | null;
 };
 
 type ItemLike = { name: string };
@@ -196,25 +199,28 @@ export function recipesFromCart(
     const missing = t.needAny
       .filter((need) => !keys.some((k) => k.includes(keyOf(need))))
       .slice(0, 3);
+    const useNames = uses.length ? uses : hits;
     out.push({
       title: t.title,
       minutes: t.minutes,
-      uses: uses.length ? uses : hits,
+      uses: useNames,
       missing,
       steps: t.steps,
       vibe: t.vibe,
       emoji: t.emoji,
       description: t.description,
       imageUrl: null,
+      kcalApprox: estimateRecipeKcal(useNames, items),
     });
     if (out.length >= limit) break;
   }
 
   if (!out.length && names.length) {
+    const useNames = names.slice(0, 6);
     out.push({
       title: 'Lo que hay en la bolsa',
       minutes: 20,
-      uses: names.slice(0, 6),
+      uses: useNames,
       missing: [],
       steps: [
         'Saca todo a la mesa y separa fresco vs seco.',
@@ -227,6 +233,7 @@ export function recipesFromCart(
       emoji: '🧺',
       description: 'Improvisa con lo comprado hoy. Sin lista fija: el carrito manda.',
       imageUrl: null,
+      kcalApprox: estimateRecipeKcal(useNames, items),
     });
   }
   return out;
@@ -239,15 +246,23 @@ function shopProfileBlurb(id: ShopProfileId) {
 }
 
 /** Prompt para completeJson — la UI parsea { recipes: [...] }. */
-export function recipesAiPrompt(items: ItemLike[], profile: ShopProfileId | string) {
+export function recipesAiPrompt(
+  items: ItemLike[],
+  profile: ShopProfileId | string,
+  note?: string,
+) {
   const id = normalizeShopProfile(profile);
   const list = items.map((i) => i.name).filter(Boolean).slice(0, 40);
+  const wish = String(note || '').trim();
+  const wishLine = wish
+    ? `\nPedido del usuario (respétalo si se puede con el carrito): ${JSON.stringify(wish)}.`
+    : '';
   return `Eres chef de mercado en Colombia. Perfil de compra: ${id}.
-Ingredientes del carrito: ${JSON.stringify(list)}.
+Ingredientes del carrito: ${JSON.stringify(list)}.${wishLine}
 Propón 3 recetas realistas con lo que hay (puedes sugerir 0-2 faltantes baratos).
-Cada receta necesita descripción corta (1-2 frases) y 5 pasos detallados de preparación.
+Cada receta necesita descripción corta (1-2 frases), 5 pasos detallados y kcalApprox (entero, por plato).
 Responde SOLO JSON:
-{"recipes":[{"title":"","minutes":20,"uses":["ing"],"missing":["opcional"],"description":"","emoji":"🍽️","steps":["paso1","paso2","paso3","paso4","paso5"],"vibe":"corto"}]}`;
+{"recipes":[{"title":"","minutes":20,"uses":["ing"],"missing":["opcional"],"description":"","emoji":"🍽️","steps":["paso1","paso2","paso3","paso4","paso5"],"vibe":"corto","kcalApprox":450}]}`;
 }
 
 export function parseRecipesJson(raw: string): RecipeIdea[] {
@@ -261,10 +276,12 @@ export function parseRecipesJson(raw: string): RecipeIdea[] {
         const title = String(row.title || '').trim();
         if (!title) return null;
         const emoji = String(row.emoji || '').trim() || emojiForTitle(title);
+        const uses = Array.isArray(row.uses) ? row.uses.map(String).filter(Boolean) : [];
+        const kcalRaw = Number(row.kcalApprox);
         const idea: RecipeIdea = {
           title,
           minutes: Math.max(1, Number(row.minutes) || 20),
-          uses: Array.isArray(row.uses) ? row.uses.map(String).filter(Boolean) : [],
+          uses,
           missing: Array.isArray(row.missing) ? row.missing.map(String).filter(Boolean) : [],
           steps: Array.isArray(row.steps)
             ? row.steps.map(String).filter(Boolean).slice(0, 10)
@@ -275,6 +292,7 @@ export function parseRecipesJson(raw: string): RecipeIdea[] {
             String(row.description || '').trim() ||
             `Receta con lo del carrito · ${title}`,
           imageUrl: undefined,
+          kcalApprox: Number.isFinite(kcalRaw) && kcalRaw > 0 ? Math.round(kcalRaw) : null,
         };
         return idea;
       })

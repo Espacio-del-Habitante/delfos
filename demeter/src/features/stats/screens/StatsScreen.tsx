@@ -16,6 +16,10 @@ import {
   type StatsWidgetId,
 } from '../../../domain/stats';
 import {
+  aggregateNutrition,
+  nutritionShareLines,
+} from '../../../domain/nutrition';
+import {
   initStore,
   subscribe,
   listClosedTrips,
@@ -79,6 +83,8 @@ export function StatsScreen() {
     const catalog = mergeCategories(getCustomCategories());
     const catTotals = aggregateCategories(trips);
     const ideal = idealMonthlyMarket(products);
+    const allItems = trips.flatMap((t) => t.items || []);
+    const macros = aggregateNutrition(allItems);
     return {
       trips,
       yearTotal: spentTotal(trips),
@@ -88,18 +94,22 @@ export function StatsScreen() {
       ideal,
       months: monthlySpendSeries(trips),
       catalog,
+      macros,
+      macroLines: nutritionShareLines(macros),
     };
   }, [tick, ready]);
 
   function blurbText() {
-    const { blurb, catalog } = data;
-    if (!blurb) return 'Cierra unos mercados y aquí te contamos la película.';
-    const top = categoryMeta(blurb.topId, catalog);
-    if (!blurb.secondId) {
-      return `En tus compras cerradas manda ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}).`;
+    const { blurb, catalog, macroLines } = data;
+    const nutritionBit = macroLines.slice(0, 4).join('\n');
+    if (!blurb) {
+      return nutritionBit || 'Cierra unos mercados y aquí te contamos la película.';
     }
-    const second = categoryMeta(blurb.secondId, catalog);
-    return `Vas más en ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}) que en ${second.label.toLowerCase()} (${formatCop(blurb.secondAmount)}).`;
+    const top = categoryMeta(blurb.topId, catalog);
+    const moneyBit = !blurb.secondId
+      ? `En plata manda ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}).`
+      : `En plata vas más en ${top.label.toLowerCase()} (${formatCop(blurb.topAmount)}) que en ${categoryMeta(blurb.secondId, catalog).label.toLowerCase()} (${formatCop(blurb.secondAmount)}).`;
+    return `${nutritionBit}\n${moneyBit}`;
   }
 
   async function shareCard() {
@@ -121,6 +131,31 @@ export function StatsScreen() {
         return <DonutCategories key={id} bars={data.bars} />;
       case 'bars':
         return <BarsCategories key={id} bars={data.bars} />;
+      case 'macros':
+        return (
+          <View key={id} style={styles.card}>
+            <Text style={styles.cardTitle}>Nutrición del mercado</Text>
+            <Text style={styles.muted}>
+              Con etiquetas leídas + estimación por categoría cuando falta foto.
+            </Text>
+            <View style={styles.macroGrid}>
+              {[
+                { label: 'kcal', value: String(data.macros.kcal) },
+                { label: 'proteína g', value: String(data.macros.proteinG) },
+                { label: 'carbos g', value: String(data.macros.carbsG) },
+                { label: 'grasas g', value: String(data.macros.fatG) },
+              ].map((m) => (
+                <View key={m.label} style={styles.macroCell}>
+                  <Text style={styles.macroVal}>{m.value}</Text>
+                  <Text style={styles.macroLabel}>{m.label}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.muted}>
+              {data.macros.labeledItems} con etiqueta · {data.macros.estimatedItems} estimados
+            </Text>
+          </View>
+        );
       case 'trend':
         return <TrendMonthly key={id} series={data.months} />;
       case 'share':
@@ -228,7 +263,7 @@ export function StatsScreen() {
         <View style={styles.headRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Tus números</Text>
-            <Text style={styles.sub}>Solo compras cerradas · tu historia en plata.</Text>
+            <Text style={styles.sub}>Solo compras cerradas · plata y nutrición.</Text>
           </View>
           <TourTarget id="tour-gadgets" style={styles.editHit}>
             <Pressable
@@ -275,6 +310,32 @@ const styles = StyleSheet.create({
   card: { ...card(), padding: space.md, gap: 10 },
   cardTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
   amount: { color: colors.primary, fontFamily: 'Inter_700Bold' },
+  macroGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  macroCell: {
+    flexGrow: 1,
+    flexBasis: '40%',
+    backgroundColor: 'rgba(27,122,74,0.08)',
+    borderRadius: radius.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  macroVal: {
+    fontFamily: 'Inter_800ExtraBold',
+    fontSize: 20,
+    color: colors.primaryDark,
+  },
+  macroLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
   shareCard: {
     backgroundColor: colors.primary,
     borderRadius: radius.lg,

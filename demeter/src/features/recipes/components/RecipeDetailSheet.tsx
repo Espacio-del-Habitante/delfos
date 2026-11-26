@@ -57,6 +57,7 @@ export function RecipeDetailSheet({ recipe, visible, onClose }: Props) {
           <Text style={styles.title}>{recipe.title}</Text>
           <Text style={styles.meta}>
             {recipe.minutes} min · {recipe.vibe}
+            {recipe.kcalApprox != null ? ` · ≈${recipe.kcalApprox} kcal` : ''}
           </Text>
           {!!recipe.description && (
             <Text style={styles.desc}>{recipe.description}</Text>

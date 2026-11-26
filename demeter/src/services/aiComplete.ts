@@ -99,3 +99,88 @@ export function aiReady(ai: AiSettings) {
   if (provider === 'local') return true;
   return Boolean(ai.api_key.trim()) || !meta.needs_key;
 }
+
+function dataUrlParts(dataUrl: string) {
+  const m = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) return null;
+  return { mime: m[1] || 'image/jpeg', b64: m[2] };
+}
+
+/** Visión → JSON (etiqueta nutricional). Gemini / OpenAI-compatible; local no soportado. */
+export async function completeJsonVision(
+  ai: AiSettings,
+  prompt: string,
+  imageDataUrl: string,
+): Promise<string> {
+  const parts = dataUrlParts(imageDataUrl);
+  if (!parts) throw new Error('La foto no se pudo leer');
+  const provider = effectiveProvider(ai);
+  const meta = providerMeta(provider);
+  const base = (ai.base_url || meta.default_base_url).replace(/\/$/, '');
+  const model = ai.text_model || meta.suggested_text_model;
+
+  if (provider === 'local') {
+    throw new Error('La lectura de etiquetas necesita Gemini u OpenAI-compatible');
+  }
+
+  if (provider === 'gemini') {
+    if (!ai.api_key.trim()) throw new Error('Falta API key de Gemini');
+    const url = `${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(ai.api_key.trim())}`;
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: parts.mime, data: parts.b64 } },
+              ],
+            },
+          ],
+          generationConfig: { responseMimeType: 'application/json' },
+        }),
+      }),
+      60000,
+    );
+    if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+    return stripJsonFence(text);
+  }
+
+  if (!ai.api_key.trim()) throw new Error('Falta API key');
+  const res = await withTimeout(
+    fetch(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${ai.api_key.trim()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.1,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'Responde solo JSON válido.' },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: imageDataUrl } },
+            ],
+          },
+        ],
+      }),
+    }),
+    60000,
+  );
+  if (!res.ok) throw new Error(`Compatible HTTP ${res.status}`);
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  return stripJsonFence(data.choices?.[0]?.message?.content || '');
+}

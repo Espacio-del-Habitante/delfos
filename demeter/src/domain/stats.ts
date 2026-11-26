@@ -11,10 +11,11 @@ export type TripLike = {
 export const STATS_WIDGETS = [
   { id: 'donut', label: 'Donut categorías', blurb: 'En qué se te va la plata' },
   { id: 'bars', label: 'Barras categorías', blurb: 'Quién gana: proteína, harinas…' },
+  { id: 'macros', label: 'Nutrición del mercado', blurb: 'kcal, proteína, carbos, grasas' },
   { id: 'trend', label: 'Gasto mensual', blurb: 'La curva de tus mercados' },
   { id: 'ideal', label: 'Mercado ideal', blurb: 'Tu ritmo mensual estimado' },
   { id: 'prices', label: 'Precios que cambian', blurb: 'Si subió o bajó vs la vez pasada' },
-  { id: 'share', label: 'Card para redes', blurb: 'Presume tus top 2 categorías' },
+  { id: 'share', label: 'Card para redes', blurb: 'Macros + top categorías' },
 ] as const;
 
 export type StatsWidgetId = (typeof STATS_WIDGETS)[number]['id'];
@@ -22,6 +23,7 @@ export type StatsWidgetId = (typeof STATS_WIDGETS)[number]['id'];
 export const DEFAULT_STATS_WIDGETS: StatsWidgetId[] = [
   'donut',
   'bars',
+  'macros',
   'trend',
   'ideal',
   'prices',

@@ -8,6 +8,8 @@ import {
   normalizeShopProfile,
   type ShopProfileId,
 } from '../domain/shopProfiles';
+import { normalizeNutrition, type NutritionFacts } from '../domain/nutrition';
+import type { RecipeIdea } from '../domain/recipes';
 
 const KEY = 'demeter_mercado_v1';
 
@@ -19,6 +21,8 @@ export type CartItem = {
   amount: number | null;
   category: string;
   photoDataUrl?: string | null;
+  /** Tabla nutricional (etiqueta / OCR). */
+  nutrition?: NutritionFacts | null;
   createdAt: string;
 };
 
@@ -32,12 +36,17 @@ export type Trip = {
   items: CartItem[];
   receipt: { photoDataUrl?: string | null; ticketTotal?: number | null; notes?: string } | null;
   sync: { at: string; ok: boolean; error?: string } | null;
+  /** Últimas propuestas “¿Qué cocino?” (se reemplazan si preguntas otra vez). */
+  recipes?: RecipeIdea[];
+  recipesAt?: string | null;
+  recipesNote?: string | null;
 };
 
 type Product = {
   name: string;
   category: string;
   photos: string[];
+  nutrition?: NutritionFacts | null;
   priceHistory: Array<{ date: string; unitPrice: number; qty: number; unit: string; amount: number | null; tripId: string | null }>;
 };
 
@@ -311,6 +320,26 @@ export function getActiveTrip() {
   return cache.trips.find((t) => t.id === cache.activeTripId) || null;
 }
 
+export function getTripById(tripId: string | null | undefined) {
+  if (!tripId) return null;
+  return cache.trips.find((t) => t.id === tripId) || null;
+}
+
+/** Guarda (reemplaza) las propuestas de recetas del mercado. */
+export async function setTripRecipes(
+  tripId: string,
+  recipes: RecipeIdea[],
+  note?: string | null,
+) {
+  const trip = cache.trips.find((t) => t.id === tripId);
+  if (!trip) throw new Error('No encontramos ese mercado');
+  trip.recipes = Array.isArray(recipes) ? recipes.slice(0, 8) : [];
+  trip.recipesAt = todayIso();
+  trip.recipesNote = note != null ? String(note).trim() || null : trip.recipesNote || null;
+  await persist();
+  return trip;
+}
+
 export async function startTrip({ budget }: { budget?: number } = {}) {
   const current = getActiveTrip();
   // No spawnear otro open si ya hay uno (evita basura / mercados fantasma).
@@ -344,6 +373,14 @@ function touchProductMeta(item: CartItem) {
   };
   prev.category = item.category || prev.category;
   prev.name = item.name || prev.name;
+  const nut = normalizeNutrition(item.nutrition);
+  if (nut) prev.nutrition = nut;
+  if (item.photoDataUrl) {
+    const photos = prev.photos || [];
+    if (!photos.includes(item.photoDataUrl)) {
+      prev.photos = [...photos, item.photoDataUrl].slice(-6);
+    }
+  }
   cache.products[key] = prev;
 }
 
@@ -397,6 +434,7 @@ export async function addItem(item: Omit<CartItem, 'id' | 'createdAt'> & { id?: 
     amount,
     category: item.category || 'otros',
     photoDataUrl: item.photoDataUrl || null,
+    nutrition: normalizeNutrition(item.nutrition) || null,
     createdAt: todayIso(),
   };
   trip.items.push(row);
@@ -425,6 +463,9 @@ export async function updateItem(itemId: string, patch: Partial<CartItem>) {
     const amount = Number(patch.amount);
     if (!Number.isFinite(amount) || amount < 0) throw new Error('Ese precio no cuadra');
     patch = { ...patch, amount };
+  }
+  if (patch.nutrition !== undefined) {
+    patch = { ...patch, nutrition: normalizeNutrition(patch.nutrition) };
   }
   Object.assign(row, patch);
   touchProductMeta(row);

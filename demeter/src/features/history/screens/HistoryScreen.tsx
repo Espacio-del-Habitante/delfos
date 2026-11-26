@@ -27,9 +27,13 @@ import { pendingSyncTrips, syncAllPendingToDelfos } from '../../../services/sync
 import { contentBottomPad } from '../../../shared/BottomNav';
 import { friendlyError } from '../../../shared/appError';
 
-type Props = { onNewTrip?: () => void };
+type Props = {
+  onNewTrip?: () => void;
+  /** Ir a Recetas con este mercado (ver guardadas o preguntar). */
+  onOpenRecipes?: (tripId: string) => void;
+};
 
-export function HistoryScreen({ onNewTrip }: Props) {
+export function HistoryScreen({ onNewTrip, onOpenRecipes }: Props) {
   const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState(0);
@@ -93,6 +97,7 @@ export function HistoryScreen({ onNewTrip }: Props) {
         paddingTop={insets.top + 8}
         paddingBottom={contentBottomPad(insets.bottom, 24)}
         onBack={() => setOpenId(null)}
+        onOpenRecipes={onOpenRecipes}
       />
     );
   }
@@ -211,16 +216,19 @@ function TripDetail({
   onBack,
   paddingTop,
   paddingBottom,
+  onOpenRecipes,
 }: {
   trip: Trip;
   onBack: () => void;
   paddingTop: number;
   paddingBottom: number;
+  onOpenRecipes?: (tripId: string) => void;
 }) {
   const total = tripTotalDisplay(t);
   const cart = tripLineTotal(t);
   const ticket = Number(t.receipt?.ticketTotal);
   const hasTicket = Number.isFinite(ticket) && ticket > 0;
+  const hasRecipes = Boolean(t.recipes?.length);
 
   return (
     <View style={[styles.root, { paddingTop }]}>
@@ -253,6 +261,20 @@ function TripDetail({
           {t.items.length} ítems · {t.status}
           {t.sync?.ok ? ' · sync ✓' : t.sync && !t.sync.ok ? ' · sync falló' : ''}
         </Text>
+        {onOpenRecipes ? (
+          <Pressable
+            onPress={() => onOpenRecipes(t.id)}
+            style={({ pressed }) => [styles.recipesBtn, pressed && { opacity: 0.9 }]}
+            accessibilityRole="button"
+            accessibilityLabel={hasRecipes ? 'Ver recetas de este mercado' : 'Preguntar qué cocinar con este mercado'}
+          >
+            <Text style={styles.recipesBtnTxt}>
+              {hasRecipes
+                ? `Ver recetas · ${t.recipes!.length}`
+                : '¿Qué cocino con esto?'}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <Text style={styles.section}>Lo que llevaste</Text>
@@ -348,6 +370,15 @@ const styles = StyleSheet.create({
   },
   detailHeroLabel: { ...type.label, textTransform: 'uppercase', letterSpacing: 0.5 },
   detailHeroAmt: { fontFamily: 'Inter_800ExtraBold', fontSize: 28, color: colors.primary },
+  recipesBtn: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  recipesBtnTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 13 },
   section: { ...type.title, fontSize: 16, marginBottom: 10 },
   itemRow: {
     ...card(),

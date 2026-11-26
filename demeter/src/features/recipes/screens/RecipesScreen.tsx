@@ -7,15 +7,17 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { colors, radius, space, type, card } from '../../../shared/theme';
+import { colors, radius, space, type, card, field } from '../../../shared/theme';
 import { contentBottomPad } from '../../../shared/BottomNav';
 import {
   getActiveTrip,
   getAiSettings,
   getShopProfile,
+  getTripById,
   subscribe,
   tripTotal,
 } from '../../../services/store';
@@ -28,7 +30,13 @@ import { AppToast } from '../../../shared/AppToast';
 import { InfoModal } from '../../../shared/InfoModal';
 import { RecipeDetailSheet } from '../components/RecipeDetailSheet';
 
-export function RecipesScreen() {
+type Props = {
+  /** Mercado del historial a consultar; null = activo. */
+  focusTripId?: string | null;
+  onFocusConsumed?: () => void;
+};
+
+export function RecipesScreen({ focusTripId = null, onFocusConsumed }: Props) {
   const insets = useSafeAreaInsets();
   const [tick, setTick] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -38,13 +46,45 @@ export function RecipesScreen() {
   const [toastTone, setToastTone] = useState<'info' | 'warn' | 'error'>('info');
   const [info, setInfo] = useState<{ title: string; body: string } | null>(null);
   const [selected, setSelected] = useState<RecipeIdea | null>(null);
+  const [note, setNote] = useState('');
+  const [boundTripId, setBoundTripId] = useState<string | null>(null);
 
   useEffect(() => subscribe(() => setTick((n) => n + 1)), []);
 
-  const trip = getActiveTrip();
+  const trip = boundTripId ? getTripById(boundTripId) : getActiveTrip();
   const items = trip?.items || [];
   const profile = getShopProfile();
   const meta = shopProfileMeta(profile);
+  const fromHistory = Boolean(boundTripId && trip && trip.status === 'closed');
+
+  // Hidrata últimas recetas guardadas del trip (activo o enfocado).
+  useEffect(() => {
+    const t = boundTripId ? getTripById(boundTripId) : getActiveTrip();
+    if (t?.recipes?.length) {
+      setRecipes(t.recipes);
+      setSource('ai');
+      if (t.recipesNote) setNote(t.recipesNote);
+    } else if (!boundTripId) {
+      setRecipes([]);
+      setSource(null);
+    }
+  }, [tick, boundTripId]);
+
+  // Enfoque desde historial: carga recetas o deja listo para preguntar.
+  useEffect(() => {
+    if (!focusTripId) return;
+    setBoundTripId(focusTripId);
+    const t = getTripById(focusTripId);
+    if (t?.recipes?.length) {
+      setRecipes(t.recipes);
+      setSource('ai');
+      if (t.recipesNote) setNote(t.recipesNote);
+    } else {
+      setRecipes([]);
+      setSource(null);
+    }
+    onFocusConsumed?.();
+  }, [focusTripId, onFocusConsumed]);
 
   const showToast = useCallback((msg: string, tone: 'info' | 'warn' | 'error' = 'info') => {
     setToastTone(tone);
@@ -54,11 +94,23 @@ export function RecipesScreen() {
   const run = useCallback(async () => {
     setBusy(true);
     try {
-      const res = await proposeRecipes({ profile });
+      const res = await proposeRecipes({
+        profile,
+        tripId: trip?.id || boundTripId,
+        note,
+      });
       setRecipes(res.recipes);
       setSource(res.source);
+      if (res.tripId) setBoundTripId(res.tripId);
       if (res.notice) showToast(res.notice, res.noticeTone || 'warn');
-      else if (res.recipes.length) showToast('Listo · toca una card y cocina la idea', 'info');
+      else if (res.recipes.length) {
+        showToast(
+          fromHistory
+            ? 'Listo · quedó guardado en ese mercado'
+            : 'Listo · toca una card y cocina la idea',
+          'info',
+        );
+      }
     } catch (e) {
       const msg = friendlyError(e, 'No salieron recetas esta vez');
       showToast(msg, 'error');
@@ -69,15 +121,16 @@ export function RecipesScreen() {
     } finally {
       setBusy(false);
     }
-  }, [profile, tick, showToast]);
+  }, [profile, trip?.id, boundTripId, note, fromHistory, showToast, tick]);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8 }]}>
       <StatusBar style="dark" />
       <Text style={styles.title}>Recetas</Text>
       <Text style={styles.lead}>
-        Ideas para cocinar con lo que vas metiendo al carrito. Toca una card y te
-        contamos el paso a paso.
+        {fromHistory
+          ? `Ideas con lo que compraste en ${trip?.storeName || 'ese mercado'}. Quedan guardadas ahí.`
+          : 'Ideas para cocinar con lo del carrito. Se guardan en el mercado; si preguntas otra vez, queda la más reciente.'}
       </Text>
 
       <ScrollView
@@ -86,13 +139,16 @@ export function RecipesScreen() {
           paddingBottom: contentBottomPad(insets.bottom, 24),
           gap: 12,
         }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Perfil · {meta.chip}</Text>
+          <Text style={styles.cardLabel}>
+            {fromHistory ? `Historial · ${meta.chip}` : `Perfil · ${meta.chip}`}
+          </Text>
           <Text style={styles.muted}>
             {items.length
-              ? `${items.length} cosa${items.length === 1 ? '' : 's'} en el carrito · ${formatCop(tripTotal(trip))}`
+              ? `${items.length} cosa${items.length === 1 ? '' : 's'} · ${formatCop(tripTotal(trip))}`
               : 'Carrito vacío · suma en Mercado y vuelve a cocinar ideas.'}
           </Text>
           {!aiReady(getAiSettings()) ? (
@@ -101,8 +157,23 @@ export function RecipesScreen() {
               para sorprenderte más.
             </Text>
           ) : (
-            <Text style={styles.hint}>IA lista · pide propuestas cuando quieras.</Text>
+            <Text style={styles.hint}>IA lista · escribe un antojo o pide propuestas.</Text>
           )}
+
+          <TextInput
+            style={styles.noteInput}
+            value={note}
+            onChangeText={setNote}
+            placeholder="Ej: algo liviano · con pollo · para la semana"
+            placeholderTextColor={colors.muted}
+            editable={!busy}
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              if (items.length && !busy) void run();
+            }}
+            accessibilityLabel="Qué te provoca cocinar"
+          />
+
           <Pressable
             disabled={busy || !items.length}
             onPress={() => void run()}
@@ -117,15 +188,32 @@ export function RecipesScreen() {
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnTxt}>¿Qué cocino?</Text>
+              <Text style={styles.btnTxt}>
+                {recipes.length ? 'Preguntar de nuevo' : '¿Qué cocino?'}
+              </Text>
             )}
           </Pressable>
+          {fromHistory ? (
+            <Pressable
+              onPress={() => {
+                setBoundTripId(null);
+                setNote('');
+                const active = getActiveTrip();
+                setRecipes(active?.recipes || []);
+                setSource(active?.recipes?.length ? 'ai' : null);
+              }}
+              style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.75 }]}
+            >
+              <Text style={styles.linkTxt}>Volver al carrito activo</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {source ? (
           <Text style={styles.source}>
             {source === 'ai' ? 'Con ayuda de la IA' : 'Ideas caseras del carrito'}
             {recipes.some((r) => r.imageUrl) ? ' · con fotito' : ''}
+            {trip?.recipesAt ? ' · guardadas en este mercado' : ''}
           </Text>
         ) : null}
 
@@ -151,6 +239,7 @@ export function RecipesScreen() {
                 </Text>
                 <Text style={styles.recipeMeta}>
                   {r.minutes} min · {r.vibe}
+                  {r.kcalApprox != null ? ` · ≈${r.kcalApprox} kcal` : ''}
                 </Text>
                 {!!r.description && (
                   <Text style={styles.muted} numberOfLines={2}>
@@ -207,6 +296,15 @@ const styles = StyleSheet.create({
   cardLabel: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.text },
   muted: { ...type.label, color: colors.muted },
   hint: { ...type.label, fontSize: 12, color: colors.muted },
+  noteInput: {
+    ...field(),
+    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.text,
+    fontFamily: 'Inter_400Regular',
+  },
   btn: {
     marginTop: 6,
     backgroundColor: colors.primary,
@@ -215,6 +313,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnTxt: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 15 },
+  linkBtn: { alignItems: 'center', paddingVertical: 6 },
+  linkTxt: { color: colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 13 },
   source: { ...type.label, fontSize: 12 },
   recipe: { ...card(), padding: space.md, gap: 8 },
   recipeTop: { flexDirection: 'row', gap: 12, alignItems: 'center' },

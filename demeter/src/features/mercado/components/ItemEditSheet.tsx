@@ -18,6 +18,8 @@ import { UNITS, convertQty, unitPriceAs, inferPackFromText } from '../../../doma
 import { formatCop } from '../../../shared/format';
 import { fetchPriceQuotes, googlePriceUrl, type PriceQuote } from '../../../services/priceSearch';
 import { pickProductPhoto } from '../../../services/pickPhoto';
+import { scanNutritionLabel } from '../../../services/nutritionLabel';
+import type { NutritionFacts } from '../../../domain/nutrition';
 import {
   getCustomCategories,
   subscribe,
@@ -81,6 +83,9 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
   const [googleUrl, setGoogleUrl] = useState('');
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [nutrition, setNutrition] = useState<NutritionFacts | null>(null);
+  const [nutritionBusy, setNutritionBusy] = useState(false);
+  const [nutritionHint, setNutritionHint] = useState<string | null>(null);
   const [browserOpen, setBrowserOpen] = useState(false);
   const [browserQuery, setBrowserQuery] = useState('');
   const [catTick, setCatTick] = useState(0);
@@ -102,6 +107,8 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
     unitRateRef.current =
       amt != null && Number.isFinite(amt) && q > 0 ? amt / q : null;
     setPhotoDataUrl(item.photoDataUrl || null);
+    setNutrition(item.nutrition || null);
+    setNutritionHint(null);
     setPriceQuotes([]);
     setPriceError(null);
     setGoogleUrl(googlePriceUrl(item.name));
@@ -197,7 +204,22 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
       category,
       amount: amt && Number.isFinite(amt) ? amt : null,
       photoDataUrl: photoDataUrl || null,
+      nutrition: nutrition || null,
     });
+  }
+
+  async function onScanNutrition() {
+    setNutritionBusy(true);
+    setNutritionHint(null);
+    try {
+      const res = await scanNutritionLabel();
+      if (res.photoDataUrl) setPhotoDataUrl(res.photoDataUrl);
+      if (res.nutrition) setNutrition(res.nutrition);
+      if (res.notice) setNutritionHint(res.notice);
+      setExtrasOpen(true);
+    } finally {
+      setNutritionBusy(false);
+    }
   }
 
   function openInAppSearch(query = name.trim()) {
@@ -237,7 +259,7 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
   }
 
   async function onPhotoAndSearch() {
-    const data = await pickProductPhoto();
+    const data = await pickProductPhoto({ camera: false });
     if (data) setPhotoDataUrl(data);
     setExtrasOpen(true);
     const q = name.trim() || 'producto mercado Colombia';
@@ -368,10 +390,38 @@ export function ItemEditSheet({ item, visible, onClose, onSave, onRemove }: Prop
                     {photoDataUrl ? 'Otra foto y buscar' : 'Foto + buscar precios'}
                   </Text>
                 </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.photoBtn,
+                    styles.nutritionBtn,
+                    pressed && { opacity: 0.85 },
+                    nutritionBusy && { opacity: 0.55 },
+                  ]}
+                  disabled={nutritionBusy}
+                  onPress={() => void onScanNutrition()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Leer tabla nutricional con la cámara"
+                >
+                  {nutritionBusy ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={[styles.photoBtnTxt, styles.nutritionBtnTxt]}>
+                      {nutrition ? 'Otra etiqueta' : 'Tabla nutricional'}
+                    </Text>
+                  )}
+                </Pressable>
                 {photoDataUrl ? (
                   <Image source={{ uri: photoDataUrl }} style={styles.photoThumb} />
                 ) : null}
               </View>
+              {nutrition ? (
+                <Text style={styles.nutritionLine}>
+                  ≈{nutrition.kcal ?? '—'} kcal · P {nutrition.proteinG ?? '—'}g · C{' '}
+                  {nutrition.carbsG ?? '—'}g · G {nutrition.fatG ?? '—'}g
+                  {nutrition.servingSize ? ` · ${nutrition.servingSize}` : ''}
+                </Text>
+              ) : null}
+              {nutritionHint ? <Text style={styles.nutritionHint}>{nutritionHint}</Text> : null}
 
               <Pressable
                 style={styles.extrasToggle}
@@ -575,24 +625,44 @@ const styles = StyleSheet.create({
   closeTxt: { fontSize: 22, color: colors.muted, lineHeight: 24 },
   photoRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 10,
     marginTop: space.md,
   },
   photoBtn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '40%',
     ...field(),
     backgroundColor: colors.surface,
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: radius.pill,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  nutritionBtn: {
+    borderColor: 'rgba(27, 122, 74, 0.35)',
   },
   photoBtnTxt: {
     color: colors.text,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
+  },
+  nutritionBtnTxt: { color: colors.primary },
+  nutritionLine: {
+    marginTop: 8,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: colors.primaryDark,
+  },
+  nutritionHint: {
+    marginTop: 4,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: colors.muted,
   },
   photoThumb: {
     width: 48,

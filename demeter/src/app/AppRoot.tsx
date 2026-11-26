@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MercadoScreen } from '../features/mercado/screens/MercadoScreen';
 import { RecipesScreen } from '../features/recipes/screens/RecipesScreen';
@@ -12,6 +12,9 @@ import { colors } from '../shared/theme';
 export function AppRoot() {
   const [tab, setTab] = useState<BottomNavId>('mercado');
   const [tourForce, setTourForce] = useState(0);
+  const [recipesFocusTripId, setRecipesFocusTripId] = useState<string | null>(null);
+
+  const clearRecipesFocus = useCallback(() => setRecipesFocusTripId(null), []);
 
   return (
     <View style={styles.root}>
@@ -19,8 +22,21 @@ export function AppRoot() {
         {tab === 'mercado' && (
           <MercadoScreen onOpenSettings={() => setTab('ajustes')} />
         )}
-        {tab === 'recetas' && <RecipesScreen />}
-        {tab === 'historial' && <HistoryScreen onNewTrip={() => setTab('mercado')} />}
+        {tab === 'recetas' && (
+          <RecipesScreen
+            focusTripId={recipesFocusTripId}
+            onFocusConsumed={clearRecipesFocus}
+          />
+        )}
+        {tab === 'historial' && (
+          <HistoryScreen
+            onNewTrip={() => setTab('mercado')}
+            onOpenRecipes={(tripId) => {
+              setRecipesFocusTripId(tripId);
+              setTab('recetas');
+            }}
+          />
+        )}
         {tab === 'stats' && <StatsScreen />}
         {tab === 'ajustes' && (
           <SettingsScreen onReplayTour={() => setTourForce((n) => n + 1)} />
