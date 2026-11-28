@@ -48,11 +48,15 @@ export async function completeJson(ai: AiSettings, prompt: string): Promise<stri
 
   if (provider === 'gemini') {
     if (!ai.api_key.trim()) throw new Error('Falta API key de Gemini');
-    const url = `${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(ai.api_key.trim())}`;
+    // Header en vez de ?key= evita filtrar la key en logs de URL.
+    const url = `${base}/models/${encodeURIComponent(model)}:generateContent`;
     const res = await withTimeout(
       fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': ai.api_key.trim(),
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { responseMimeType: 'application/json' },

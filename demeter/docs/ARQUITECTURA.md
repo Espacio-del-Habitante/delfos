@@ -48,6 +48,7 @@ App.tsx
 - Modelo: `settings` (+ `shopProfile`) + `trips[]` + `products{}` + `activeTripId`
 - Local-first en el teléfono.
 - Backup JSON (`exportBackupObject` / `restoreFromBackupObject`) desde Ajustes.
+- **API key IA:** SecureStore (Android Keystore / iOS Keychain). Nunca en AsyncStorage ni en el backup JSON. En memoria solo mientras la app corre.
 
 ## Sync a Delfos
 

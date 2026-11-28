@@ -8,6 +8,11 @@ import {
   normalizeShopProfile,
   type ShopProfileId,
 } from '../domain/shopProfiles';
+import {
+  readAiApiKey,
+  stripAiKeyFromSettings,
+  writeAiApiKey,
+} from './secureSecrets';
 
 const KEY = 'demeter_mercado_v1';
 
@@ -103,7 +108,12 @@ export function nameKey(name: string) {
 }
 
 async function persist() {
-  await AsyncStorage.setItem(KEY, JSON.stringify(cache));
+  // Nunca persistir api_key en AsyncStorage / backups JSON.
+  const safe = {
+    ...cache,
+    settings: stripAiKeyFromSettings(cache.settings),
+  };
+  await AsyncStorage.setItem(KEY, JSON.stringify(safe));
   emit();
 }
 
@@ -137,6 +147,17 @@ export async function initStore() {
   } catch {
     cache = structuredClone(DEFAULT);
   }
+
+  // Migrar key vieja (AsyncStorage) → SecureStore / Keystore.
+  const legacy = String(cache.settings.ai?.api_key || '').trim();
+  let secure = await readAiApiKey();
+  if (legacy && !secure) {
+    await writeAiApiKey(legacy);
+    secure = legacy;
+  }
+  cache.settings.ai = { ...DEFAULT_AI, ...cache.settings.ai, api_key: secure || '' };
+  if (legacy) await persist();
+
   hydrated = true;
   emit();
   return cache;
@@ -151,10 +172,14 @@ export function getAiSettings(): AiSettings {
 }
 
 export async function updateSettings(patch: Partial<AppSettings>) {
+  const nextAi = patch.ai ? { ...cache.settings.ai, ...patch.ai } : cache.settings.ai;
+  if (patch.ai && 'api_key' in patch.ai) {
+    await writeAiApiKey(nextAi.api_key || '');
+  }
   cache.settings = {
     ...cache.settings,
     ...patch,
-    ai: patch.ai ? { ...cache.settings.ai, ...patch.ai } : cache.settings.ai,
+    ai: nextAi,
     statsWidgets: patch.statsWidgets
       ? normalizeStatsWidgets(patch.statsWidgets)
       : cache.settings.statsWidgets,
@@ -198,7 +223,7 @@ export function exportBackupObject(): BackupPayload {
     app: 'mercapp',
     exportedAt: new Date().toISOString(),
     state: {
-      settings: structuredClone(cache.settings),
+      settings: stripAiKeyFromSettings(structuredClone(cache.settings)),
       trips: structuredClone(cache.trips),
       products: structuredClone(cache.products),
       activeTripId: cache.activeTripId,
@@ -216,11 +241,12 @@ export async function restoreFromBackupObject(raw: unknown) {
   }
 
   const settingsIn = (state.settings || {}) as Partial<AppSettings>;
+  const importedKey = String(settingsIn.ai?.api_key || '').trim();
   cache = {
     settings: {
       ...structuredClone(DEFAULT.settings),
       ...settingsIn,
-      ai: { ...DEFAULT_AI, ...(settingsIn.ai || {}) },
+      ai: { ...DEFAULT_AI, ...(settingsIn.ai || {}), api_key: '' },
       statsWidgets: normalizeStatsWidgets(
         settingsIn.statsWidgets || DEFAULT_STATS_WIDGETS,
       ),
@@ -237,6 +263,13 @@ export async function restoreFromBackupObject(raw: unknown) {
         ? state.activeTripId
         : null,
   };
+  // Backup viejo con key: migrar a SecureStore; backups nuevos no traen key.
+  if (importedKey) {
+    await writeAiApiKey(importedKey);
+    cache.settings.ai.api_key = importedKey;
+  } else {
+    cache.settings.ai.api_key = await readAiApiKey();
+  }
   hydrated = true;
   await persist();
   return cache;
@@ -301,7 +334,11 @@ export function listClosedTrips() {
 }
 
 export async function updateAiSettings(patch: Partial<AiSettings>) {
-  cache.settings.ai = { ...getAiSettings(), ...patch };
+  const next = { ...getAiSettings(), ...patch };
+  if ('api_key' in patch) {
+    await writeAiApiKey(next.api_key || '');
+  }
+  cache.settings.ai = next;
   await persist();
   return cache.settings.ai;
 }

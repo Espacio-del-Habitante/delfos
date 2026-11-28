@@ -550,6 +550,9 @@ export function SettingsScreen({ onBack, onReplayTour }: Props) {
                 placeholder={ai.api_key ? maskKey(ai.api_key) : 'pega tu key aquí'}
                 placeholderTextColor={colors.muted}
               />
+              <Text style={styles.hintSmall}>
+                Se guarda en el Keystore/Keychain del teléfono · no va en el backup JSON.
+              </Text>
             </>
           )}
         </View>

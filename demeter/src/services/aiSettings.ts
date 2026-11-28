@@ -8,7 +8,7 @@ export type AiSettings = {
   text_model: string;
   vision_model: string;
   base_url: string;
-  /** ponytail: en Expo no hay backend; la key vive en AsyncStorage del dispositivo. */
+  /** BYOK: en memoria; persistida en SecureStore (Keystore/Keychain), no en AsyncStorage. */
   api_key: string;
 };
 
@@ -95,7 +95,9 @@ export async function listAiModels(ai: AiSettings): Promise<{ models: string[]; 
     if (provider === 'gemini') {
       if (!ai.api_key.trim()) return { models: [meta.suggested_text_model], source: 'suggested', error: 'Falta API key' };
       const res = await withTimeout(
-        fetch(`${base}/models?key=${encodeURIComponent(ai.api_key.trim())}`),
+        fetch(`${base}/models`, {
+          headers: { 'x-goog-api-key': ai.api_key.trim(), Accept: 'application/json' },
+        }),
         8000,
       );
       if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
@@ -149,7 +151,9 @@ export async function testAiConnection(
     if (provider === 'gemini') {
       if (!ai.api_key.trim()) throw new Error('Falta API key de Gemini');
       const res = await withTimeout(
-        fetch(`${base}/models?key=${encodeURIComponent(ai.api_key.trim())}`),
+        fetch(`${base}/models`, {
+          headers: { 'x-goog-api-key': ai.api_key.trim(), Accept: 'application/json' },
+        }),
         8000,
       );
       if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);

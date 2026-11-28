@@ -9,9 +9,22 @@ function validateBackup(raw) {
   return true;
 }
 
+function stripAiKeyFromSettings(settings) {
+  const next = structuredClone(settings);
+  if (next.ai) next.ai = { ...next.ai, api_key: '' };
+  return next;
+}
+
 assert.throws(() => validateBackup(null), /vacío/);
 assert.throws(() => validateBackup({ app: 'other', state: {} }), /MercApp/);
 assert.throws(() => validateBackup({ app: 'mercapp' }), /datos/);
 assert.equal(validateBackup({ version: 1, app: 'mercapp', state: { trips: [] } }), true);
+
+const exported = {
+  settings: stripAiKeyFromSettings({
+    ai: { provider: 'gemini', api_key: 'AIzaLEAK' },
+  }),
+};
+assert.equal(exported.settings.ai.api_key, '');
 
 console.log('backup.check ok');

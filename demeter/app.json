@@ -39,7 +39,8 @@
           "microphonePermission": "MercApp usa el micrófono para dictar productos.",
           "speechRecognitionPermission": "MercApp usa el reconocimiento de voz para sumar al carrito."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
